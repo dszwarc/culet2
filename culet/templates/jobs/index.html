@@ -1,7 +1,7 @@
 {% if latest_job_list %}
     <ul>
     {% for job in latest_job_list %}
-        <li><a href="/culet/{{ job.id }}/">{{ job.name }}</a></li>
+        <li><a href="{% url 'culet:detail' job.id %}">{{ job.name }}</a></li>
     {% endfor %}
     </ul>
 {% else %}
