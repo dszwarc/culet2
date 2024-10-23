@@ -21,5 +21,4 @@ class Job(models.Model):
         default = RING
         )
     created = models.DateTimeField(auto_now_add=True)
-    due = models.DateField
-        
+    due = models.DateField()
