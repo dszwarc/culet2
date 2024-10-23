@@ -10,7 +10,7 @@ class Job(models.Model):
 
     name = models.CharField(max_length=80)
     customer = models.CharField(max_length=80)
-    job_num = models.IntegerField
+    job_num = models.IntegerField()
     style = models.CharField(
         max_length = 2,
         choices = {
