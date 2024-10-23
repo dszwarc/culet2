@@ -11,7 +11,7 @@
         {% for job in latest_job_list %}
             <tr>
                 <td>{{ job.job_num }}</td>
-                <td><a href="{% url 'culet:detail' job.id %}">{{ job.name }}</a></td>
+                <td><a href="{% url 'culet:job_detail' job.id %}">{{ job.name }}</a></td>
                 <td>{{ job.style }}</td>
                 <td>{{ job.customer }}</td>
             </tr>
@@ -21,3 +21,5 @@
 {% else %}
     <p>No jobs are available.</p>
 {% endif %}
+
+    <a href="{% url 'culet:job_create' %}">Create New Job</a>

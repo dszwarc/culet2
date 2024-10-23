@@ -24,9 +24,18 @@ class JobListView(generic.ListView):
 # def detail(request, job_id):
 #     return HttpResponse("You're looking at job number %s." % job_id)
 
-class DetailView(generic.DetailView):
+class JobDetailView(generic.DetailView):
     model = Job
     template_name = "jobs/detail.html"
+
+class JobCreateView(generic.CreateView):
+    model = Job
+    template_name = "jobs/create.html"
+    exclude = ['created','last_updated']
+
+class JobUpdateView(generic.UpdateView):
+    model = Job
+    fields = '__all__'
 
 def results(request, job_id):
     response = "You're looking at the results of the job %s."

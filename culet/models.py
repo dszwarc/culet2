@@ -22,3 +22,7 @@ class Job(models.Model):
         )
     created = models.DateTimeField(auto_now_add=True)
     due = models.DateField()
+    last_updated = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return str(self.job_num).zfill(5)
