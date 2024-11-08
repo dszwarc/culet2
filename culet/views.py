@@ -1,8 +1,7 @@
-from django.shortcuts import render
 from django.http import HttpResponse
-from django.template import loader
 from .models import Job
 from django.views import generic
+from django.urls import reverse_lazy
 # Create your views here.
 
 
@@ -31,11 +30,15 @@ class JobDetailView(generic.DetailView):
 class JobCreateView(generic.CreateView):
     model = Job
     template_name = "jobs/create.html"
-    exclude = ['created','last_updated']
+    fields = ['name','customer', 'job_num', 'style', 'due', 'last_updated']
+    # exclude = ['created','last_updated']
+    success_url=reverse_lazy('culet:index_job')
 
 class JobUpdateView(generic.UpdateView):
     model = Job
+    template_name = "jobs/update.html"
     fields = '__all__'
+    success_url=reverse_lazy('culet:index_job')
 
 def results(request, job_id):
     response = "You're looking at the results of the job %s."

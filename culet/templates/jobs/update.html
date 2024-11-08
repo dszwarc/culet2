@@ -2,7 +2,7 @@
 
 
 {% block title %}
-    Create Job
+    Edit Job
 {% endblock title %}
     
 
@@ -10,6 +10,8 @@
     <form method="POST">
         {% csrf_token %}
         {{ form.as_table }}
-        <button type="submit">Create Job</button>
+        <button type="submit">Edit Job</button>
     </form>
+    
+    <a href="{% url 'culet:index_job' %}">Back</a>
 {% endblock content %}

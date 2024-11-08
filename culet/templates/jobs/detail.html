@@ -2,3 +2,7 @@
 <ul>
     <li>{{ job.customer }}</li>
 </ul>
+
+<a href="{% url 'culet:job_update' job.id %}"><button>Edit Job Details</button></a>
+
+<a class="button" href="{% url 'culet:index_job' %}"><button>Back</button></a>
