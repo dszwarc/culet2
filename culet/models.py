@@ -9,7 +9,7 @@ class Style(models.Model):
     BRACELET = "BR"
     NECKLACE = "NK"
     
-    name=models.CharField(max_length=80)
+    name = models.CharField(max_length=80)
     product = models.CharField(
         max_length = 2,
         choices = {
@@ -20,13 +20,7 @@ class Style(models.Model):
         default = RING
         )
 
-
 class Job(models.Model):
-
-    RING = "RG"
-    BRACELET = "BR"
-    NECKLACE = "NK"
-    
 
     name = models.CharField(max_length=80)
     customer = models.CharField(max_length=80)
