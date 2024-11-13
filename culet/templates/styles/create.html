@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+
+
+{% block title %}
+    Create Style
+{% endblock title %}
+    
+
+{% block content %}
+
+    <form method="POST">
+        {% csrf_token %}
+        {{ form.as_table }}
+        <button type="submit">Create Job</button>
+    </form>
+{% endblock content %}

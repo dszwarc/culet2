@@ -1,5 +1,5 @@
 from django.http import HttpResponse
-from .models import Job
+from .models import Job, Style
 from django.views import generic
 from django.urls import reverse_lazy
 # Create your views here.
@@ -30,7 +30,7 @@ class JobDetailView(generic.DetailView):
 class JobCreateView(generic.CreateView):
     model = Job
     template_name = "jobs/create.html"
-    fields = ['name','customer', 'job_num', 'style', 'due', 'last_updated']
+    fields = ['name','customer', 'job_num', 'style', 'due']
     # exclude = ['created','last_updated']
     success_url=reverse_lazy('culet:index_job')
 
@@ -46,4 +46,17 @@ def results(request, job_id):
 
 def edit(request, job_id):
     return HttpResponse("You're editing job number %s." % job_id)
+
+class StyleListView(generic.ListView):
+    model = Style
+    template_name = "styles/index.html"
+    context_object_name = "style_list"
+    # def get_queryset(self):
+    #     return Job.objects.order_by("-name")[:5]
+
+class StyleCreateView(generic.CreateView):
+    model = Style
+    template_name = "styles/create.html"
+    fields = '__all__'
+    success_url=reverse_lazy('culet:index_style')
 

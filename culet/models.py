@@ -5,20 +5,20 @@ from django.urls import reverse
 
 class Style(models.Model):
     
-    RING = "RG"
-    BRACELET = "BR"
-    NECKLACE = "NK"
-    
+    product_choices = [
+        ("RG", "Ring"),
+        ("BR", "Bracelet"),
+        ("NK", "Necklace"),
+    ]
+
     name = models.CharField(max_length=80)
     product = models.CharField(
         max_length = 2,
-        choices = {
-            RING : "Ring",
-            BRACELET : "Bracelet",
-            NECKLACE : "Necklace",
-            },
-        default = RING
+        choices = product_choices,
+        default = "RG"
         )
+    def __str__(self):
+        return str(self.name)
 
 class Job(models.Model):
 

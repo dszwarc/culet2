@@ -1,0 +1,21 @@
+    <table class = "index">
+        <thead>Styles</thead>
+        <tr>
+            <td>Number</td>
+            <td>Name</td>
+            <td>Style</td>
+            <td>Customer</td>
+        </tr>
+        {% for style in style_list %}
+            <tr>
+                <td>{{ style.job_num }}</td>
+                <td>{{ style.product }}</td>
+                <td>N/A</td>
+                <td>N/A</td>
+            </tr>
+        {% endfor %}
+    </table>
+
+
+    <a href="{% url 'culet:style_create' %}"><button>Add Style</button></a>
+    <a href="{% url 'culet:job_create' %}"><button>Create New Job</button></a>
