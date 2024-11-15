@@ -11,7 +11,7 @@ class Style(models.Model):
         ("NK", "Necklace"),
     ]
 
-    name = models.CharField(max_length=80)
+    name = models.CharField(max_length=80, unique=True)
     product = models.CharField(
         max_length = 2,
         choices = product_choices,
@@ -19,6 +19,9 @@ class Style(models.Model):
         )
     def __str__(self):
         return str(self.name)
+
+class Department(models.Model):
+    name = models.CharField(max_length=80)
 
 class Job(models.Model):
 
@@ -47,3 +50,12 @@ class Job(models.Model):
         return reverse('culet:job_detail', kwargs={'pk': self.pk})
     # def get_absolute_url(self):
     #     return reverse('culet:job_detail', kwargs={'pk': self.pk})
+
+class Activity(models.Model):
+    name = models.CharField(max_length=80)
+    start = models.DateTimeField()
+    end = models.DateTimeField()
+    job = models.ForeignKey(Job, on_delete=models.CASCADE)
+
+
+    
