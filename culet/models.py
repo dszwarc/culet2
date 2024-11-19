@@ -28,6 +28,7 @@ class Job(models.Model):
     name = models.CharField(max_length=80)
     customer = models.CharField(max_length=80)
     job_num = models.IntegerField(default=0)
+    active = models.BooleanField(default=False)
     # style = models.CharField(
     #     max_length = 2,
     #     choices = {
@@ -57,5 +58,9 @@ class Activity(models.Model):
     end = models.DateTimeField()
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
 
+def startWork(request):
+    job = Job.objects.get(id=request.job)
+    activity = Activity(
+        activity = "Polish",
 
-    
+    )

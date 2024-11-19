@@ -7,4 +7,3 @@ admin.site.register(Job)
 admin.site.register(Style)
 admin.site.register(Activity)
 admin.site.register(Department)
-

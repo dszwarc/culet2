@@ -1,0 +1,29 @@
+{% if latest_job_list %}
+
+    <table class = "index">
+        <thead>Active Work</thead>
+        <tr>
+            <td>Job Number</td>
+            <td>Name</td>
+            <td>Start Time</td>
+        </tr>
+        {% for activity in activities %}
+
+            {% if activity.start and not activity.end %}
+                <tr>
+                    <td>{{ activity.job }}</td>
+                    <td>{{ activity.name }}</td>
+                    <td>{{ activity.start }}</td>
+                </tr>
+            {% endif %}            
+            
+        {% endfor %}
+    </table>
+   
+{% else %}
+    <p>No current active jobs.</p>
+{% endif %}
+
+<form action="POST">
+
+</form>
