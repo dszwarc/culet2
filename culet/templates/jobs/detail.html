@@ -1,8 +1,24 @@
 <h1>{{ job.name }}</h1>
 <ul>
     <li>{{ job.customer }}</li>
+    <li>{{ job.job_num }}</li>
 </ul>
+
 
 <a href="{% url 'culet:job_update' job.id %}"><button>Edit Job Details</button></a>
 
 <a class="button" href="{% url 'culet:index_job' %}"><button>Back</button></a>
+
+
+<form action="/culet/activities/start" method="POST">
+    {% csrf_token %}
+    <label for="job">Job Number:</label>
+    <input name="job" type="text">
+    <input name="" type="text">
+    <select name="" id="">
+        <option value="cleaning">Cleaning</option>
+        <option value="polishing">Polishing</option>
+        <option value="setting">Setting</option>
+    </select>
+    <button type="submit">Start Job</button>
+</form>

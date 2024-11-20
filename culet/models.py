@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils import timezone
 from django.urls import reverse
+from datetime import datetime
 # Create your models here.
 
 class Style(models.Model):
@@ -55,12 +56,6 @@ class Job(models.Model):
 class Activity(models.Model):
     name = models.CharField(max_length=80)
     start = models.DateTimeField()
-    end = models.DateTimeField()
-    job = models.ForeignKey(Job, on_delete=models.CASCADE)
+    end = models.DateTimeField(blank=True, null=True)
+    job = models.ForeignKey(Job, blank=True, null=True, on_delete=models.CASCADE)
 
-def startWork(request):
-    job = Job.objects.get(id=request.job)
-    activity = Activity(
-        activity = "Polish",
-
-    )

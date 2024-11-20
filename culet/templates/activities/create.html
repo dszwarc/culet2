@@ -7,10 +7,16 @@
     
 
 {% block content %}
-    <!-- <form method="POST">
+    <form action="/activities/start" method="POST">
         {% csrf_token %}
-        {{ form.as_table }}
+        <label for="job">Job Number:</label>
+        <input name="job" type="text">
+        <input name="" type="text">
+        <select name="" id=""></select>
+            <option value="cleaning">Cleaning</option>
+            <option value="polishing">Polishing</option>
+            <option value="setting">Setting</option>
         <button type="submit">Start Job</button>
-    </form> -->
+    </form>
     <p>Test</p>
 {% endblock content %}

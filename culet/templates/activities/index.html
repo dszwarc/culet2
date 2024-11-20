@@ -1,4 +1,4 @@
-{% if latest_job_list %}
+{% if activities %}
 
     <table class = "index">
         <thead>Active Work</thead>
@@ -24,6 +24,6 @@
     <p>No current active jobs.</p>
 {% endif %}
 
-<form action="POST">
-
+<form action="/culet/activity/start" method="post">
+    
 </form>

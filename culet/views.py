@@ -1,8 +1,9 @@
 from django.db.models.query import QuerySet
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseRedirect
 from .models import Job, Style, Activity, Department
 from django.views import generic
-from django.urls import reverse_lazy
+from django.urls import reverse_lazy, reverse
+from datetime import datetime
 # Create your views here.
 
 
@@ -68,3 +69,15 @@ class StyleCreateView(generic.CreateView):
     fields = '__all__'
     success_url=reverse_lazy('culet:index_style')
 
+def startWork(request):
+    print(request.body)
+    return HttpResponseRedirect(reverse('culet:index_job'))
+    # job = Job.objects.get(name=request.job)
+    # if job.active == False:
+    #     activity = Activity(
+    #         activity = request.activity,
+    #         start = datetime.now()
+    #     )
+    #     activity.save()
+    # else:
+    #     print(job)

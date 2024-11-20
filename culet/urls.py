@@ -10,5 +10,5 @@ urlpatterns = [
     path("styles/", views.StyleListView.as_view(), name="index_style"),
     path("styles/create", views.StyleCreateView.as_view(), name="style_create"),
     path("activities", views.ActivityListView.as_view(),name="activites_index"),
-    # path("activities/start", views.startWork.as_view(),name="start_work"),
+    path("activities/start", views.startWork,name="start_work"),
 ]
