@@ -1,3 +1,10 @@
+{% extends 'base.html' %}
+
+
+{% block content %}
+    
+    
+
 {% if activities %}
 
     <table class = "index">
@@ -11,7 +18,7 @@
 
             {% if activity.start and not activity.end %}
                 <tr>
-                    <td>{{ activity.job }}</td>
+                    <td><a href="{% url 'culet:job_detail' activity.job.id %}">{{ activity.job }}</a></td>
                     <td>{{ activity.name }}</td>
                     <td>{{ activity.start }}</td>
                 </tr>
@@ -27,3 +34,5 @@
 <form action="/culet/activity/start" method="post">
     
 </form>
+
+{% endblock content %}

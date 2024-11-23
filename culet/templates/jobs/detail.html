@@ -1,3 +1,8 @@
+{% extends 'base.html' %}
+
+
+{% block content %}
+
 <h1>{{ job.name }}</h1>
 <ul>
     <li>{{ job.customer }}</li>
@@ -12,13 +17,34 @@
 
 <form action="/culet/activities/start" method="POST">
     {% csrf_token %}
-    <label for="job">Job Number:</label>
-    <input name="job" type="text">
-    <input name="" type="text">
-    <select name="" id="">
+    <input name="job" type="hidden" value="{{ job.job_num }}">
+    <select name="name" id="">
         <option value="cleaning">Cleaning</option>
         <option value="polishing">Polishing</option>
         <option value="setting">Setting</option>
     </select>
     <button type="submit">Start Job</button>
 </form>
+
+<br>
+<br>
+<br>
+<br>
+
+<table>
+    <th>
+        <td>Activity</td>
+        <td>Start Time</td>
+    </th>
+    {% for act in activity %}
+        <tr>
+            <td>{{ act.name }}</td>
+            <td>{{ act.start }}</td>
+            <td>{{ act.end }}</td>
+            <td><a href="{% url 'culet:stop_work' pk=act.id job_id=job.id %}"><button>Stop Work</button></a></td>
+        </tr>
+    {% endfor %}
+        
+</table>
+
+{% endblock content %}

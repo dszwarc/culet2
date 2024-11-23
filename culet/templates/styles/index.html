@@ -1,4 +1,12 @@
-    <table class = "index">
+{% extends 'base.html' %}
+   
+
+{% block content %}
+    
+
+    
+
+   <table class = "index">
         <thead>Styles</thead>
         <tr>
             <td>Number</td>
@@ -19,3 +27,5 @@
 
     <a href="{% url 'culet:style_create' %}"><button>Add Style</button></a>
     <a href="{% url 'culet:job_create' %}"><button>Create New Job</button></a>
+
+    {% endblock content %}

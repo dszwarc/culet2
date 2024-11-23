@@ -1,3 +1,11 @@
+{% extends 'base.html' %}
+
+
+{% block content %}
+    
+
+    
+
 {% if latest_job_list %}
 
     <table class = "index">
@@ -24,3 +32,5 @@
 
     <a href="{% url 'culet:style_create' %}"><button>Add Style</button></a>
     <a href="{% url 'culet:job_create' %}"><button>Create New Job</button></a>
+
+{% endblock content %}

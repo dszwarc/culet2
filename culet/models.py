@@ -59,3 +59,5 @@ class Activity(models.Model):
     end = models.DateTimeField(blank=True, null=True)
     job = models.ForeignKey(Job, blank=True, null=True, on_delete=models.CASCADE)
 
+    def __str__(self):
+        return (str(self.job.job_num) + " " + str(self.name))

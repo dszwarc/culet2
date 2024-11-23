@@ -35,12 +35,20 @@ class ActivityListView(generic.ListView):
 class JobDetailView(generic.DetailView):
     model = Job
     template_name = "jobs/detail.html"
+    
+    def get_context_data(self, **kwargs):
+        data = super().get_context_data(**kwargs)
+        print(data, "  <--- this is data")
+        related_activities = Activity.objects.filter(job=data['job'])
+        data['activity'] = related_activities
+        print(data, "  <---------- data with related activites")
+        return data
 
 class JobCreateView(generic.CreateView):
     model = Job
     template_name = "jobs/create.html"
     fields = ['name','customer', 'job_num', 'style', 'due']
-    # exclude = ['created','last_updated']
+    # exclude = ['created','last_updated']*
     success_url=reverse_lazy('culet:index_job')
 
 class JobUpdateView(generic.UpdateView):
@@ -70,14 +78,23 @@ class StyleCreateView(generic.CreateView):
     success_url=reverse_lazy('culet:index_style')
 
 def startWork(request):
-    print(request.body)
+    print(request.POST)
+    job_query = Job.objects.get(job_num=request.POST["job"])
+    if job_query.active == False:
+        activity = Activity(
+            name = request.POST["name"],
+            start = datetime.now(),
+            job = job_query,
+        )
+        activity.save()
+        job_query.active = True
+        job_query.save()
+    else:
+        print(job_query)
     return HttpResponseRedirect(reverse('culet:index_job'))
-    # job = Job.objects.get(name=request.job)
-    # if job.active == False:
-    #     activity = Activity(
-    #         activity = request.activity,
-    #         start = datetime.now()
-    #     )
-    #     activity.save()
-    # else:
-    #     print(job)
+
+def stopWork(request, pk, job_id):
+    print(pk)
+    print(job_id)
+    print("stop work test")
+    return HttpResponseRedirect(reverse('culet:index_job'))
