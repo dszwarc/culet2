@@ -3,7 +3,7 @@ from django.http import HttpResponse, HttpResponseRedirect
 from .models import Job, Style, Activity, Department
 from django.views import generic
 from django.urls import reverse_lazy, reverse
-from datetime import datetime
+from django.utils import timezone
 # Create your views here.
 
 
@@ -20,7 +20,7 @@ class JobListView(generic.ListView):
     template_name = "jobs/index.html"
     context_object_name = "latest_job_list"
     def get_queryset(self):
-        return Job.objects.order_by("-name")[:5]
+        return Job.objects.order_by("-name")
 
 class ActivityListView(generic.ListView):
     model = Activity
@@ -83,7 +83,7 @@ def startWork(request):
     if job_query.active == False:
         activity = Activity(
             name = request.POST["name"],
-            start = datetime.now(),
+            start = timezone.now(),
             job = job_query,
         )
         activity.save()
@@ -97,4 +97,17 @@ def stopWork(request, pk, job_id):
     print(pk)
     print(job_id)
     print("stop work test")
-    return HttpResponseRedirect(reverse('culet:index_job'))
+    activ = Activity.objects.get(id=pk)
+    print(activ, " <---- this is stop work activ")
+    print(activ.end, " <--- this is activ.end")
+    if not activ.end:
+        activ.end = timezone.now()
+        activ.active = False
+        activ.save()
+    else:
+        pass
+    job = Job.objects.get(id=job_id)
+    job.active = False
+    job.save()
+    # return HttpResponseRedirect(reverse('culet:index_job'))
+    return HttpResponseRedirect(reverse('culet:job_detail', kwargs={'pk' : '7'}))
