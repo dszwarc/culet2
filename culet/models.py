@@ -13,9 +13,15 @@ class Department(models.Model):
 
 class Employee(models.Model):
 
+    employee_choices = [
+        ("PD", "Production"),
+        ("MR", "Manager"),
+        ("OF", "Office"),
+    ]
+
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     department = models.CharField(max_length=80, default="Product Management")
-    role = models.CharField(max_length = 50,default = "PD")
+    role = models.CharField(max_length = 2,choices=employee_choices, default = "PD")
 
     def __str__(self):
         return (str(self.user.first_name) + " " + str(self.user.last_name))
