@@ -21,6 +21,7 @@ from django.contrib import admin
 from django.urls import path
 
 urlpatterns = [
+    path('accounts/', include("django.contrib.auth.urls")),
     path('culet/', include("culet.urls")),
     path('admin/', admin.site.urls),
 ]

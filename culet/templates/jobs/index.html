@@ -4,33 +4,39 @@
 {% block content %}
     
 
-    
+{% if user.is_authenticated %}
 
-{% if latest_job_list %}
 
-    <table class = "index">
-        <thead>Jobs</thead>
-        <tr>
-            <td>Number</td>
-            <td>Name</td>
-            <td>Style</td>
-            <td>Customer</td>
-        </tr>
-        {% for job in latest_job_list %}
+
+    {% if latest_job_list %}
+
+        <table class = "index">
+            <thead>Jobs</thead>
             <tr>
-                <td>{{ job.job_num }}</td>
-                <td><a href="{% url 'culet:job_detail' job.id %}">{{ job.name }}</a></td>
-                <td>{{ job.style }}</td>
-                <td>{{ job.customer }}</td>
+                <td>Number</td>
+                <td>Name</td>
+                <td>Style</td>
+                <td>Customer</td>
             </tr>
-        {% endfor %}
-    </table>
-   
-{% else %}
-    <p>No jobs are available.</p>
-{% endif %}
+            {% for job in latest_job_list %}
+                <tr>
+                    <td>{{ job.job_num }}</td>
+                    <td><a href="{% url 'culet:job_detail' job.id %}">{{ job.name }}</a></td>
+                    <td>{{ job.style }}</td>
+                    <td>{{ job.customer }}</td>
+                </tr>
+            {% endfor %}
+        </table>
+    
+    {% else %}
+        <p>No jobs are available.</p>
+    {% endif %}
 
-    <a href="{% url 'culet:style_create' %}"><button>Add Style</button></a>
-    <a href="{% url 'culet:job_create' %}"><button>Create New Job</button></a>
+        <a href="{% url 'culet:style_create' %}"><button>Add Style</button></a>
+        <a href="{% url 'culet:job_create' %}"><button>Create New Job</button></a>
+
+{% endif %}
+    
+    
 
 {% endblock content %}

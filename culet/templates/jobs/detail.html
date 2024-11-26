@@ -43,7 +43,7 @@
             <td>{{ act.end }}</td>
             
             
-            {% if activ.end != Null %}
+            {% if act.active == False %}
                 <td></td>
             {% else %}
                 <td><a href="{% url 'culet:stop_work' pk=act.id job_id=job.id %}"><button>Stop Work</button></a></td>                

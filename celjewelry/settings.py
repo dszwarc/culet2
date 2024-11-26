@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-%bwp%-1qh3j3&de=g4=9p1$kde8l^72dg-wv9b8b=z!^4=!)bg
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["localhost"]
 
 
 # Application definition
@@ -131,3 +131,6 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+LOGIN_REDIRECT_URL = "/culet/jobs"
+LOGOUT_REDIRECT_URL = '/accounts/login'

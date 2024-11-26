@@ -1,19 +1,9 @@
 from django.db.models.query import QuerySet
 from django.http import HttpResponse, HttpResponseRedirect
-from .models import Job, Style, Activity, Department
+from .models import Job, Style, Activity
 from django.views import generic
 from django.urls import reverse_lazy, reverse
 from django.utils import timezone
-# Create your views here.
-
-
-# def index(request):
-#     latest_job_list = Job.objects.order_by("-customer_name")[:5]
-#     template = loader.get_template("jobs/index.html")
-#     context = {
-#         "latest_job_list": latest_job_list,
-#     }
-#     return HttpResponse(template.render(context,request))
 
 class JobListView(generic.ListView):
     model = Job
@@ -29,19 +19,14 @@ class ActivityListView(generic.ListView):
     def get_queryset(self):
         return Activity.objects.order_by("-start")
 
-# def detail(request, job_id):
-#     return HttpResponse("You're looking at job number %s." % job_id)
-
 class JobDetailView(generic.DetailView):
     model = Job
     template_name = "jobs/detail.html"
     
     def get_context_data(self, **kwargs):
         data = super().get_context_data(**kwargs)
-        print(data, "  <--- this is data")
         related_activities = Activity.objects.filter(job=data['job'])
         data['activity'] = related_activities
-        print(data, "  <---------- data with related activites")
         return data
 
 class JobCreateView(generic.CreateView):
@@ -78,7 +63,6 @@ class StyleCreateView(generic.CreateView):
     success_url=reverse_lazy('culet:index_style')
 
 def startWork(request):
-    print(request.POST)
     job_query = Job.objects.get(job_num=request.POST["job"])
     if job_query.active == False:
         activity = Activity(
@@ -89,17 +73,10 @@ def startWork(request):
         activity.save()
         job_query.active = True
         job_query.save()
-    else:
-        print(job_query)
     return HttpResponseRedirect(reverse('culet:index_job'))
 
 def stopWork(request, pk, job_id):
-    print(pk)
-    print(job_id)
-    print("stop work test")
     activ = Activity.objects.get(id=pk)
-    print(activ, " <---- this is stop work activ")
-    print(activ.end, " <--- this is activ.end")
     if not activ.end:
         activ.end = timezone.now()
         activ.active = False
@@ -110,4 +87,4 @@ def stopWork(request, pk, job_id):
     job.active = False
     job.save()
     # return HttpResponseRedirect(reverse('culet:index_job'))
-    return HttpResponseRedirect(reverse('culet:job_detail', kwargs={'pk' : '7'}))
+    return HttpResponseRedirect(reverse('culet:job_detail', kwargs={'pk' : job_id }))
