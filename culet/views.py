@@ -4,6 +4,7 @@ from .models import Job, Style, Activity
 from django.views import generic
 from django.urls import reverse_lazy, reverse
 from django.utils import timezone
+from django.contrib import messages
 
 class JobListView(generic.ListView):
     model = Job
@@ -73,6 +74,7 @@ def startWork(request):
         activity.save()
         job_query.active = True
         job_query.save()
+        messages.success(request,f"Job {job_query.job_num} has been started. ({activity.name})")
     return HttpResponseRedirect(reverse('culet:index_job'))
 
 def stopWork(request, pk, job_id):

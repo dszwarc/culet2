@@ -36,7 +36,7 @@ class Style(models.Model):
 
     name = models.CharField(max_length=50, unique=True)
     product = models.CharField(
-        max_length = 50,
+        max_length = 2,
         choices = product_choices,
         default = "RG"
         )
@@ -47,7 +47,7 @@ class Job(models.Model):
 
     name = models.CharField(max_length=80,default="N/A")
     customer = models.CharField(max_length=80)
-    job_num = models.IntegerField(default=0)
+    job_num = models.IntegerField(default=0, unique=True)
     active = models.BooleanField(default=False)
     style = models.ForeignKey(Style, on_delete=models.CASCADE)
     created = models.DateTimeField(default=timezone.now, editable = False)
