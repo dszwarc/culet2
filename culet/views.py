@@ -75,7 +75,7 @@ def startWork(request):
         job_query.active = True
         job_query.save()
         messages.success(request,f"Job {job_query.job_num} has been started. ({activity.name})")
-    return HttpResponseRedirect(reverse('culet:index_job'))
+    return HttpResponseRedirect(reverse('culet:job_detail', kwargs={'pk' : job_query.job_id }))
 
 def stopWork(request, pk, job_id):
     activ = Activity.objects.get(id=pk)
@@ -89,4 +89,5 @@ def stopWork(request, pk, job_id):
     job.active = False
     job.save()
     # return HttpResponseRedirect(reverse('culet:index_job'))
+    messages.success(request,f"Job {job.job_num} has been stopped. ({activ.name})")
     return HttpResponseRedirect(reverse('culet:job_detail', kwargs={'pk' : job_id }))
