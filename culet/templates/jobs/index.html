@@ -6,12 +6,9 @@
 
 {% if user.is_authenticated %}
 
-
-
     {% if latest_job_list %}
 
-        <table class = "index">
-            <thead>Jobs</thead>
+        <table id = "job_index">
             <tr>
                 <td>Number</td>
                 <td>Name</td>
@@ -19,7 +16,7 @@
                 <td>Customer</td>
             </tr>
             {% for job in latest_job_list %}
-                <tr>
+                <tr class="{% if forloop.counter|divisibleby:2 %}even_row{% else %}odd_row{% endif %}">
                     <td>{{ job.job_num }}</td>
                     <td><a href="{% url 'culet:job_detail' job.id %}">{{ job.name }}</a></td>
                     <td>{{ job.style }}</td>
@@ -32,9 +29,7 @@
         <p>No jobs are available.</p>
     {% endif %}
 
-        <a href="{% url 'culet:style_create' %}"><button>Add Style</button></a>
-        <a href="{% url 'culet:job_create' %}"><button>Create New Job</button></a>
-
+    
 {% endif %}
     
     

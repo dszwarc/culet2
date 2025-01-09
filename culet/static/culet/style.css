@@ -1,9 +1,51 @@
-a {
-    color:brown;
+body{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
-nav{
-    background-color: aqua;
-    padding: 15px;
+.odd_row{
+    background-color: rgb(235, 235, 235);
+}
+
+.nav_link {
+    color:rgb(0, 0, 0);
+    text-decoration: none;
+    padding: 10px;
+}
+
+a:hover{
+    background-color: black;
+    color: white;
+    border-radius: 10px;
+}
+
+#my_nav{
+    align-self: stretch;
+    background-color: rgb(212, 243, 230);
     align-items: center;
+    padding: 15px;
+}
+
+#job_index{
+    padding: 15px;
+    text-align: center;
+    width: 80%;
+    align-self: center;
+    border-collapse: collapse;
+}
+
+#job_index th{
+    font-size: 15px;
+}
+
+#job_index td{
+    border-bottom: 1px solid;
+    border-color: rgb(202, 239, 237);
+    padding: 10px;
+}
+
+.links_right{
+    text-align: right;
+    float: right;
 }
