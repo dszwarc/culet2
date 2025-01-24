@@ -1,7 +1,7 @@
 from django.db import models
 from django.utils import timezone
 from django.urls import reverse
-from datetime import datetime
+from datetime import date
 from django.contrib.auth.models import User
 # Create your models here.
 
@@ -53,6 +53,10 @@ class Job(models.Model):
     created = models.DateTimeField(default=timezone.now, editable = False)
     due = models.DateField(default=timezone.now)
     last_updated = models.DateTimeField(auto_now=True)
+
+    @property
+    def is_past_due(self):
+        return date.today() > self.due
 
     def __str__(self):
         return str(self.job_num).zfill(5)
