@@ -22,6 +22,7 @@ class Employee(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     department = models.CharField(max_length=80, default="Product Management")
     role = models.CharField(max_length = 2,choices=employee_choices, default = "PD")
+    
 
     def __str__(self):
         return (str(self.user.first_name) + " " + str(self.user.last_name))
@@ -53,6 +54,7 @@ class Job(models.Model):
     created = models.DateTimeField(default=timezone.now, editable = False)
     due = models.DateField(default=timezone.now)
     last_updated = models.DateTimeField(auto_now=True)
+    assigned_to = models.OneToOneField(User, on_delete=models.CASCADE)
 
     @property
     def is_past_due(self):
