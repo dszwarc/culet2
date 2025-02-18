@@ -1,6 +1,6 @@
 from django.db.models.query import QuerySet
 from django.http import HttpResponse, HttpResponseRedirect
-from .models import Job, Style, Activity
+from .models import Job, Style, Activity, Employee
 from django.views import generic
 from django.urls import reverse_lazy, reverse
 from django.utils import timezone
@@ -12,6 +12,13 @@ class JobListView(generic.ListView):
     context_object_name = "latest_job_list"
     def get_queryset(self):
         return Job.objects.order_by("-name")
+
+class MyJobListView(generic.ListView):
+    model = Job
+    template_name = "jobs/my_jobs.html"
+    context_object_name = "latest_job_list"
+    def get_queryset(self):
+        return Job.objects.filter(assigned_to=Employee.objects.get(user=self.request.user))
 
 class ActivityListView(generic.ListView):
     model = Activity

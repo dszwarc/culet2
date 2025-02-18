@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    
+{% if user.is_authenticated %}
+
+    {% if latest_job_list %}
+
+        <table id = "job_index">
+            <tr>
+                <td>Number</td>
+                <td>Name</td>
+                <td>Style</td>
+                <td>Customer</td>
+                <td>Due Date</td>
+            </tr>
+            {% for job in latest_job_list %}
+                    <tr class="{% if forloop.counter|divisibleby:2 %}even_row{% else %}odd_row{% endif %}">
+                        <td><a href="{% url 'culet:job_detail' job.id %}">{{ job.job_num }}</a></td>
+                        <td>{{ job.name }}</td>
+                        <td>{{ job.style }}</td>
+                        <td>{{ job.customer }}</td>
+                        <td {% if job.is_past_due%}class="past_due"{% else %}{% endif %}>{{ job.due }}</td>
+                        
+                    </tr>
+                
+            {% endfor %}
+        </table>
+    
+    {% else %}
+        <p>No jobs are available.</p>
+    {% endif %}
+
+{% endif %}
+    
+    
+
+{% endblock content %}
