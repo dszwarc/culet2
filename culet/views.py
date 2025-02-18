@@ -65,6 +65,8 @@ class StyleCreateView(generic.CreateView):
 
 def startWork(request):
     job_query = Job.objects.get(job_num=request.POST["job"])
+
+    # if job is not active, creates an acitivty for it with start time now
     if job_query.active == False:
         activity = Activity(
             name = request.POST["name"],
@@ -72,7 +74,13 @@ def startWork(request):
             job = job_query,
         )
         activity.save()
+        
+        #makes job object active if it was not
         job_query.active = True
+        
+        # 
+        job_query.assigned_to = request.user
+        
         job_query.save()
         messages.success(request,f"Job {job_query.job_num} has been started. ({activity.name})")
     return HttpResponseRedirect(reverse('culet:job_detail', kwargs={'pk' : job_query.id }))

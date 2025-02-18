@@ -54,7 +54,7 @@ class Job(models.Model):
     created = models.DateTimeField(default=timezone.now, editable = False)
     due = models.DateField(default=timezone.now)
     last_updated = models.DateTimeField(auto_now=True)
-    assigned_to = models.OneToOneField(User, on_delete=models.CASCADE)
+    assigned_to = models.OneToOneField(Employee, on_delete=models.CASCADE, null=True)
 
     @property
     def is_past_due(self):
