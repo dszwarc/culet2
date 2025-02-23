@@ -11,6 +11,7 @@
                 <td>Number</td>
                 <td>Name</td>
                 <td>Style</td>
+                <td>Assigned To</td>
                 <td>Customer</td>
                 <td>Due Date</td>
             </tr>
@@ -19,6 +20,11 @@
                         <td><a href="{% url 'culet:job_detail' job.id %}">{{ job.job_num }}</a></td>
                         <td>{{ job.name }}</td>
                         <td>{{ job.style }}</td>
+                        <td>
+                            {% if job.assigned_to %}
+                                {{job.assigned_to}}
+                            {% endif %}
+                        </td>
                         <td>{{ job.customer }}</td>
                         <td {% if job.is_past_due%}class="past_due"{% else %}{% endif %}>{{ job.due }}</td>
                         
