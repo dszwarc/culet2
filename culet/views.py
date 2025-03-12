@@ -72,9 +72,8 @@ class StyleCreateView(generic.CreateView):
     success_url=reverse_lazy('culet:index_style')
 
 class AssignJobView(generic.TemplateView):
-    employees=Employee.objects.all()
     def get(self, request, *args, **kwargs):
-        context = {'message': 'Testing get request from assign Job'}
+        context = {'employees':Employee.objects.all()}
         return render(request, 'jobs/assign.html', context)
     def post(self, request, *args, **kwargs):
         context = {'message': 'Testing post request from assign Job'}
