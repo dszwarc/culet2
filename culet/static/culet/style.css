@@ -9,22 +9,36 @@ body{
 }
 
 .nav_link {
-    color:rgb(0, 0, 0);
     text-decoration: none;
     padding: 10px;
+    color: beige;
 }
 
-a:hover{
-    background-color: black;
-    color: white;
+.nav_link:hover{
+    background-color: rgb(255, 255, 255);
     border-radius: 10px;
+    text-decoration: none;
+    padding: 10px;
+    color: rgb(0, 0, 0) !important;
 }
 
 #my_nav{
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
     align-self: stretch;
-    background-color: rgb(212, 243, 230);
-    align-items: center;
+    background-color: rgb(30, 30, 30);
     padding: 15px;
+}
+
+.links_left{
+    display: flex;
+    align-self: flex-end;
+}
+
+.links_right{
+    display: flex;
+    align-self: flex-end;
 }
 
 #job_index{
@@ -45,11 +59,6 @@ a:hover{
     padding: 10px;
 }
 
-.links_right{
-    text-align: right;
-    float: right;
-}
-
 .past_due{
     background-color: rgba(255, 0, 0, 0.774);
     color: white;
@@ -62,3 +71,20 @@ a:hover{
     font-style: normal;
   }
   
+
+.radio_employee_select input[type="radio"]{
+    display: none;
+}
+
+.radio_employee_select label{
+    display:inline-block;
+    background-color: #ddd;
+    padding: 4px 11px;
+    cursor: pointer;
+    border-radius: 2em;
+}
+
+.radio_employee_select input[type="radio"]:checked+label {
+    background-color: blue;
+    color: white;
+}

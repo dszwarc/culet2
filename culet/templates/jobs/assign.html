@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+
+
+{% block content %}
+
+{% if messages %}
+    <ul class="messages">
+        
+        {% for message in messages %}
+            <li {% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+        {% endfor %}
+            
+    </ul>
+{% endif %}
+
+{% if user %}
+    <p>{{user.employee}} is logged in</p>
+{% endif %}
+
+<form action="/culet/activities/start" method="POST">
+    {% csrf_token %}
+    <input name="job" type="text">
+
+    <div class="radio_employee_select">
+    
+        <input type="radio" name="employee" id="emp1" class="employee_assign_button" value="emp1">
+        <label for="emp1">Emp1</label>
+
+        <input type="radio" name="employee" id="emp2" class="employee_assign_button" value="emp2">
+        <label for="emp2">Emp2</label>
+
+    </div>
+    
+    
+    <button type="submit">Start Job</button>
+</form>
+
+{% endblock content %}

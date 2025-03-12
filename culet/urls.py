@@ -13,4 +13,5 @@ urlpatterns = [
     path("activities/start", views.startWork,name="start_work"),
     path("activities/<int:pk>/stop/<int:job_id>",views.stopWork,name="stop_work"),
     path("jobs/my_jobs/", views.MyJobListView.as_view(), name="my_jobs"),
+    path("jobs/assign",views.AssignJobView.as_view(), name="assign_job"),
 ]

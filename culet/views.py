@@ -5,6 +5,7 @@ from django.views import generic
 from django.urls import reverse_lazy, reverse
 from django.utils import timezone
 from django.contrib import messages
+from django.shortcuts import render
 
 class JobListView(generic.ListView):
     model = Job
@@ -70,6 +71,14 @@ class StyleCreateView(generic.CreateView):
     fields = '__all__'
     success_url=reverse_lazy('culet:index_style')
 
+class AssignJobView(generic.TemplateView):
+    employees=Employee.objects.all()
+    def get(self, request, *args, **kwargs):
+        context = {'message': 'Testing get request from assign Job'}
+        return render(request, 'jobs/assign.html', context)
+    def post(self, request, *args, **kwargs):
+        context = {'message': 'Testing post request from assign Job'}
+
 def startWork(request):
     job_query = Job.objects.get(job_num=request.POST["job"])
 
@@ -86,10 +95,12 @@ def startWork(request):
         job_query.active = True
         
         # 
-        job_query.assigned_to = request.user
+        job_query.assigned_to = Employee.objects.get(user=request.user)
         
         job_query.save()
         messages.success(request,f"Job {job_query.job_num} has been started. ({activity.name})")
+    else:
+        messages.error(request,f"Job {job_query.job_num} could not be started. Activity already started.")
     return HttpResponseRedirect(reverse('culet:job_detail', kwargs={'pk' : job_query.id }))
 
 def stopWork(request, pk, job_id):
