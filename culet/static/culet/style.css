@@ -88,3 +88,16 @@ body{
     background-color: blue;
     color: white;
 }
+
+.messages{
+    display: flex;
+    align-items: stretch;
+}
+
+.success{
+    align-items: stretch;
+    padding: 1em;
+    list-style: none;
+    color: green;
+    background-color: rgb(139, 255, 139);
+}

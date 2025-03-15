@@ -76,8 +76,11 @@ class AssignJobView(generic.TemplateView):
         context = {'employees':Employee.objects.all()}
         return render(request, 'jobs/assign.html', context)
     def post(self, request, *args, **kwargs):
-        context = {'message': 'Testing post request from assign Job'}
-
+        job = Job.objects.get(job_num=request.POST["job"])
+        job.assigned_to = Employee.objects.get(id=request.POST["employee"])
+        job.save()
+        messages.success(request,f"Job {job.job_num} has been assigned.")
+        return render(request, 'jobs/assign.html')
 def startWork(request):
     job_query = Job.objects.get(job_num=request.POST["job"])
 
