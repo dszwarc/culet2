@@ -17,22 +17,23 @@
     <p>{{user.employee}} is logged in</p>
 {% endif %}
 
-<form action="/culet/activities/start" method="POST">
+<form action="/culet/jobs/assign" method="POST">
     {% csrf_token %}
-    <input name="job" type="text">
-
+   
     <div class="radio_employee_select">
     
-        <input type="radio" name="employee" id="emp1" class="employee_assign_button" value="emp1">
-        <label for="emp1">Emp1</label>
-
-        <input type="radio" name="employee" id="emp2" class="employee_assign_button" value="emp2">
-        <label for="emp2">Emp2</label>
-
+        
+        {% for emp in employees %}
+            <input type="radio" name="employee" id={{emp.id}} class="employee_assign_button" value={{emp.id}}>
+            <label for={{emp.id}}>{{emp}}</label>
+        {% endfor %}
+            
     </div>
         <!-- Adding comment to test git branch -->
     
-    <button type="submit">Start Job</button>
+    <input name="job" type="text" placeholder="Enter Job Number">
+
+    <button class="btn btn-primary" type="submit">Assign</button>
 </form>
 
 {% endblock content %}

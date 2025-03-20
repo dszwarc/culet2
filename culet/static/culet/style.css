@@ -65,12 +65,19 @@ body{
 }
 
 .barcode {
-    font-family: "Libre Barcode 39 Extended Text", serif;
+    font-feature-settings: "calt" 1;
+    font-family: "Libre Barcode 39 Extended Text", system-ui;
     font-weight: 400;
-    font-size: 100px;
     font-style: normal;
   }
   
+#eantest{
+        font-family: "Libre Barcode EAN13 Text", system-ui;
+        font-weight: 400;
+        font-size: 10em;
+        font-style: normal;   
+        margin: 0;
+}
 
 .radio_employee_select input[type="radio"]{
     display: none;
@@ -87,4 +94,17 @@ body{
 .radio_employee_select input[type="radio"]:checked+label {
     background-color: blue;
     color: white;
+}
+
+.messages{
+    display: flex;
+    align-items: stretch;
+}
+
+.success{
+    align-items: stretch;
+    padding: 1em;
+    list-style: none;
+    color: green;
+    background-color: rgb(139, 255, 139);
 }

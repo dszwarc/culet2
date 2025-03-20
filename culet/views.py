@@ -6,8 +6,9 @@ from django.urls import reverse_lazy, reverse
 from django.utils import timezone
 from django.contrib import messages
 from django.shortcuts import render
+from django.contrib.auth.mixins import LoginRequiredMixin
 
-class JobListView(generic.ListView):
+class JobListView(LoginRequiredMixin,generic.ListView):
     model = Job
     template_name = "jobs/index.html"
     context_object_name = "latest_job_list"
@@ -76,8 +77,11 @@ class AssignJobView(generic.TemplateView):
         context = {'employees':Employee.objects.all()}
         return render(request, 'jobs/assign.html', context)
     def post(self, request, *args, **kwargs):
-        context = {'message': 'Testing post request from assign Job'}
-
+        job = Job.objects.get(job_num=request.POST["job"])
+        job.assigned_to = Employee.objects.get(id=request.POST["employee"])
+        job.save()
+        messages.success(request,f"Job {job.job_num} has been assigned.")
+        return render(request, 'jobs/assign.html')
 def startWork(request):
     job_query = Job.objects.get(job_num=request.POST["job"])
 

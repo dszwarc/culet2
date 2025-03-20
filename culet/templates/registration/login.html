@@ -1,6 +1,9 @@
 <h2>Log In</h2>
 <form method="post">
+
   {% csrf_token %}
+  <div class="form-group">
   {{ form }}
+  </div>
   <button type="submit">Log In</button>
 </form>
