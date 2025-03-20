@@ -6,8 +6,9 @@ from django.urls import reverse_lazy, reverse
 from django.utils import timezone
 from django.contrib import messages
 from django.shortcuts import render
+from django.contrib.auth.mixins import LoginRequiredMixin
 
-class JobListView(generic.ListView):
+class JobListView(LoginRequiredMixin,generic.ListView):
     model = Job
     template_name = "jobs/index.html"
     context_object_name = "latest_job_list"
