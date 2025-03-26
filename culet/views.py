@@ -7,29 +7,38 @@ from django.utils import timezone
 from django.contrib import messages
 from django.shortcuts import render
 from django.contrib.auth.mixins import LoginRequiredMixin
+from .filters import JobFilter
 
 class JobListView(LoginRequiredMixin,generic.ListView):
     model = Job
     template_name = "jobs/index.html"
-    context_object_name = "latest_job_list"
-    def get_queryset(self):
-        return Job.objects.order_by("-name")
 
-class MyJobListView(generic.ListView):
+
+    # context_object_name = "latest_job_list"
+    # def get_queryset(self):
+    #     return Job.objects.order_by("-name")
+    def get_context_data(self,**kwargs):
+        jobs = Job.objects.all()
+        myFilter = JobFilter(self.request.GET,queryset=jobs)
+        filt_jobs = myFilter.qs
+        context = {'latest_job_list':filt_jobs, 'filter':myFilter}
+        return context
+    
+class MyJobListView(LoginRequiredMixin,generic.ListView):
     model = Job
     template_name = "jobs/my_jobs.html"
     context_object_name = "latest_job_list"
     def get_queryset(self):
         return Job.objects.filter(assigned_to=Employee.objects.get(user=self.request.user))
 
-class ActivityListView(generic.ListView):
+class ActivityListView(LoginRequiredMixin,generic.ListView):
     model = Activity
     template_name = "activities/index.html"
     context_object_name = "activities"
     def get_queryset(self):
         return Activity.objects.order_by("-start")
 
-class JobDetailView(generic.DetailView):
+class JobDetailView(LoginRequiredMixin,generic.DetailView):
     model = Job
     template_name = "jobs/detail.html"
     
@@ -39,14 +48,14 @@ class JobDetailView(generic.DetailView):
         data['activity'] = related_activities
         return data
 
-class JobCreateView(generic.CreateView):
+class JobCreateView(LoginRequiredMixin,generic.CreateView):
     model = Job
     template_name = "jobs/create.html"
     fields = ['name','customer', 'job_num', 'style', 'due']
     # exclude = ['created','last_updated']*
     success_url=reverse_lazy('culet:index_job')
 
-class JobUpdateView(generic.UpdateView):
+class JobUpdateView(LoginRequiredMixin,generic.UpdateView):
     model = Job
     template_name = "jobs/update.html"
     fields = '__all__'
@@ -59,20 +68,20 @@ def results(request, job_id):
 def edit(request, job_id):
     return HttpResponse("You're editing job number %s." % job_id)
 
-class StyleListView(generic.ListView):
+class StyleListView(LoginRequiredMixin,generic.ListView):
     model = Style
     template_name = "styles/index.html"
     context_object_name = "style_list"
     # def get_queryset(self):
     #     return Job.objects.order_by("-name")[:5]
 
-class StyleCreateView(generic.CreateView):
+class StyleCreateView(LoginRequiredMixin,generic.CreateView):
     model = Style
     template_name = "styles/create.html"
     fields = '__all__'
     success_url=reverse_lazy('culet:index_style')
 
-class AssignJobView(generic.TemplateView):
+class AssignJobView(LoginRequiredMixin,generic.TemplateView):
     def get(self, request, *args, **kwargs):
         context = {'employees':Employee.objects.all()}
         return render(request, 'jobs/assign.html', context)
