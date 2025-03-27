@@ -2,6 +2,13 @@ body{
     display: flex;
     flex-direction: column;
     align-items: center;
+    background-color: rgb(176, 207, 231);
+}
+
+table{
+    padding: 1em;
+    margin: 1em;
+    background-color: aliceblue;
 }
 
 .odd_row{

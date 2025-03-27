@@ -1,17 +1,17 @@
 {% extends 'base.html' %}
 
 {% block content %}
-
-<form method="get" action="">
-    {{filter.form}}
-    <button class="btn btn-primary" type="submit">Search</button>
-</form>
-
+<div>
+    <form method="get" action="">
+        {{filter.form}}
+        <button class="btn btn-primary" type="submit">Search</button>
+    </form>
+</div>
 {% if user.is_authenticated %}
 
     {% if latest_job_list %}
-
-        <table id = "job_index">
+    <div>
+        <table id="job_index">
             <tr>
                 <td>Number</td>
                 <td>Name</td>
@@ -37,9 +37,9 @@
                 
             {% endfor %}
         </table>
-    
+    </div>
     {% else %}
-        <p>No jobs are available.</p>
+        <p>No jobs found matching set search parameters.</p>
     {% endif %}
 
 {% endif %}
