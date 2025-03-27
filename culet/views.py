@@ -12,7 +12,7 @@ from .filters import JobFilter
 class JobListView(LoginRequiredMixin,generic.ListView):
     model = Job
     template_name = "jobs/index.html"
-
+    paginate_by = 2
 
     # context_object_name = "latest_job_list"
     # def get_queryset(self):

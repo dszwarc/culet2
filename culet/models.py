@@ -5,6 +5,9 @@ from datetime import date
 from django.contrib.auth.models import User
 # Create your models here.
 
+class ComponentType(models.Model):
+    name = models.CharField(max_length=80, default="Stone", unique=True)
+
 class Department(models.Model):
     name = models.CharField(max_length=80, default="Production")
 
@@ -65,6 +68,10 @@ class Job(models.Model):
     
     def get_absolute_url(self):
         return reverse('culet:job_detail', kwargs={'pk': self.pk})
+
+class Component(models.Model):
+    comp_type = models.ForeignKey(ComponentType, on_delete=models.CASCADE)
+    job = models.OneToOneField(Job, on_delete=models.CASCADE)
 
 class Activity(models.Model):
     name = models.CharField(max_length=80)
