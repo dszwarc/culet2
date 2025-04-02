@@ -2,15 +2,15 @@ body{
     display: flex;
     flex-direction: column;
     align-items: center;
-    background-color: #1E1E1E;
+    /* background-color: #1E1E1E; */
     margin: 0;
 }
 
 table{
     padding: 1em;
     margin: 1em;
-    background-color: #454545;
-    color: white;
+    /* background-color: #454545;
+    color: white; */
     border-radius: .5em;
 }
 

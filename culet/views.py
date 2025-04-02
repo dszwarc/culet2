@@ -8,6 +8,7 @@ from django.contrib import messages
 from django.shortcuts import render
 from django.contrib.auth.mixins import LoginRequiredMixin
 from .filters import JobFilter
+from .forms import JobForm
 
 class JobListView(LoginRequiredMixin,generic.ListView):
     model = Job
@@ -50,8 +51,9 @@ class JobDetailView(LoginRequiredMixin,generic.DetailView):
 
 class JobCreateView(LoginRequiredMixin,generic.CreateView):
     model = Job
+    form_class = JobForm
     template_name = "jobs/create.html"
-    fields = ['name','customer', 'job_num', 'style', 'due']
+    # fields = ['name','customer', 'job_num', 'style', 'due']
     # exclude = ['created','last_updated']*
     success_url=reverse_lazy('culet:index_job')
 
