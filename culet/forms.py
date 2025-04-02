@@ -1,5 +1,6 @@
 from django import forms
 from .models import Job
+from django.utils import timezone
 
 class JobForm(forms.ModelForm):
     class Meta:
@@ -11,5 +12,5 @@ class JobForm(forms.ModelForm):
             'customer': forms.TextInput(attrs={'class': 'form-control'}),
             'job_num': forms.TextInput(attrs={'class': 'form-control'}),
             'style': forms.Select(attrs={'class': 'form-control'}),
-            'due': forms.DateInput(attrs={'class': 'form-control'}),
+            'due': forms.DateInput(attrs={'class': 'form-control', 'placeholder':timezone.now}),
         }

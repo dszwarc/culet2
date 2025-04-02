@@ -130,3 +130,7 @@ table{
     color: green;
     background-color: rgb(139, 255, 139);
 }
+
+.form-group{
+    width: 80%;
+}
