@@ -8,9 +8,13 @@
 
 {% block content %}
 
+<h1 class="header">Create New Style</h1>
+
+<div class="form-group">
     <form method="POST">
         {% csrf_token %}
-        {{ form.as_table }}
-        <button type="submit">Create Job</button>
+        {{ form.as_p }}
+        <button class="btn btn-primary" type="submit">Create Style</button>
     </form>
+</div>
 {% endblock content %}

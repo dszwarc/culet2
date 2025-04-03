@@ -1,17 +1,18 @@
 {% extends 'base.html' %}
 
 {% block content %}
+
+{% if user.is_authenticated %}
 <div class="filter_box">
     <form method="get" action="">
         {{filter.form}}
         <button class="btn btn-primary" type="submit">Search</button>
     </form>
 </div>
-{% if user.is_authenticated %}
 
     {% if latest_job_list %}
     <div class="container">
-        <table id="job_index">
+        <table class="index_table" id="job_index">
             <tr>
                 <td>Number</td>
                 <td>Name</td>

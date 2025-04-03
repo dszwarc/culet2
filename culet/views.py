@@ -8,7 +8,7 @@ from django.contrib import messages
 from django.shortcuts import render
 from django.contrib.auth.mixins import LoginRequiredMixin
 from .filters import JobFilter
-from .forms import JobForm
+from .forms import JobForm, StyleForm
 
 class JobListView(LoginRequiredMixin,generic.ListView):
     model = Job
@@ -79,8 +79,9 @@ class StyleListView(LoginRequiredMixin,generic.ListView):
 
 class StyleCreateView(LoginRequiredMixin,generic.CreateView):
     model = Style
+    form_class = StyleForm
     template_name = "styles/create.html"
-    fields = '__all__'
+    # fields = '__all__'
     success_url=reverse_lazy('culet:index_style')
 
 class AssignJobView(LoginRequiredMixin,generic.TemplateView):

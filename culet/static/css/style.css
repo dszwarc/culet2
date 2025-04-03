@@ -63,7 +63,7 @@ table{
     align-self: flex-end;
 }
 
-#job_index{
+.index_table{
     padding: 15px;
     text-align: center;
     width: 80%;
@@ -133,4 +133,9 @@ table{
 
 .form-group{
     width: 80%;
+    margin: 2em;
+}
+
+.header{
+    margin:1em;
 }
