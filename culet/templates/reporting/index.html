@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+{% if user.is_authenticated %}
+<div class="filter_box">
+    <form method="get" action="">
+        {{filter.form}}
+        <button class="btn btn-primary" type="submit">Search</button>
+    </form>
+</div>
+
+    {% if activities %}
+    <div class="container">
+        <table class="index_table" id="job_index">
+            <tr>
+                <td>ID</td>
+                <td>Name</td>
+                <td>Job</td>
+                <td>Employee</td>
+                <td>Start</td>
+                <td>End</td>
+                <td>Duration (Hours)</td>
+            </tr>
+            
+            {% for act in activities %}
+                    <tr class="{% if forloop.counter|divisibleby:2 %}even_row{% else %}odd_row{% endif %}">
+                        <td><a href="{% url 'culet:job_detail' act.id %}">{{ act.id }}</a></td>
+                        <td>{{ act.name|upper }}</td>
+                        <td>{{ act.job }}</td>
+                        <td>{{ act.employee }}</td>
+                        <td>{{ act.start }}</td>
+                        <td>{{ act.end }}</td>
+                        <td>{{ act.duration }}</td>
+                    </tr>
+            {% endfor %}
+            <tr>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td>Total time:</td>
+                <td>{{ total_time }}</td>
+            </tr>
+        </table>
+    </div>
+    {% else %}
+        <p>No jobs found matching set search parameters.</p>
+    {% endif %}
+
+    <div class="pagination">
+        <span class="step-links">
+            {% if page_obj.has_previous %}
+                <a href="?page=1">&laquo; first</a>
+                <a href="?page={{ page_obj.previous_page_number }}">previous</a>
+            {% endif %}
+    
+            <span class="current">
+                Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
+            </span>
+    
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}">next</a>
+                <a href="?page={{ page_obj.paginator.num_pages }}">last &raquo;</a>
+            {% endif %}
+        </span>
+    </div>
+
+{% endif %}
+    
+    
+
+{% endblock content %}

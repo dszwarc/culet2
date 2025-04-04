@@ -15,10 +15,11 @@ table{
 }
 
 .filter_box{
-    background-color: #345e37;
+    background-color: #7bbc7f;
     margin: 1em;
     padding: 1em;
     border-radius: .5em;
+    font-size: small;
 }
 
 .container{

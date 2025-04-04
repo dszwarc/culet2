@@ -7,13 +7,12 @@ from django.utils import timezone
 from django.contrib import messages
 from django.shortcuts import render
 from django.contrib.auth.mixins import LoginRequiredMixin
-from .filters import JobFilter
+from .filters import JobFilter, ActivityFilter
 from .forms import JobForm, StyleForm
 
 class JobListView(LoginRequiredMixin,generic.ListView):
     model = Job
     template_name = "jobs/index.html"
-    paginate_by = 2
 
     # context_object_name = "latest_job_list"
     # def get_queryset(self):
@@ -23,6 +22,7 @@ class JobListView(LoginRequiredMixin,generic.ListView):
         myFilter = JobFilter(self.request.GET,queryset=jobs)
         filt_jobs = myFilter.qs
         context = {'latest_job_list':filt_jobs, 'filter':myFilter}
+
         return context
     
 class MyJobListView(LoginRequiredMixin,generic.ListView):
@@ -31,6 +31,23 @@ class MyJobListView(LoginRequiredMixin,generic.ListView):
     context_object_name = "latest_job_list"
     def get_queryset(self):
         return Job.objects.filter(assigned_to=Employee.objects.get(user=self.request.user))
+
+class ReportingListView(LoginRequiredMixin, generic.ListView):
+    model = Activity
+    template_name = "reporting/index.html"
+    context_object_name = "activities"
+    # def get_queryset(self):
+    #     return Activity.objects.order_by("-start")
+    def get_context_data(self, **kwargs):
+        activities = Activity.objects.all()
+        myFilter = ActivityFilter(self.request.GET,queryset=activities)
+        filt_activities = myFilter.qs
+        total_time=0
+        for act in filt_activities:
+            if act.duration:
+                total_time += act.duration
+        context = {'activities':filt_activities, 'filter':myFilter, 'total_time':total_time}
+        return context
 
 class ActivityListView(LoginRequiredMixin,generic.ListView):
     model = Activity

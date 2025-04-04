@@ -5,6 +5,13 @@ from datetime import date
 from django.contrib.auth.models import User
 # Create your models here.
 
+class Customer(models.Model):
+    name = models.CharField(max_length=80,unique=True)
+    address = models.CharField(max_length=150)
+    email = models.EmailField(max_length=200)
+    phone = models.CharField(max_length=12)
+    number = models.IntegerField(unique=True)
+
 class ComponentType(models.Model):
     name = models.CharField(max_length=80, default="Stone", unique=True)
 
@@ -75,10 +82,17 @@ class Component(models.Model):
 
 class Activity(models.Model):
     name = models.CharField(max_length=80)
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
     start = models.DateTimeField(default=timezone.now)
     end = models.DateTimeField(blank=True, null=True)
     job = models.ForeignKey(Job, blank=True, null=True, on_delete=models.CASCADE)
     active = models.BooleanField(default=True)
+    @property
+    def duration(self):
+        if self.end:
+            duration = (self.end - self.start).total_seconds()/3600
+            return duration
+
 
     def __str__(self):
         return (str(self.job.job_num) + " " + str(self.name))
