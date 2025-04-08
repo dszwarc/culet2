@@ -121,15 +121,17 @@ table{
 
 .messages{
     display: flex;
-    align-items: stretch;
+    align-content: stretch;
+    width: 100%;
 }
 
 .success{
-    align-items: stretch;
+    width: 100%;
     padding: 1em;
+    margin: 0;
     list-style: none;
-    color: green;
-    background-color: rgb(139, 255, 139);
+    color: rgb(18, 17, 2);
+    background-color: rgb(242, 255, 101);
 }
 
 .form-group{

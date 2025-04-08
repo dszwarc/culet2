@@ -124,6 +124,7 @@ def startWork(request):
             name = request.POST["name"],
             start = timezone.now(),
             job = job_query,
+            employee = request.user.employee,
         )
         activity.save()
         
