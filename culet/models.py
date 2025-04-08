@@ -5,6 +5,9 @@ from datetime import date
 from django.contrib.auth.models import User
 # Create your models here.
 
+class ProductChoices(models.Model):
+    name = models.CharField(max_length=80, unique=True)
+
 class Customer(models.Model):
     name = models.CharField(max_length=80,unique=True)
     address = models.CharField(max_length=150)
