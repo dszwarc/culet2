@@ -93,6 +93,18 @@ class Activity(models.Model):
             duration = (self.end - self.start).total_seconds()/3600
             return duration
 
+    @property
+    def duration_hours(self):
+        if self.end:
+            duration = (self.end - self.start).total_seconds()//3600
+            return int(duration)
+        
+    @property 
+    def duration_min(self):
+        if self.end:
+            duration = (self.end - self.start).total_seconds()%3600
+            duration = duration//60
+            return int(duration)
 
     def __str__(self):
         return (str(self.job.job_num) + " " + str(self.name))

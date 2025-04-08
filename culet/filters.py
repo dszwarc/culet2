@@ -15,9 +15,12 @@ class JobFilter(django_filters.FilterSet):
         exclude = ['date','name','created','last_updated','due']
 
 class ActivityFilter(django_filters.FilterSet):
+    name = CharFilter(label='Operation',field_name='name',lookup_expr='icontains')
+    style = CharFilter(label='Style', field_name='job__style__name', lookup_expr='icontains')
     start = DateFilter(label='Started after:',field_name="start", lookup_expr='gte')
     end = DateFilter(label='Ended before:', field_name="end", lookup_expr='lte')
     
+
     class Meta:
         model = Activity
         fields = '__all__'

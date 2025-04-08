@@ -1,8 +1,21 @@
 {% extends 'base.html' %}
 
 {% block content %}
-
 {% if user.is_authenticated %}
+
+<div class="container">
+    <table class="index_table" id="summary_table">
+        <tr>
+            <td>Average Time</td>
+            <td>Total Time</td>
+        </tr>
+        <tr>
+            <td>{{ avg_time }}</td>
+            <td>{{ total_time }}</td>
+        </tr>
+    </table>
+</div>
+
 <div class="filter_box">
     <form method="get" action="">
         {{filter.form}}
@@ -10,13 +23,14 @@
     </form>
 </div>
 
+
     {% if activities %}
     <div class="container">
         <table class="index_table" id="job_index">
             <tr>
-                <td>ID</td>
-                <td>Name</td>
+                <td>Operation</td>
                 <td>Job</td>
+                <td>Style</td>
                 <td>Employee</td>
                 <td>Start</td>
                 <td>End</td>
@@ -25,24 +39,20 @@
             
             {% for act in activities %}
                     <tr class="{% if forloop.counter|divisibleby:2 %}even_row{% else %}odd_row{% endif %}">
-                        <td><a href="{% url 'culet:job_detail' act.id %}">{{ act.id }}</a></td>
-                        <td>{{ act.name|upper }}</td>
+                        <td>{{ act.name|title }}</td>
                         <td>{{ act.job }}</td>
+                        <td>{{ act.job.style }}</td>
                         <td>{{ act.employee }}</td>
                         <td>{{ act.start }}</td>
                         <td>{{ act.end }}</td>
-                        <td>{{ act.duration }}</td>
+                        <td>
+                            {% if act.duration_hours != 0 %}
+                                {{ act.duration_hours }} h
+                            {% endif %}
+                                {{ act.duration_min }} min
+                        </td>
                     </tr>
             {% endfor %}
-            <tr>
-                <td></td>
-                <td></td>
-                <td></td>
-                <td></td>
-                <td></td>
-                <td>Total time:</td>
-                <td>{{ total_time }}</td>
-            </tr>
         </table>
     </div>
     {% else %}

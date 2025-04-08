@@ -46,7 +46,11 @@ class ReportingListView(LoginRequiredMixin, generic.ListView):
         for act in filt_activities:
             if act.duration:
                 total_time += act.duration
-        context = {'activities':filt_activities, 'filter':myFilter, 'total_time':total_time}
+        if total_time > 0:
+            avg_time = total_time/len(filt_activities)
+        else:
+            avg_time = 0
+        context = {'activities':filt_activities, 'filter':myFilter, 'total_time':total_time, 'avg_time':avg_time}
         return context
 
 class ActivityListView(LoginRequiredMixin,generic.ListView):
