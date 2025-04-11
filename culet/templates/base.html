@@ -15,6 +15,22 @@
 </head>
 <body>
     
+    TESTING
+<br>
+    <button href="{% url 'culet:clock_in' %}">Clock In</button>
+    <button href="{% url 'culet:clock_out' %}">Clock Out</button>
+<br>
+    
+    {% if user.employee.clocked_in == True %}
+        You are clocked in
+
+    {% else %}
+        You are not clocked in
+    {% endif %}
+        
+<br>
+    TESTING
+
     {% include 'navigation.html' %}
 
     {% block content %}

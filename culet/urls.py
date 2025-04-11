@@ -15,4 +15,6 @@ urlpatterns = [
     path("jobs/my_jobs/", views.MyJobListView.as_view(), name="my_jobs"),
     path("jobs/assign",views.AssignJobView.as_view(), name="assign_job"),
     path("reporting", views.ReportingListView.as_view(), name="reporting"),
+    path("clock_in",views.clock_in,name="clock_in"),
+    path("clock_out", views.clock_out,name="clock_out"),
 ]

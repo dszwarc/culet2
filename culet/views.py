@@ -1,6 +1,6 @@
 from django.db.models.query import QuerySet
 from django.http import HttpResponse, HttpResponseRedirect
-from .models import Job, Style, Activity, Employee
+from .models import Job, Style, Activity, Employee, TimeClock
 from django.views import generic
 from django.urls import reverse_lazy, reverse
 from django.utils import timezone
@@ -84,13 +84,6 @@ class JobUpdateView(LoginRequiredMixin,generic.UpdateView):
     fields = '__all__'
     success_url=reverse_lazy('culet:index_job')
 
-def results(request, job_id):
-    response = "You're looking at the results of the job %s."
-    return HttpResponse(response % job_id)
-
-def edit(request, job_id):
-    return HttpResponse("You're editing job number %s." % job_id)
-
 class StyleListView(LoginRequiredMixin,generic.ListView):
     model = Style
     template_name = "styles/index.html"
@@ -115,6 +108,7 @@ class AssignJobView(LoginRequiredMixin,generic.TemplateView):
         job.save()
         messages.success(request,f"Job {job.job_num} has been assigned.")
         return render(request, 'jobs/assign.html')
+    
 def startWork(request):
     job_query = Job.objects.get(job_num=request.POST["job"])
 
@@ -154,3 +148,25 @@ def stopWork(request, pk, job_id):
     # return HttpResponseRedirect(reverse('culet:index_job'))
     messages.success(request,f"Job {job.job_num} has been stopped. ({activ.name})")
     return HttpResponseRedirect(reverse('culet:job_detail', kwargs={'pk' : job_id }))
+
+def clock_in(request):
+    if request.user.employee.clocked_in == False:
+        clocking_in = TimeClock(
+            clock_in = timezone.now(),
+            employee = request.user.employee
+            )
+        clocking_in.save()
+        return HttpResponseRedirect(reverse('culet:index_jobs'))
+    else:
+        messages.success(request, "Already logged in.")
+        return HttpResponseRedirect(reverse('culet:index_jobs'))
+
+def clock_out(request):
+    if request.user.employee.clocked_in == True:
+        clocking_out = TimeClock.objects.filter(employee=request.user.employee,clock_out=False)
+        clocking_out.clock_out = timezone.now()
+        clocking_out.save()
+        return HttpResponseRedirect(reverse('culet:index_jobs'))
+    else:
+        messages.success(request, "Can't clock out because you are not clocked in.")
+        return HttpResponseRedirect(reverse('culet:index_jobs'))
