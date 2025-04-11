@@ -35,6 +35,7 @@ class Employee(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     department = models.CharField(max_length=80, default="Product Management")
     role = models.CharField(max_length = 2,choices=employee_choices, default = "PD")
+    clocked_in = models.BooleanField(default=False)
     
 
     def __str__(self):
