@@ -156,17 +156,23 @@ def clock_in(request):
             employee = request.user.employee
             )
         clocking_in.save()
-        return HttpResponseRedirect(reverse('culet:index_jobs'))
+        request.user.employee.clocked_in = True
+        request.user.employee.save()
+        return HttpResponseRedirect(reverse('culet:index_job'))
     else:
         messages.success(request, "Already logged in.")
-        return HttpResponseRedirect(reverse('culet:index_jobs'))
+        return HttpResponseRedirect(reverse('culet:index_job'))
 
 def clock_out(request):
     if request.user.employee.clocked_in == True:
-        clocking_out = TimeClock.objects.filter(employee=request.user.employee,clock_out=False)
-        clocking_out.clock_out = timezone.now()
-        clocking_out.save()
-        return HttpResponseRedirect(reverse('culet:index_jobs'))
+        clocking_out = TimeClock.objects.filter(employee=request.user.employee,clock_out__isnull=True)
+        for obj in clocking_out:
+            obj.clock_out = timezone.now()
+            obj.save()
+        request.user.employee.clocked_in = False
+        request.user.employee.save()
+
+        return HttpResponseRedirect(reverse('culet:index_job'))
     else:
         messages.success(request, "Can't clock out because you are not clocked in.")
-        return HttpResponseRedirect(reverse('culet:index_jobs'))
+        return HttpResponseRedirect(reverse('culet:index_job'))

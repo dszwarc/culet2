@@ -17,8 +17,8 @@
     
     TESTING
 <br>
-    <button href="{% url 'culet:clock_in' %}">Clock In</button>
-    <button href="{% url 'culet:clock_out' %}">Clock Out</button>
+    <a class="button" href="{% url 'culet:clock_in' %}">Clock In</a>
+    <a class="button" href="{% url 'culet:clock_out' %}">Clock Out</a>
 <br>
     
     {% if user.employee.clocked_in == True %}
