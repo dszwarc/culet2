@@ -111,3 +111,8 @@ class Activity(models.Model):
 
     def __str__(self):
         return (str(self.job.job_num) + " " + str(self.name))
+    
+    class TimeClock(models.Model):
+        clock_in = models.DateTimeField(null=True)
+        clock_out = models.DateField(null=True)
+        employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
