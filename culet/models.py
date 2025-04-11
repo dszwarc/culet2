@@ -69,7 +69,8 @@ class Job(models.Model):
     due = models.DateField(default=timezone.now)
     last_updated = models.DateTimeField(auto_now=True)
     assigned_to = models.ForeignKey(Employee, on_delete=models.CASCADE, null=True)
-    
+    notes = models.TextField(default="")
+
     @property
     def is_past_due(self):
         return date.today() > self.due
