@@ -132,7 +132,7 @@ def startWork(request):
         messages.success(request,f"Job {job_query.job_num} has been started. ({activity.name})")
     else:
         messages.error(request,f"Job {job_query.job_num} could not be started. Activity already started.")
-    return HttpResponseRedirect(reverse('culet:job_detail', kwargs={'pk' : job_query.id }))
+    return HttpResponseRedirect(reverse('culet:my_jobs'))
 
 def stopWork(request, pk, job_id):
     activ = Activity.objects.get(id=pk)
@@ -147,7 +147,7 @@ def stopWork(request, pk, job_id):
     job.save()
     # return HttpResponseRedirect(reverse('culet:index_job'))
     messages.success(request,f"Job {job.job_num} has been stopped. ({activ.name})")
-    return HttpResponseRedirect(reverse('culet:job_detail', kwargs={'pk' : job_id }))
+    return HttpResponseRedirect(reverse('culet:my_jobs'))
 
 def clock_in(request):
     if request.user.employee.clocked_in == False:

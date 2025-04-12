@@ -4,6 +4,27 @@
     
 {% if user.is_authenticated %}
 
+<form action="/culet/activities/start" method="POST">
+    {% csrf_token %}
+    <input name="job" type="text">
+    <select name="name" id="">
+        <option value="cleaning">Cleaning</option>
+        <option value="polishing">Polishing</option>
+        <option value="setting">Setting</option>
+    </select>
+    <button type="submit">Start Job</button>
+</form>
+
+{% if messages %}
+    <ul class="messages">
+        
+        {% for message in messages %}
+            <li {% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+        {% endfor %}
+            
+    </ul>
+{% endif %}
+
     {% if latest_job_list %}
 
         <table id = "job_index">
@@ -13,6 +34,7 @@
                 <td>Style</td>
                 <td>Customer</td>
                 <td>Due Date</td>
+                <td>Active</td>
             </tr>
             {% for job in latest_job_list %}
                     <tr class="{% if forloop.counter|divisibleby:2 %}even_row{% else %}odd_row{% endif %}">
@@ -21,7 +43,7 @@
                         <td>{{ job.style }}</td>
                         <td>{{ job.customer }}</td>
                         <td {% if job.is_past_due%}class="past_due"{% else %}{% endif %}>{{ job.due }}</td>
-                        
+                        <td>{{ job.active }}</td>
                     </tr>
                 
             {% endfor %}

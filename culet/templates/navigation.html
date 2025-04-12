@@ -15,6 +15,13 @@
         <a class='nav_link' href="{% url 'culet:reporting' %}">Reporting</a>
     </div>
     <div class="links_right">
+        
+        {% if user.employee.clocked_in == True %}
+            <a class="tc_button btn btn-danger" href="{% url 'culet:clock_out' %}">Clock Out</a>        
+        {% else %}
+            <a class="tc_button btn btn-success" href="{% url 'culet:clock_in' %}">Clock In</a>
+        {% endif %}
+
         {% if user.is_authenticated %}
             <a class="nav_link" href="{% url 'logout' %}">Log Out</a>
         {% else %}
