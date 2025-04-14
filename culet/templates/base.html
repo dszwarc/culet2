@@ -14,15 +14,15 @@
     <link rel="stylesheet" href="{% static 'js/jquery-ui-1.14.1/jquery-ui.theme.min.css' %}">
 </head>
 <body>
-
     {% include 'navigation.html' %}
 
-    {% if user.employee.clocked_in == True %}
-    You are clocked in
-    {% else %}
-    You are not clocked in
-    {% endif %}
-
+        
+        {% if user.employee.clocked_in == True %}
+            <p style='background-color:green;'>YOU ARE CLOCKED IN</p>
+        {% else %}
+            <p style='background-color:red;'>PLEASE CLOCK IN</p>
+        {% endif %}
+            
     {% block content %}
         Nothing found
     {% endblock %}

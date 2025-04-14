@@ -80,11 +80,11 @@ table{
     border-spacing: 0;
 }
 
-#job_index th{
+.job_index th{
     font-size: 15px;
 }
 
-#job_index td{
+.job_index td{
     border-bottom: .1em solid;
     border-color: rgb(0, 0, 0);
     padding: 1em;

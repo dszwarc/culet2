@@ -70,7 +70,7 @@ class Job(models.Model):
     last_updated = models.DateTimeField(auto_now=True)
     assigned_to = models.ForeignKey(Employee, on_delete=models.CASCADE, null=True, related_name='job_assignment')
     location = models.ForeignKey(Employee, on_delete=models.CASCADE, null=True, related_name='job_location')
-    notes = models.TextField(default="")
+    notes = models.TextField(default="", null=True)
 
     @property
     def is_past_due(self):

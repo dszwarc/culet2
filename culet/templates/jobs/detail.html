@@ -3,57 +3,45 @@
 
 {% block content %}
 
-
-<h1 class="barcode">
-    *{{ job.job_num}}*
-</h1>
-
-<div class="card mb-3">
-    <div class="card-img-top">{{ job.job_num }}</div>
+<div class="card" style="width:60%;">
+    <div class="card-featured">
+        <h1 class="barcode">*{{ job.job_num}}*</h1>
+    </div>
     <div class="card-body">
-      <h5 class="card-title">job.job_num</h5>
-      <p class="card-text">This is a wider card with supporting text below as a natural lead-in to additional content. This content is a little bit longer.</p>
-      <p class="card-text"><small class="text-muted">Last updated 3 mins ago</small></p>
+      <h5 class="card-title">{{job.job_num}}</h5>
+      <p class="card-text">Due: {{job.due}}</p>
+      <p class="card-text">Customer: {{job.customer}}</p>
+      <p class="card-text">Style: {{job.style}}</p>
+      <p class="card-text">Assigned To: {{job.assigned_to}}</p>
+      <p class="card-text">Current Holder: {{job.location}}</p>
+
+      <p class="card-text"><small class="text-muted">Last updated {{job.last_updated}}</small></p>
+      <div class="card-footer">
+        <a class="btn btn-primary" href="{% url 'culet:job_update' job.id %}">Edit Job Details</a>
+
+        <a class="btn btn-warning" href="{% url 'culet:index_job' %}">Back</a>
+      </div>
     </div>
   </div>
 
-<h1>{{ job.name }}</h1>
-<ul>
-    <li>{{ job.customer }}</li>
-    <li>{{ job.job_num }}</li>
-</ul>
-
-
-<a href="{% url 'culet:job_update' job.id %}"><button>Edit Job Details</button></a>
-
-<a class="button" href="{% url 'culet:index_job' %}"><button>Back</button></a>
-    
-
-<br>
-<br>
-<br>
 <br>
 
-<table>
-    <th>
-        <td>Assigned To</td>
-    </th>
+<table class="index_table job_index">
     <tr>
-        <td>{{ job.assigned_to }}</td>
-    </tr>
-</table>
-
-<table>
-    <th>
         <td>Activity</td>
         <td>Start Time</td>
-    </th>
+        <td>End Time</td>
+        <td>Employee</td>
+        <td>Duration</td>
+        <td></td>
+    </tr>
     {% for act in activity %}
         <tr>
             <td>{{ act.name }}</td>
             <td>{{ act.start }}</td>
             <td>{{ act.end }}</td>
-            
+            <td>{{ act.employee }}</td>
+            <td>{{ act.duration_hours }} h {{ act.duration_min }} m</td>
             
             {% if act.active == False %}
                 <td></td>

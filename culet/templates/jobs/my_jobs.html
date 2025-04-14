@@ -22,7 +22,7 @@
 
     {% if latest_job_list %}
 
-        <table id = "job_index">
+        <table class="index_table job_index">
             <tr>
                 <td>Number</td>
                 <td>Name</td>
@@ -49,16 +49,21 @@
     {% endif %}
 
 {% endif %}
-    
-<form action="/culet/activities/start" method="POST">
-    {% csrf_token %}
-    <input name="job" type="text">
-    <select name="name" id="">
-        <option value="cleaning">Cleaning</option>
-        <option value="polishing">Polishing</option>
-        <option value="setting">Setting</option>
-    </select>
-    <button type="submit">Start Job</button>
-</form>
+
+
+{% if user.employee.clocked_in == True %}    
+    <form action="/culet/activities/start" method="POST">
+        {% csrf_token %}
+        <input name="job" type="text">
+        <select name="name" id="">
+            <option value="cleaning">Cleaning</option>
+            <option value="polishing">Polishing</option>
+            <option value="setting">Setting</option>
+        </select>
+        <button type="submit">Start Job</button>
+    </form>
+{% else %}
+    Plese Clock In to Start Work
+{% endif %}
 
 {% endblock content %}
