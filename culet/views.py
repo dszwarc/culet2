@@ -8,7 +8,7 @@ from django.contrib import messages
 from django.shortcuts import render
 from django.contrib.auth.mixins import LoginRequiredMixin
 from .filters import JobFilter, ActivityFilter
-from .forms import JobForm, StyleForm
+from .forms import JobForm, StyleForm, JobUpdateForm
 
 class JobListView(LoginRequiredMixin,generic.ListView):
     model = Job
@@ -80,8 +80,8 @@ class JobCreateView(LoginRequiredMixin,generic.CreateView):
 
 class JobUpdateView(LoginRequiredMixin,generic.UpdateView):
     model = Job
+    form_class = JobUpdateForm
     template_name = "jobs/update.html"
-    fields = '__all__'
     success_url=reverse_lazy('culet:index_job')
 
 class StyleListView(LoginRequiredMixin,generic.ListView):
@@ -107,9 +107,11 @@ class AssignJobView(LoginRequiredMixin,generic.TemplateView):
         job.assigned_to = Employee.objects.get(id=request.POST["employee"])
         job.save()
         messages.success(request,f"Job {job.job_num} has been assigned.")
-        return render(request, 'jobs/assign.html')
-    
+        #return render(request, 'jobs/assign.html')
+        return HttpResponseRedirect(reverse('culet:assign_job'))
+
 def startWork(request):
+    #NEED LOGIC TO PREVENT EMP FROM STARTING WORK THAT IS NOT ASSIGNED TO THEM OR IF THEY ARE NOT LOGGED IN
     job_query = Job.objects.get(job_num=request.POST["job"])
 
     # if job is not active, creates an acitivty for it with start time now
@@ -125,7 +127,6 @@ def startWork(request):
         #makes job object active if it was not
         job_query.active = True
         
-        # 
         job_query.assigned_to = Employee.objects.get(user=request.user)
         
         job_query.save()
@@ -135,6 +136,7 @@ def startWork(request):
     return HttpResponseRedirect(reverse('culet:my_jobs'))
 
 def stopWork(request, pk, job_id):
+    #NEED LOGIC TO PREVENT EMP FROM STARTING WORK THAT IS NOT ASSIGNED TO THEM OR IF THEY ARE NOT LOGGED IN
     activ = Activity.objects.get(id=pk)
     if not activ.end:
         activ.end = timezone.now()
@@ -176,3 +178,11 @@ def clock_out(request):
     else:
         messages.success(request, "Can't clock out because you are not clocked in.")
         return HttpResponseRedirect(reverse('culet:index_job'))
+
+def receive(request):
+    #NOT TESTED. NEEDS UPDATING FOR LIMITING WHEN THIS IS ALLOWED
+    job = Job.objects.get(job_num=request.POST["job"])
+    job.location = request.user.employee
+    job.save()
+    messages.success(request, f"Job {job.job_num} Received")
+    return HttpResponseRedirect(reverse('culet:my_jobs'))

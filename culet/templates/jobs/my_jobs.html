@@ -4,15 +4,10 @@
     
 {% if user.is_authenticated %}
 
-<form action="/culet/activities/start" method="POST">
+<form action="{% url 'culet:receive' %}" method="POST">
     {% csrf_token %}
     <input name="job" type="text">
-    <select name="name" id="">
-        <option value="cleaning">Cleaning</option>
-        <option value="polishing">Polishing</option>
-        <option value="setting">Setting</option>
-    </select>
-    <button type="submit">Start Job</button>
+    <button type="submit">Receive Job</button>
 </form>
 
 {% if messages %}
@@ -55,6 +50,15 @@
 
 {% endif %}
     
-    
+<form action="/culet/activities/start" method="POST">
+    {% csrf_token %}
+    <input name="job" type="text">
+    <select name="name" id="">
+        <option value="cleaning">Cleaning</option>
+        <option value="polishing">Polishing</option>
+        <option value="setting">Setting</option>
+    </select>
+    <button type="submit">Start Job</button>
+</form>
 
 {% endblock content %}

@@ -17,4 +17,5 @@ urlpatterns = [
     path("reporting", views.ReportingListView.as_view(), name="reporting"),
     path("clock_in",views.clock_in,name="clock_in"),
     path("clock_out", views.clock_out,name="clock_out"),
+    path("receive", views.receive,name='receive'),
 ]
