@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.urls import include, path
+from django.contrib.auth.views import LoginView
 
 """
 URL configuration for celjewelry project.
@@ -21,7 +22,8 @@ from django.contrib import admin
 from django.urls import path
 
 urlpatterns = [
-    path('accounts/', include("django.contrib.auth.urls")),
+    path('', LoginView.as_view()),
+    #path('accounts/', include("django.contrib.auth.urls")),
     path('culet/', include("culet.urls")),
     path('admin/', admin.site.urls),
 ]

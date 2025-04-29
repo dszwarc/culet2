@@ -10,6 +10,9 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from .filters import JobFilter, ActivityFilter
 from .forms import JobForm, StyleForm, JobUpdateForm
 
+def index(request):
+    return render(request, 'authentication/login.html')
+
 class JobListView(LoginRequiredMixin,generic.ListView):
     model = Job
     template_name = "jobs/index.html"

@@ -1,6 +1,7 @@
 from django import forms
 from .models import Job, Style
 from django.utils import timezone
+from django.contrib.auth.forms import AuthenticationForm, UsernameField
 
 class JobForm(forms.ModelForm):
     class Meta:
