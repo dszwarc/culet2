@@ -22,8 +22,8 @@ from django.contrib import admin
 from django.urls import path
 
 urlpatterns = [
-    path('', LoginView.as_view()),
-    #path('accounts/', include("django.contrib.auth.urls")),
+    #path('', LoginView.as_view()),
+    path('accounts/', include("django.contrib.auth.urls")),
     path('culet/', include("culet.urls")),
     path('admin/', admin.site.urls),
 ]
