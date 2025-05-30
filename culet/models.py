@@ -77,6 +77,10 @@ class Job(models.Model):
     def is_past_due(self):
         return date.today() > self.due
 
+    @property
+    def is_near_due(self):
+        return date.today() > self.due - 30
+
     def __str__(self):
         return str(self.job_num).zfill(5)
     
