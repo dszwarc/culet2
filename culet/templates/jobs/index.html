@@ -34,7 +34,7 @@
                         </td>
                         <td>{{ job.location }}</td>
                         <td>{{ job.customer }}</td>
-                        <td {% if job.is_past_due%}class="past_due"{% else %}{% endif %}>{{ job.due }}</td>
+                        <td {% if job.is_past_due%}class="past_due"{% elif job.is_near_due %}class="near_due"{% endif %}>{{ job.due }}</td>
                         
                     </tr>
                 

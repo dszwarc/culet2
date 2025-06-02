@@ -128,7 +128,7 @@ def startWork(request):
         activity.save()
         
         #makes job object active if it was not
-        job_query.active = True
+        job_query.in_work = True
         
         job_query.assigned_to = Employee.objects.get(user=request.user)
         
@@ -140,15 +140,15 @@ def startWork(request):
 
 def stopWork(request, pk, job_id):
     #NEED LOGIC TO PREVENT EMP FROM STARTING WORK THAT IS NOT ASSIGNED TO THEM OR IF THEY ARE NOT LOGGED IN
-    activ = Activity.objects.get(id=pk)
-    if not activ.end:
-        activ.end = timezone.now()
-        activ.active = False
-        activ.save()
+    act = Activity.objects.get(id=pk)
+    if not act.end:
+        act.end = timezone.now()
+        act.active = False
+        act.save()
     else:
         pass
     job = Job.objects.get(id=job_id)
-    job.active = False
+    job.in_work = False
     job.save()
     # return HttpResponseRedirect(reverse('culet:index_job'))
     messages.success(request,f"Job {job.job_num} has been stopped. ({activ.name})")
@@ -170,6 +170,12 @@ def clock_in(request):
 
 def clock_out(request):
     if request.user.employee.clocked_in == True:
+
+        activities_in_progress = Activity.objects.filter(employee=request.user.employee,active=True)
+        print(activities_in_progress)
+        for act in activities_in_progress:
+            stopWork(request,act,act.job)
+
         clocking_out = TimeClock.objects.filter(employee=request.user.employee,clock_out__isnull=True)
         for obj in clocking_out:
             obj.clock_out = timezone.now()

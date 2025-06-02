@@ -95,6 +95,10 @@ table{
     color: white;
 }
 
+.near_due{
+    background-color: #ffaf5f;
+}
+
 .barcode {
     font-feature-settings: "calt" 1;
     font-family: "Libre Barcode 39 Extended Text", system-ui;

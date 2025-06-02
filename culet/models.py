@@ -1,7 +1,7 @@
 from django.db import models
 from django.utils import timezone
 from django.urls import reverse
-from datetime import date
+from datetime import date, timedelta
 from django.contrib.auth.models import User
 # Create your models here.
 
@@ -63,7 +63,9 @@ class Job(models.Model):
     name = models.CharField(max_length=80,default="N/A")
     customer = models.CharField(max_length=80)
     job_num = models.IntegerField(default=0, unique=True)
+    customer_ref_num = models.IntegerField(null=True, unique=True)
     active = models.BooleanField(default=True)
+    shipped = models.BooleanField(default=False)
     in_work = models.BooleanField(default=False)
     style = models.ForeignKey(Style, on_delete=models.CASCADE)
     created = models.DateTimeField(default=timezone.now, editable = False)
@@ -79,7 +81,7 @@ class Job(models.Model):
 
     @property
     def is_near_due(self):
-        return date.today() > self.due - 30
+        return date.today() > self.due - timedelta(days=30)
 
     def __str__(self):
         return str(self.job_num).zfill(5)
