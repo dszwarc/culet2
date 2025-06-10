@@ -33,8 +33,19 @@ class MyJobListView(LoginRequiredMixin,generic.ListView):
     template_name = "jobs/my_jobs.html"
     context_object_name = "latest_job_list"
     def get_queryset(self):
-        return Job.objects.filter(assigned_to=Employee.objects.get(user=self.request.user))
+        employee = Employee.objects.get(user=self.request.user)
+        job_query = Job.objects.filter(assigned_to=employee,location=employee)
+        return job_query
 
+class ReceiveListView(LoginRequiredMixin, generic.ListView):
+    model = Job
+    template_name = "jobs/receive_list.html"
+    context_object_name = "receive_list"
+    def get_queryset(self):
+        employee = Employee.objects.get(user=self.request.user)
+        job_query = Job.objects.filter(assigned_to=employee).exclude(location=employee)
+        return job_query
+    
 class ReportingListView(LoginRequiredMixin, generic.ListView):
     model = Activity
     template_name = "reporting/index.html"
@@ -115,29 +126,31 @@ class AssignJobView(LoginRequiredMixin,generic.TemplateView):
 
 def startWork(request):
     #NEED LOGIC TO PREVENT EMP FROM STARTING WORK THAT IS NOT ASSIGNED TO THEM OR IF THEY ARE NOT LOGGED IN
-    job_query = Job.objects.get(job_num=request.POST["job"])
+    if request.user:
+        job_query = Job.objects.get(job_num=request.POST["job"])
 
-    # if job is not active, creates an acitivty for it with start time now
-    if job_query.active == False:
-        activity = Activity(
-            name = request.POST["name"],
-            start = timezone.now(),
-            job = job_query,
-            employee = request.user.employee,
-        )
-        activity.save()
-        
-        #makes job object active if it was not
-        job_query.in_work = True
-        
-        job_query.assigned_to = Employee.objects.get(user=request.user)
-        
-        job_query.save()
-        messages.success(request,f"Job {job_query.job_num} has been started. ({activity.name})")
+        # if job is not active, creates an acitivty for it with start time now
+        if job_query.in_work == False:
+            activity = Activity(
+                name = request.POST["name"],
+                start = timezone.now(),
+                job = job_query,
+                employee = request.user.employee,
+            )
+            activity.save()
+            
+            #makes job object active if it was not
+            job_query.in_work = True
+            
+            job_query.assigned_to = Employee.objects.get(user=request.user)
+            
+            job_query.save()
+            messages.success(request,f"Job {job_query.job_num} has been started. ({activity.name})")
+        else:
+            messages.error(request,f"Job {job_query.job_num} could not be started. Activity already started.")
+        return HttpResponseRedirect(reverse('culet:my_jobs'))
     else:
-        messages.error(request,f"Job {job_query.job_num} could not be started. Activity already started.")
-    return HttpResponseRedirect(reverse('culet:my_jobs'))
-
+        messages.error(request,f"Job {job_query.job_num} could not be started. User not logged in.")
 def stopWork(request, pk, job_id):
     #NEED LOGIC TO PREVENT EMP FROM STARTING WORK THAT IS NOT ASSIGNED TO THEM OR IF THEY ARE NOT LOGGED IN
     act = Activity.objects.get(id=pk)
@@ -151,7 +164,7 @@ def stopWork(request, pk, job_id):
     job.in_work = False
     job.save()
     # return HttpResponseRedirect(reverse('culet:index_job'))
-    messages.success(request,f"Job {job.job_num} has been stopped. ({activ.name})")
+    messages.success(request,f"Job {job.job_num} has been stopped. ({act.name})")
     return HttpResponseRedirect(reverse('culet:my_jobs'))
 
 def clock_in(request):
@@ -174,7 +187,7 @@ def clock_out(request):
         activities_in_progress = Activity.objects.filter(employee=request.user.employee,active=True)
         print(activities_in_progress)
         for act in activities_in_progress:
-            stopWork(request,act,act.job)
+            stopWork(request,act.id,act.job.id)
 
         clocking_out = TimeClock.objects.filter(employee=request.user.employee,clock_out__isnull=True)
         for obj in clocking_out:

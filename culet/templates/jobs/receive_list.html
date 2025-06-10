@@ -3,6 +3,13 @@
 {% block content %}
     
 {% if user.is_authenticated %}
+
+<form action="{% url 'culet:receive' %}" method="POST">
+    {% csrf_token %}
+    <input name="job" type="text">
+    <button type="submit">Receive Job</button>
+</form>
+
 {% if messages %}
     <ul class="messages">
         
@@ -13,7 +20,7 @@
     </ul>
 {% endif %}
 
-    {% if latest_job_list %}
+    {% if receive_list %}
 
         <table class="index_table job_index">
             <tr>
@@ -23,8 +30,9 @@
                 <td>Customer</td>
                 <td>Due Date</td>
                 <td>Active</td>
+                <td>Receive</td>
             </tr>
-            {% for job in latest_job_list %}
+            {% for job in receive_list %}
                     <tr class="{% if forloop.counter|divisibleby:2 %}even_row{% else %}odd_row{% endif %}">
                         <td><a href="{% url 'culet:job_detail' job.id %}">{{ job.job_num }}</a></td>
                         <td>{{ job.name }}</td>
@@ -32,6 +40,13 @@
                         <td>{{ job.customer }}</td>
                         <td {% if job.is_past_due%}class="past_due"{% else %}{% endif %}>{{ job.due }}</td>
                         <td>{{ job.active }}</td>
+                        <td>
+                            <form action="{% url 'culet:receive' %}" method="POST">
+                                {% csrf_token %}
+                                <input name="job" type="hidden" value="{{ job.job_num }}">
+                                <button class="btn btn-success" type="submit">Receive Job</button>
+                            </form>
+                        </td>
                     </tr>
                 
             {% endfor %}

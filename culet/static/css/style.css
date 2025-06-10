@@ -39,7 +39,7 @@ table{
     text-align: center;
 }
 
-.nav_link:hover{
+.nav_link:hover, .active_link{
     background-color: rgb(255, 255, 255);
     margin: 0;
     text-decoration: none;
@@ -162,4 +162,11 @@ table{
 
 .header{
     margin:1em;
+}
+
+.clock_status{
+    width: 100%;
+    padding: .5em;
+    text-align: center;
+    color: white;
 }
