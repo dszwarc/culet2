@@ -21,8 +21,8 @@ class JobFilter(django_filters.FilterSet):
 class ActivityFilter(django_filters.FilterSet):
     name = CharFilter(label='Operation:',field_name='name',lookup_expr='icontains')
     style = CharFilter(label='Style:', field_name='job__style__name', lookup_expr='icontains')
-    start = DateFilter(label='Started after:',field_name="start", lookup_expr='gte')
-    end = DateFilter(label='Ended before:', field_name="end", lookup_expr='lte')
+    start = DateFilter(widget=forms.DateInput(attrs={'type':'date'}),label='Started after:',field_name="start", lookup_expr='gte')
+    end = DateFilter(widget=forms.DateInput(attrs={'type':'date'}),label='Ended before:', field_name="end", lookup_expr='lte')
     job = CharFilter(label='Job:', field_name='job__job_num', lookup_expr='icontains')
 
     class Meta:
