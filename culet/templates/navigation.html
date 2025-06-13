@@ -23,7 +23,11 @@
             {% else %}
                 <a class="tc_button btn btn-success" href="{% url 'culet:clock_in' %}">Clock In</a>
             {% endif %}
-                <a class="nav_link" href="{% url 'logout' %}">Log Out</a>
+                <!-- <a class="nav_link" href="{% url 'logout' %}">Log Out</a> -->
+                 <form action="{% url 'logout' %}" method="POST">
+                    {% csrf_token %}
+                    <button type="link" class="nav_link">Logout</button>
+                 </form>
         {% else %}
                 <a class="nav_link" href="{% url 'login' %}">Login</a>
         {% endif %}

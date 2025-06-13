@@ -129,26 +129,28 @@ def startWork(request):
     if request.user:
         job_query = Job.objects.get(job_num=request.POST["job"])
 
+        #check to see if job that is being queried is assigned to the user before allowing user to start work.
+        if job_query.assigned_to == Employee.objects.get(user=request.user):
         # if job is not active, creates an acitivty for it with start time now
-        if job_query.in_work == False:
-            activity = Activity(
-                name = request.POST["name"],
-                start = timezone.now(),
-                job = job_query,
-                employee = request.user.employee,
-            )
-            activity.save()
-            
-            #makes job object active if it was not
-            job_query.in_work = True
-            
-            job_query.assigned_to = Employee.objects.get(user=request.user)
-            
-            job_query.save()
-            messages.success(request,f"Job {job_query.job_num} has been started. ({activity.name})")
-        else:
-            messages.error(request,f"Job {job_query.job_num} could not be started. Activity already started.")
-        return HttpResponseRedirect(reverse('culet:my_jobs'))
+            if job_query.in_work == False:
+                activity = Activity(
+                    name = request.POST["name"],
+                    start = timezone.now(),
+                    job = job_query,
+                    employee = request.user.employee,
+                )
+                activity.save()
+                
+                #makes job object active if it was not
+                job_query.in_work = True
+                
+                job_query.assigned_to = Employee.objects.get(user=request.user)
+                
+                job_query.save()
+                messages.success(request,f"Job {job_query.job_num} has been started. ({activity.name})")
+            else:
+                messages.error(request,f"Job {job_query.job_num} could not be started. Activity already started.")
+            return HttpResponseRedirect(reverse('culet:my_jobs'))
     else:
         messages.error(request,f"Job {job_query.job_num} could not be started. User not logged in.")
 def stopWork(request, pk, job_id):

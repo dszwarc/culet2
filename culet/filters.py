@@ -3,11 +3,12 @@ from django_filters import DateFilter, CharFilter, DateTimeFilter
 from .models import *
 from django import forms
 
+
 class JobFilter(django_filters.FilterSet):
     #start_date = DateFilter(label='Created after:',field_name="created", lookup_expr='gte')
     #end_date = DateFilter(label='Created before:', field_name="created", lookup_expr='lte')
     job_num = CharFilter(label='Job Number:',field_name='job_num', lookup_expr='icontains')
-    due_date = DateFilter(label='Due Before:',field_name='due', lookup_expr='lte')
+    due_date = DateFilter(widget=forms.DateInput(attrs={'type':'date'}),label='Due Before:',field_name='due', lookup_expr='lte')
     notes = CharFilter(label='Notes:',field_name='notes', lookup_expr='icontains')
     customer = CharFilter(label='Customer',field_name='customer', lookup_expr='icontains')
     
