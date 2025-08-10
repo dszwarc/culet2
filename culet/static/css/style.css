@@ -15,11 +15,21 @@ table{
 }
 
 .filter_box{
+    display: flex;
+    flex-direction: row;
     background-color: #7bbc7f;
     margin: 1em;
     padding: 1em;
     border-radius: .5em;
     font-size: small;
+    width: 80%;
+}
+
+.filter_box form{
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: space-evenly;
 }
 
 .container{
