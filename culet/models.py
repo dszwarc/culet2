@@ -90,8 +90,13 @@ class Job(models.Model):
         return reverse('culet:job_detail', kwargs={'pk': self.pk})
 
 class Component(models.Model):
+    component_id = models.CharField(max_length=100, unique=True)
     comp_type = models.ForeignKey(ComponentType, on_delete=models.CASCADE)
     job = models.OneToOneField(Job, on_delete=models.CASCADE)
+    in_stock = models.BooleanField(default=True)
+
+    def __str__(self):
+        return 
 
 class Activity(models.Model):
     name = models.CharField(max_length=80)
@@ -126,3 +131,26 @@ class TimeClock(models.Model):
     clock_in = models.DateTimeField(null=True)
     clock_out = models.DateTimeField(null=True)
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
+
+
+class ComponentType(models.Model):
+
+    type_choices = [
+        ("ST", "stone"),
+        ("CS", "casting"),
+        ("CH", "chain"),
+        ("OT","other"),
+    ]
+
+    name = models.TextField
+    types = models.CharField(
+        max_length = 2,
+        choices = type_choices,
+        default = "OT"
+        )
+
+# class Component(models.Model):
+#     reference_num = models.IntegerField()
+#     Job = models.ForeignKey(Job, on_delete=models.CASCADE)
+#     comp_type = models.ManyToManyField(ComponentType)
+    
