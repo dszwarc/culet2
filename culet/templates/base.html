@@ -16,13 +16,13 @@
 <body>
     {% include 'navigation.html' %}
 
-        
-        {% if user.employee.clocked_in == True %}
-            <span class="clock_status" style='background-color:green;'>YOU ARE CLOCKED IN</span>
-        {% else %}
-            <span class="clock_status" style='background-color:red;'>PLEASE CLOCK IN</span>
-        {% endif %}
-            
+        {% if user.employee %}    
+            {% if user.employee.clocked_in == True %}
+                <span class="clock_status" style='background-color:green;'>YOU ARE CLOCKED IN</span>
+            {% else %}
+                <span class="clock_status" style='background-color:red;'>PLEASE CLOCK IN</span>
+            {% endif %}
+         {% endif %}       
     {% block content %}
         Nothing found
     {% endblock %}

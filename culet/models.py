@@ -89,10 +89,15 @@ class Job(models.Model):
     def get_absolute_url(self):
         return reverse('culet:job_detail', kwargs={'pk': self.pk})
 
+class ComponentType(models.Model):
+
+    name = models.CharField(max_length=100,unique=True)
+
+
 class Component(models.Model):
     component_id = models.CharField(max_length=100, unique=True)
     comp_type = models.ForeignKey(ComponentType, on_delete=models.CASCADE)
-    job = models.OneToOneField(Job, on_delete=models.CASCADE)
+    job = models.OneToOneField(Job, on_delete=models.CASCADE, null=True)
     in_stock = models.BooleanField(default=True)
 
     def __str__(self):
@@ -132,25 +137,12 @@ class TimeClock(models.Model):
     clock_out = models.DateTimeField(null=True)
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
 
+class StyleComponent(models.model):
+    style = models.ForeignKey(Style, on_delete=models.CASCADE)
+    component_type = models.ForeignKey(ComponentType, on_delete=models.CASCADE)
+    quantity_required = models.PositiveIntegerField()
 
-class ComponentType(models.Model):
-
-    type_choices = [
-        ("ST", "stone"),
-        ("CS", "casting"),
-        ("CH", "chain"),
-        ("OT","other"),
-    ]
-
-    name = models.TextField
-    types = models.CharField(
-        max_length = 2,
-        choices = type_choices,
-        default = "OT"
-        )
-
-# class Component(models.Model):
-#     reference_num = models.IntegerField()
-#     Job = models.ForeignKey(Job, on_delete=models.CASCADE)
-#     comp_type = models.ManyToManyField(ComponentType)
-    
+class JobComponent(models.model):
+    order = models.ForeignKey(Job, on_delete=models.CASCADE)
+    style_component = models.ForeignKey(StyleComponent, on_delete=models.CASCADE)
+    component= models.ForeignKey(Component, on_delete=models.CASCADE)
