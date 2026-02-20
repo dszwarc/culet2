@@ -1,14 +1,16 @@
 from django.db.models.query import QuerySet
-from django.http import HttpResponse, HttpResponseRedirect
-from .models import Job, Style, Activity, Employee, TimeClock
+from django.http import HttpResponse, HttpResponseRedirect, HttpResponseBadRequest
+from .models import ComponentType, StyleComponent, Job, Style, Activity, Employee, TimeClock
 from django.views import generic
 from django.urls import reverse_lazy, reverse
 from django.utils import timezone
 from django.contrib import messages
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.contrib.auth.mixins import LoginRequiredMixin
 from .filters import JobFilter, ActivityFilter
 from .forms import JobForm, StyleForm, JobUpdateForm
+from django.template.loader import render_to_string
+import copy
 
 def index(request):
     return render(request, 'authentication/login.html')
@@ -102,15 +104,20 @@ class StyleListView(LoginRequiredMixin,generic.ListView):
     model = Style
     template_name = "styles/index.html"
     context_object_name = "style_list"
-    # def get_queryset(self):
-    #     return Job.objects.order_by("-name")[:5]
+    def get_queryset(self):
+        return Style.objects.all()#.prefetch_related(
+            #"style_components__component_type",
+            #"style_components__attribute_contraints__attribute",
+        #)
 
-class StyleCreateView(LoginRequiredMixin,generic.CreateView):
+class StyleDetailView(LoginRequiredMixin,generic.DetailView):
     model = Style
-    form_class = StyleForm
+    template_name = "styles/detail.html"
+    context_object_name = "style"
+
+class StyleCreateView(LoginRequiredMixin, generic.CreateView):
+    model = Style
     template_name = "styles/create.html"
-    # fields = '__all__'
-    success_url=reverse_lazy('culet:index_style')
 
 class AssignJobView(LoginRequiredMixin,generic.TemplateView):
     def get(self, request, *args, **kwargs):
@@ -168,6 +175,9 @@ def stopWork(request, pk, job_id):
     # return HttpResponseRedirect(reverse('culet:index_job'))
     messages.success(request,f"Job {job.job_num} has been stopped. ({act.name})")
     return HttpResponseRedirect(reverse('culet:my_jobs'))
+
+def createStyle(request):
+    new_style = Style()
 
 def clock_in(request):
     if request.user.employee.clocked_in == False:

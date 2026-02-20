@@ -5,7 +5,10 @@ from datetime import date, timedelta
 from django.contrib.auth.models import User
 # Create your models here.
 
-class ProductChoices(models.Model):
+class StoneType(models.Model):
+    name = models.CharField(max_length=80, unique=True)
+
+class MetalType(models.Model):
     name = models.CharField(max_length=80, unique=True)
 
 class Customer(models.Model):
@@ -14,9 +17,6 @@ class Customer(models.Model):
     email = models.EmailField(max_length=200)
     phone = models.CharField(max_length=12)
     number = models.IntegerField(unique=True)
-
-class ComponentType(models.Model):
-    name = models.CharField(max_length=80, default="Stone", unique=True)
 
 class Department(models.Model):
     name = models.CharField(max_length=80, default="Production")
@@ -42,32 +42,21 @@ class Employee(models.Model):
         return (str(self.user.first_name) + " " + str(self.user.last_name))
 
 class Style(models.Model):
-    
-    product_choices = [
-        ("RG", "Ring"),
-        ("BR", "Bracelet"),
-        ("NK", "Necklace"),
-    ]
-
     name = models.CharField(max_length=50, unique=True)
-    product = models.CharField(
-        max_length = 2,
-        choices = product_choices,
-        default = "RG"
-        )
-    def __str__(self):
-        return str(self.name)
+    customer = models.ForeignKey(Customer, blank=True, on_delete=models.PROTECT, null=True)
+    stamp = models.CharField(blank=True, max_length=80)
+    description = models.TextField(max_length=500)
 
 class Job(models.Model):
 
     name = models.CharField(max_length=80,default="N/A")
-    customer = models.CharField(max_length=80)
+    customer = models.ForeignKey(Customer, on_delete=models.PROTECT, null=True)
     job_num = models.IntegerField(default=0, unique=True)
     customer_ref_num = models.IntegerField(null=True, unique=True)
     active = models.BooleanField(default=True)
     shipped = models.BooleanField(default=False)
     in_work = models.BooleanField(default=False)
-    style = models.ForeignKey(Style, on_delete=models.CASCADE)
+    style = models.ForeignKey(Style, on_delete=models.PROTECT)
     created = models.DateTimeField(default=timezone.now, editable = False)
     due = models.DateField(default=timezone.now)
     last_updated = models.DateTimeField(auto_now=True)
@@ -88,20 +77,50 @@ class Job(models.Model):
     
     def get_absolute_url(self):
         return reverse('culet:job_detail', kwargs={'pk': self.pk})
+    
+class Metal(models.Model):
+    lot_num = models.IntegerField(unique=True, blank=True)
+    job = models.ForeignKey(Job, on_delete=models.CASCADE, null=True, blank=True)
+    metal_type = models.ForeignKey(MetalType, on_delete=models.PROTECT, null=True, blank=True)
+    weight = models.IntegerField(max_length=10)
 
-class ComponentType(models.Model):
+class MetalPart(models.Model):
+    sku = models.CharField(max_length=50, unique=True)
+    metal_type = models.ForeignKey(MetalType, on_delete=models.PROTECT, null=True)
+    description = models.TextField(max_length=200, blank=True)
 
-    name = models.CharField(max_length=100,unique=True)
+class MetalLot(models.Model):
+    lot_num = models.ForeignKey(max_length=50, unique=True)
+    part = models.ForeignKey(MetalPart, on_delete=models.PROTECT)
+    qty_on_hand = models.PositiveIntegerField(default=0)
+    received_at = models.DateField(auto_now_add=True)
 
+class StyleMetal(models.Model):
+    style = models.ForeignKey(Style, on_delete=models.CASCADE)
+    qty_req = models.PositiveIntegerField()
+    weight = models.PositiveIntegerField()
+    origin_id = models.CharField(null=True, blank=True)
+    metal_type = models.ForeignKey(MetalType, on_delete=models.CASCADE, blank=True)
 
-class Component(models.Model):
-    component_id = models.CharField(max_length=100, unique=True)
-    comp_type = models.ForeignKey(ComponentType, on_delete=models.CASCADE)
-    job = models.OneToOneField(Job, on_delete=models.CASCADE, null=True)
-    in_stock = models.BooleanField(default=True)
+class Stone(models.Model):
+    lot_num = models.IntegerField(unique=True)
+    job = models.ForeignKey(Job, on_delete=models.CASCADE, null=True)
+    stone_type = models.ForeignKey(StoneType, on_delete=models.PROTECT, null=True)
+    size = models.CharField(blank=True, default="")
+    weight = models.PositiveIntegerField(blank=True, default=1)
 
-    def __str__(self):
-        return 
+class StyleStone(models.Model):
+    style = models.ForeignKey(Style, on_delete=models.CASCADE)
+    qty_req = models.PositiveIntegerField()
+
+class FindingType(models.Model):
+    name = models.CharField(max_length=80, unique=True)
+    unit = models.CharField(max_length=10, default="pcs")
+
+class FindingStock(models.Model):
+    finding_type = models.ForeignKey(FindingType,on_delete=models.CASCADE)
+    name = models.CharField(max_length=50, unique=True)
+    qty_in_stock = models.DecimalField(max_digits=12, decimal_places=3, default=0)
 
 class Activity(models.Model):
     name = models.CharField(max_length=80)
@@ -136,13 +155,3 @@ class TimeClock(models.Model):
     clock_in = models.DateTimeField(null=True)
     clock_out = models.DateTimeField(null=True)
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
-
-class StyleComponent(models.model):
-    style = models.ForeignKey(Style, on_delete=models.CASCADE)
-    component_type = models.ForeignKey(ComponentType, on_delete=models.CASCADE)
-    quantity_required = models.PositiveIntegerField()
-
-class JobComponent(models.model):
-    order = models.ForeignKey(Job, on_delete=models.CASCADE)
-    style_component = models.ForeignKey(StyleComponent, on_delete=models.CASCADE)
-    component= models.ForeignKey(Component, on_delete=models.CASCADE)
