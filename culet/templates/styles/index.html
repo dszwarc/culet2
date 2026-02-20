@@ -22,7 +22,7 @@
             
             {% for style in style_list %}
             <tr>
-                <td>{{ style.name }}</td>
+                <td><a href="{% url 'culet:style_detail' style.id %}">{{ style.name }}</a></td>
                 <td>{{ style.product }}</td>
             </tr>
             {% endfor %}

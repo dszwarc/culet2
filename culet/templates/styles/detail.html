@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+
+
+{% block content %}
+
+<div class="card" style="width:60%;">
+    <div class="card-body">
+        <h5 class="card-title">{{style}}</h5>
+        <p class="card-text">Customer: {{style.customer}}</p>
+        <p class="card-text">Stamp: {{style.stamp}}</p>
+        <p class="card-text">Description: {{style.description}}</p>
+    </div>
+  </div>
+
+<br>
+
+<table class="index_table job_index">
+    <tr>
+        <td>Part Name</td>
+        <td>Quantity</td>
+        <td>Metal Type</td>
+        <td></td>
+    </tr>
+    {% for m in metal %}
+        <tr>
+            <td>{{ m.part }}</td>
+            <td>{{ m.qty_req }}</td>
+            <td>{{ m.metal_type }}</td>
+        </tr>
+    {% endfor %}
+        
+</table>
+
+<table class="index_table job_index">
+    <tr>
+        <td>Part Name</td>
+        <td>Quantity</td>
+        <td>Metal Type</td>
+        <td></td>
+    </tr>
+    {% for s in stones %}
+        <tr>
+            <td>{{ s.stone_type }}</td>
+            <td>{{ s.stone_shape}}</td>
+            <td>{{ s.stone_size }}</td>
+            <td>{{ s.qty_req }}</td>
+            
+        </tr>
+    {% endfor %}
+        
+</table>
+
+
+{% endblock content %}

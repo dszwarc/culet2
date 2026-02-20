@@ -7,16 +7,28 @@ from django.contrib.auth.models import User
 
 class StoneType(models.Model):
     name = models.CharField(max_length=80, unique=True)
+    def __str__(self):
+        return self.name
+    
+class StoneShape(models.Model):
+    name = models.CharField(max_length=80, unique=True)
+    def __str__(self):
+        return self.name
 
 class MetalType(models.Model):
     name = models.CharField(max_length=80, unique=True)
+    def __str__(self):
+        return self.name
 
 class Customer(models.Model):
     name = models.CharField(max_length=80,unique=True)
     address = models.CharField(max_length=150)
     email = models.EmailField(max_length=200)
     phone = models.CharField(max_length=12)
-    number = models.IntegerField(unique=True)
+    number = models.IntegerField(blank=True, null=True)
+
+    def __str__(self):
+        return self.name
 
 class Department(models.Model):
     name = models.CharField(max_length=80, default="Production")
@@ -45,7 +57,11 @@ class Style(models.Model):
     name = models.CharField(max_length=50, unique=True)
     customer = models.ForeignKey(Customer, blank=True, on_delete=models.PROTECT, null=True)
     stamp = models.CharField(blank=True, max_length=80)
-    description = models.TextField(max_length=500)
+    description = models.TextField(max_length=500, null=True)
+    product = models.CharField(max_length=20, blank=True)
+
+    def __str__(self):
+        return self.name
 
 class Job(models.Model):
 
@@ -82,25 +98,28 @@ class Metal(models.Model):
     lot_num = models.IntegerField(unique=True, blank=True)
     job = models.ForeignKey(Job, on_delete=models.CASCADE, null=True, blank=True)
     metal_type = models.ForeignKey(MetalType, on_delete=models.PROTECT, null=True, blank=True)
-    weight = models.IntegerField(max_length=10)
+    weight = models.CharField(max_length=10)
 
 class MetalPart(models.Model):
     sku = models.CharField(max_length=50, unique=True)
-    metal_type = models.ForeignKey(MetalType, on_delete=models.PROTECT, null=True)
-    description = models.TextField(max_length=200, blank=True)
+    description = models.TextField(max_length=200, blank=True, null=True)
+    def __str__(self):
+        return self.sku
 
 class MetalLot(models.Model):
-    lot_num = models.ForeignKey(max_length=50, unique=True)
+    lot_num = models.CharField(max_length=50, unique=True)
     part = models.ForeignKey(MetalPart, on_delete=models.PROTECT)
     qty_on_hand = models.PositiveIntegerField(default=0)
     received_at = models.DateField(auto_now_add=True)
 
 class StyleMetal(models.Model):
     style = models.ForeignKey(Style, on_delete=models.CASCADE)
-    qty_req = models.PositiveIntegerField()
-    weight = models.PositiveIntegerField()
-    origin_id = models.CharField(null=True, blank=True)
+    part = models.ForeignKey(MetalPart, on_delete=models.CASCADE)
+    qty_req = models.PositiveIntegerField(null=True, blank=True)
+    weight = models.PositiveIntegerField(null=True, blank=True)
     metal_type = models.ForeignKey(MetalType, on_delete=models.CASCADE, blank=True)
+    def __str__(self):
+        return f"{self.style} - {self.part}"
 
 class Stone(models.Model):
     lot_num = models.IntegerField(unique=True)
@@ -111,7 +130,12 @@ class Stone(models.Model):
 
 class StyleStone(models.Model):
     style = models.ForeignKey(Style, on_delete=models.CASCADE)
+    stone_type = models.ForeignKey(StoneType, on_delete=models.CASCADE, null=True)
+    stone_shape = models.ForeignKey(StoneShape, on_delete=models.CASCADE, null=True)
+    stone_size = models.CharField(max_length=10, blank=True, null=True)
     qty_req = models.PositiveIntegerField()
+    def __str__(self):
+        return f"{self.stone_size} {self.stone_shape} {self.stone_type} - {self.style}"
 
 class FindingType(models.Model):
     name = models.CharField(max_length=80, unique=True)

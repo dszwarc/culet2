@@ -1,6 +1,6 @@
 from django.db.models.query import QuerySet
 from django.http import HttpResponse, HttpResponseRedirect, HttpResponseBadRequest
-from .models import ComponentType, StyleComponent, Job, Style, Activity, Employee, TimeClock
+from .models import Job, Style, Activity, Employee, TimeClock, StyleMetal, StyleStone
 from django.views import generic
 from django.urls import reverse_lazy, reverse
 from django.utils import timezone
@@ -114,6 +114,14 @@ class StyleDetailView(LoginRequiredMixin,generic.DetailView):
     model = Style
     template_name = "styles/detail.html"
     context_object_name = "style"
+
+    def get_context_data(self, **kwargs):
+        data = super().get_context_data(**kwargs)
+        req_metal = StyleMetal.objects.filter(style=data['style'])
+        data['metal'] = req_metal
+        req_stones = StyleStone.objects.filter(style=data['style'])
+        data['stones'] = req_stones
+        return data
 
 class StyleCreateView(LoginRequiredMixin, generic.CreateView):
     model = Style
