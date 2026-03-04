@@ -20,4 +20,7 @@ urlpatterns = [
     path("clock_out", views.clock_out,name="clock_out"),
     path("receive", views.receive,name='receive'),
     path("receive_list", views.ReceiveListView.as_view(), name="receive_list"),
+    path("lots", views.MetalLotListView.as_view(),name="metal_lot_list"),
+    path("lots/create",views.MetalLotReceiveView.as_view(),name="metal_lot_receive"),
+    path("lots/<int:pk>",views.MetalLotDetailView.as_view(),name="metal_lot_detail"),
 ]

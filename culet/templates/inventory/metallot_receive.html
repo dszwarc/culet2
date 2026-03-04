@@ -1,0 +1,48 @@
+
+{% block content %}
+
+<h1>Receive Metal Lots</h1>
+
+<form method="post">
+  {% csrf_token %}
+  {{ form.management_form }}
+
+  <div id="lot-formset">
+    {% for f in form %}
+      <div class="lot-row" style="border:1px solid #ddd; padding:10px; margin-bottom:10px;">
+        {{ f.as_p }}
+      </div>
+    {% endfor %}
+  </div>
+
+  <button type="button" id="add-lot">Add Line</button>
+  <button type="submit">Receive</button>
+</form>
+
+<div id="empty-lot-form" style="display:none;">
+  <div class="lot-row" style="border:1px solid #ddd; padding:10px; margin-bottom:10px;">
+    {{ form.empty_form.as_p|safe }}
+  </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const addBtn = document.getElementById("add-lot");
+  const container = document.getElementById("lot-formset");
+  const emptyTemplate = document.getElementById("empty-lot-form").innerHTML;
+
+  const prefix = "{{ form.prefix }}";
+  const totalForms = document.getElementById(`id_${prefix}-TOTAL_FORMS`);
+
+  addBtn.addEventListener("click", function () {
+    const index = parseInt(totalForms.value, 10);
+    const newRowHtml = emptyTemplate.replace(/__prefix__/g, index);
+    container.insertAdjacentHTML("beforeend", newRowHtml);
+    totalForms.value = index + 1;
+  });
+});
+</script>
+
+{% endblock content %}
+
+

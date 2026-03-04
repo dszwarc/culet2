@@ -1,16 +1,18 @@
 from django.db.models.query import QuerySet
 from django.http import HttpResponse, HttpResponseRedirect, HttpResponseBadRequest
-from .models import Job, Style, Activity, Employee, TimeClock, StyleMetal, StyleStone
+from .models import Job, Style, Activity, Employee, TimeClock, StyleMetal, StyleStone, MetalLot
 from django.views import generic
 from django.urls import reverse_lazy, reverse
 from django.utils import timezone
 from django.contrib import messages
 from django.shortcuts import render, redirect
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.decorators import login_required
 from .filters import JobFilter, ActivityFilter
-from .forms import JobForm, StyleForm, JobUpdateForm
+from .forms import JobForm, StyleForm, JobUpdateForm, StyleMetalFormSet, StyleStoneFormSet, MetalLotFormSet
 from django.template.loader import render_to_string
 import copy
+from django.db import transaction
 
 def index(request):
     return render(request, 'authentication/login.html')
@@ -125,7 +127,38 @@ class StyleDetailView(LoginRequiredMixin,generic.DetailView):
 
 class StyleCreateView(LoginRequiredMixin, generic.CreateView):
     model = Style
+    form_class = StyleForm
     template_name = "styles/create.html"
+    success_url = reverse_lazy("culet:index_style")  # adjust
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        if self.request.POST:
+            context["metal_formset"] = StyleMetalFormSet(self.request.POST)
+            context["stone_formset"] = StyleStoneFormSet(self.request.POST)
+        else:
+            context["metal_formset"] = StyleMetalFormSet()
+            context["stone_formset"] = StyleStoneFormSet()
+
+        return context
+
+    def form_valid(self, form):
+        context = self.get_context_data()
+        metal_formset = context["metal_formset"]
+        stone_formset = context["stone_formset"]
+
+        if metal_formset.is_valid() and stone_formset.is_valid():
+            self.object = form.save()  # save Style first
+            metal_formset.instance = self.object
+            metal_formset.save()
+
+            stone_formset.instance = self.object
+            stone_formset.save()
+            return redirect(self.get_success_url())
+
+        # If formset invalid, re-render page with errors
+        return self.render_to_response(self.get_context_data(form=form))
 
 class AssignJobView(LoginRequiredMixin,generic.TemplateView):
     def get(self, request, *args, **kwargs):
@@ -228,3 +261,34 @@ def receive(request):
     job.save()
     messages.success(request, f"Job {job.job_num} Received")
     return HttpResponseRedirect(reverse('culet:my_jobs'))
+
+class MetalLotListView(LoginRequiredMixin, generic.ListView):
+    model = MetalLot
+    template = "inventory/metallot_list.html"
+
+class MetalLotReceiveView(LoginRequiredMixin, generic.FormView):
+    template_name = "inventory/metallot_receive.html"
+    form_class = MetalLotFormSet
+    success_url = reverse_lazy("culet:metal_lot_list")
+
+    def get_form(self, form_class=None):
+        if self.request.POST:
+            return MetalLotFormSet(self.request.POST)
+        return MetalLotFormSet()
+    
+    @transaction.atomic
+    def form_valid(self, formset):
+        #Save each non-deleted, non-empty row
+        for form in formset:
+            if not form.has_changed():
+                continue
+            if formset.can_delete and form.cleaned_data.get("DELETE"):
+                continue
+            form.save()
+        return redirect(self.get_success_url())
+    def form_invalid(self,formset):
+        return self.render_to_response(self.get_context_data(form=formset))
+    
+class MetalLotDetailView(LoginRequiredMixin, generic.DetailView):
+    model = MetalLot
+    template = "inventory/metallot_detail.html"

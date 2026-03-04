@@ -58,7 +58,7 @@ class Style(models.Model):
     customer = models.ForeignKey(Customer, blank=True, on_delete=models.PROTECT, null=True)
     stamp = models.CharField(blank=True, max_length=80)
     description = models.TextField(max_length=500, null=True)
-    product = models.CharField(max_length=20, blank=True)
+    product = models.CharField(max_length=20, blank=True, null=True)
 
     def __str__(self):
         return self.name
@@ -114,10 +114,10 @@ class MetalLot(models.Model):
 
 class StyleMetal(models.Model):
     style = models.ForeignKey(Style, on_delete=models.CASCADE)
-    part = models.ForeignKey(MetalPart, on_delete=models.CASCADE)
+    part = models.ForeignKey(MetalPart, on_delete=models.PROTECT)
     qty_req = models.PositiveIntegerField(null=True, blank=True)
     weight = models.PositiveIntegerField(null=True, blank=True)
-    metal_type = models.ForeignKey(MetalType, on_delete=models.CASCADE, blank=True)
+    metal_type = models.ForeignKey(MetalType, on_delete=models.PROTECT, blank=True)
     def __str__(self):
         return f"{self.style} - {self.part}"
 
@@ -130,8 +130,8 @@ class Stone(models.Model):
 
 class StyleStone(models.Model):
     style = models.ForeignKey(Style, on_delete=models.CASCADE)
-    stone_type = models.ForeignKey(StoneType, on_delete=models.CASCADE, null=True)
-    stone_shape = models.ForeignKey(StoneShape, on_delete=models.CASCADE, null=True)
+    stone_type = models.ForeignKey(StoneType, on_delete=models.PROTECT, null=True)
+    stone_shape = models.ForeignKey(StoneShape, on_delete=models.PROTECT, null=True)
     stone_size = models.CharField(max_length=10, blank=True, null=True)
     qty_req = models.PositiveIntegerField()
     def __str__(self):

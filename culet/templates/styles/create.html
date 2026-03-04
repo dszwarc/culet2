@@ -8,13 +8,96 @@
 
 {% block content %}
 
-<h1 class="header">Create New Style</h1>
+<h1>Create Style</h1>
 
-<div class="form-group">
-    <form method="POST">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button class="btn btn-primary" type="submit">Create Style</button>
-    </form>
+<form method="post">
+  {% csrf_token %}
+
+  <fieldset>
+    <legend>Style</legend>
+    {{ form.as_p }}
+  </fieldset>
+
+  <!-- METALS -->
+  <fieldset>
+    <legend>Metal Parts Required</legend>
+
+    {{ metal_formset.management_form }}
+
+    <div id="metal-formset">
+      {% for f in metal_formset %}
+        <div class="metal-row" style="border:1px solid #ddd; padding:10px; margin-bottom:10px;">
+          {{ f.as_p }}
+        </div>
+      {% endfor %}
+    </div>
+
+    <button type="button" id="add-metal">Add Metal Line</button>
+  </fieldset>
+
+  <!-- STONES -->
+  <fieldset>
+    <legend>Stones Required</legend>
+
+    {{ stone_formset.management_form }}
+
+    <div id="stone-formset">
+      {% for f in stone_formset %}
+        <div class="stone-row" style="border:1px solid #ddd; padding:10px; margin-bottom:10px;">
+          {{ f.as_p }}
+        </div>
+      {% endfor %}
+    </div>
+
+    <button type="button" id="add-stone">Add Stone Line</button>
+  </fieldset>
+
+  <button type="submit">Save Style</button>
+</form>
+
+<!-- empty metal row -->
+<div id="empty-metal-form" style="display:none;">
+  <div class="metal-row" style="border:1px solid #ddd; padding:10px; margin-bottom:10px;">
+    {{ metal_formset.empty_form.as_p|safe }}
+  </div>
 </div>
+
+<!-- empty stone row -->
+<div id="empty-stone-form" style="display:none;">
+  <div class="stone-row" style="border:1px solid #ddd; padding:10px; margin-bottom:10px;">
+    {{ stone_formset.empty_form.as_p|safe }}
+  </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  function wireAddButton(btnId, containerId, emptyId, formsetPrefix) {
+    const addBtn = document.getElementById(btnId);
+    const container = document.getElementById(containerId);
+    const emptyTemplate = document.getElementById(emptyId).innerHTML;
+    const totalForms = document.getElementById(`id_${formsetPrefix}-TOTAL_FORMS`);
+
+    addBtn.addEventListener("click", function () {
+      const index = parseInt(totalForms.value, 10);
+      const newRowHtml = emptyTemplate.replace(/__prefix__/g, index);
+      container.insertAdjacentHTML("beforeend", newRowHtml);
+      totalForms.value = index + 1;
+    });
+  }
+
+  wireAddButton(
+    "add-metal",
+    "metal-formset",
+    "empty-metal-form",
+    "{{ metal_formset.prefix }}"
+  );
+
+  wireAddButton(
+    "add-stone",
+    "stone-formset",
+    "empty-stone-form",
+    "{{ stone_formset.prefix }}"
+  );
+});
+</script>
 {% endblock content %}
