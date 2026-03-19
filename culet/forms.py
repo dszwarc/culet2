@@ -1,5 +1,5 @@
 from django import forms
-from .models import Job, Style, StyleMetal, StyleStone, MetalLot
+from .models import Job, Style, StyleMetal, StyleStone, MetalLot, MetalReceipt, MetalReceiptLine
 from django.utils import timezone
 from django.contrib.auth.forms import AuthenticationForm, UsernameField
 from django.forms import inlineformset_factory, formset_factory
@@ -71,10 +71,22 @@ StyleStoneFormSet = inlineformset_factory(
     can_delete=True
 )
 
+class MetalReceiptForm(forms.ModelForm):
+    lot_num = forms.CharField(max_length=50)
+
+    class Meta:
+        model = MetalReceipt
+        fields = ["vendor", "reference", "notes", "lot_num"]
+
+class MetalReceiptLineForm(forms.ModelForm):
+    class Meta:
+        model = MetalReceiptLine
+        fields = ["part", "qty_received"]
+
 class MetalLotForm(forms.ModelForm):
     class Meta:
         model = MetalLot
-        fields = ["part","lot_num","qty_on_hand"]
+        fields = ["part","vendor_lot","qty_on_hand"]
         widgets = {
             "qty_on_hand": forms.NumberInput(attrs={"min":0}),
         }
@@ -83,4 +95,12 @@ MetalLotFormSet = formset_factory(
     MetalLotForm,
     extra=5,
     can_delete=True
+)
+
+MetalReceiptLineFormSet = inlineformset_factory(
+    MetalReceipt,
+    MetalReceiptLine,
+    form=MetalReceiptLineForm,
+    extra=3,
+    can_delete=True,
 )

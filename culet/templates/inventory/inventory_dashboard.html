@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+
+
+{% block content %}
+    
+<h1>Inventory</h1>
+
+<div style="display:grid; grid-template-columns: repeat(2, 300px); gap:20px;">
+
+  <div style="border:1px solid #ccc; padding:20px;">
+    <h3>Receive Inventory</h3>
+    <p>Add new metal inventory from vendors.</p>
+    <a href="{% url 'culet:metal_receipt_create' %}">
+      Receive Metal
+    </a>
+  </div>
+
+  <div style="border:1px solid #ccc; padding:20px;">
+    <h3>Vendor Lots</h3>
+    <p>View vendor lot numbers and the parts received under them.</p>
+    <a href="{% url 'culet:metal_vendor_lot_list' %}">
+      View Vendor Lots
+    </a>
+  </div>
+
+  <div style="border:1px solid #ccc; padding:20px;">
+    <h3>Metal Inventory</h3>
+    <p>View current inventory balances by part and lot.</p>
+    <a href="{% url 'culet:metal_lot_list' %}">
+      View Metal Inventory
+    </a>
+  </div>
+
+  <div style="border:1px solid #ccc; padding:20px;">
+    <h3>Receipt History</h3>
+    <p>Audit trail of all inventory receipts.</p>
+    <a href="{% url 'culet:metal_receipt_list' %}">
+      View Receipts
+    </a>
+  </div>
+
+</div>
+
+{% endblock content %}
+    
+

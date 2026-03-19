@@ -30,6 +30,16 @@ class Customer(models.Model):
     def __str__(self):
         return self.name
 
+class Vendor(models.Model):
+    name = models.CharField(max_length=80,unique=True)
+    address = models.CharField(max_length=150)
+    email = models.EmailField(max_length=200)
+    phone = models.CharField(max_length=12)
+    number = models.IntegerField(blank=True, null=True)
+
+    def __str__(self):
+        return self.name
+
 class Department(models.Model):
     name = models.CharField(max_length=80, default="Production")
 
@@ -106,11 +116,76 @@ class MetalPart(models.Model):
     def __str__(self):
         return self.sku
 
-class MetalLot(models.Model):
+class MetalVendorLot(models.Model):
     lot_num = models.CharField(max_length=50, unique=True)
+    vendor = models.ForeignKey(Vendor, on_delete=models.PROTECT)
+    received_at = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return self.lot_num
+
+class MetalLot(models.Model):
+    vendor_lot = models.ForeignKey(
+        MetalVendorLot,
+        on_delete=models.PROTECT,
+        related_name="part_lots"
+    )
     part = models.ForeignKey(MetalPart, on_delete=models.PROTECT)
-    qty_on_hand = models.PositiveIntegerField(default=0)
-    received_at = models.DateField(auto_now_add=True)
+    qty_on_hand = models.DecimalField(max_digits=15, decimal_places=3, default=0)
+    weight_on_hand = models.DecimalField(max_digits=15, decimal_places=3, default=0)
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["vendor_lot", "part"],
+                name="uniq_part_per_vendor_lot"
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.vendor_lot.lot_num} - {self.part}"
+    
+class MetalReceipt(models.Model):
+    received_at = models.DateTimeField(default=timezone.now, editable=False)
+    received_by = models.ForeignKey(User, on_delete=models.PROTECT)
+    vendor = models.ForeignKey(Vendor, on_delete=models.PROTECT)
+    reference = models.CharField(max_length=120, blank=True)
+    notes = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"Receipt #{self.pk} - {self.received_at:%Y-%m-%d}"
+    
+class MetalReceiptLine(models.Model):
+    receipt = models.ForeignKey(
+        MetalReceipt,
+        on_delete=models.CASCADE,
+        related_name="lines"
+    )
+    vendor_lot = models.ForeignKey(
+        MetalVendorLot,
+        on_delete=models.PROTECT,
+        related_name="receipt_lines"
+    )
+    part = models.ForeignKey(MetalPart, on_delete=models.PROTECT)
+    qty_received = models.DecimalField(max_digits=10,decimal_places=2,null=True,blank=True)
+    weight_received = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True)
+    metal_lot = models.ForeignKey(
+        MetalLot,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="receipt_lines"
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["receipt", "vendor_lot", "part"],
+                name="uniq_receipt_vendorlot_part"
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.vendor_lot.lot_num} / {self.part} x {self.qty_received}"
 
 class StyleMetal(models.Model):
     style = models.ForeignKey(Style, on_delete=models.CASCADE)

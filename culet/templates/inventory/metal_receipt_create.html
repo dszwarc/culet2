@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    
+<h1>Receive Metal Inventory</h1>
+
+<form method="post">
+  {% csrf_token %}
+
+  <fieldset>
+    <legend>Receipt Header</legend>
+    {{ form.as_p }}
+  </fieldset>
+
+  <fieldset>
+    <legend>Receipt Lines</legend>
+
+    {{ line_formset.management_form }}
+
+    <div id="line-formset">
+      {% for f in line_formset %}
+        <div class="line-row" style="border:1px solid #ddd; padding:10px; margin-bottom:10px;">
+          {{ f.as_p }}
+        </div>
+      {% endfor %}
+    </div>
+
+    <button type="button" id="add-line">Add Line</button>
+  </fieldset>
+
+  <button type="submit">Save Receipt</button>
+</form>
+
+<div id="empty-line-form" style="display:none;">
+  <div class="line-row" style="border:1px solid #ddd; padding:10px; margin-bottom:10px;">
+    {{ line_formset.empty_form.as_p|safe }}
+  </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const addBtn = document.getElementById("add-line");
+  const container = document.getElementById("line-formset");
+  const emptyTemplate = document.getElementById("empty-line-form").innerHTML;
+  const prefix = "{{ line_formset.prefix }}";
+  const totalForms = document.getElementById(`id_${prefix}-TOTAL_FORMS`);
+
+  addBtn.addEventListener("click", function () {
+    const index = parseInt(totalForms.value, 10);
+    const newHtml = emptyTemplate.replace(/__prefix__/g, index);
+    container.insertAdjacentHTML("beforeend", newHtml);
+    totalForms.value = index + 1;
+  });
+});
+</script>
+
+{% endblock content %}
+    

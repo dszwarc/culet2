@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+
+{% block content %} 
+
+<h1>Inventory Line</h1>
+
+<p><strong>Vendor Lot:</strong>
+  <a href="{% url 'culet:metal_vendor_lot_detail' metal_lot.vendor_lot.pk %}">
+    {{ metal_lot.vendor_lot.lot_num }}
+  </a>
+</p>
+
+<p><strong>Vendor:</strong> {{ metal_lot.vendor_lot.vendor }}</p>
+<p><strong>Part:</strong> {{ metal_lot.part }}</p>
+<p><strong>Qty On Hand:</strong> {{ metal_lot.qty_on_hand }}</p>
+
+<h2>Receipt Lines for This Inventory Line</h2>
+
+<table border="1" cellpadding="8">
+  <thead>
+    <tr>
+      <th>Receipt #</th>
+      <th>Date</th>
+      <th>Vendor Lot</th>
+      <th>Part</th>
+      <th>Qty Received</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for line in receipt_lines %}
+      <tr>
+        <td>
+          <a href="{% url 'culet:metal_receipt_detail' line.receipt.pk %}">
+            {{ line.receipt.pk }}
+          </a>
+        </td>
+        <td>{{ line.receipt.received_at }}</td>
+        <td>{{ line.vendor_lot.lot_num }}</td>
+        <td>{{ line.part }}</td>
+        <td>{{ line.qty_received }}</td>
+      </tr>
+    {% empty %}
+      <tr>
+        <td colspan="5">No receipt lines found for this inventory line.</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% endblock content %}
+    

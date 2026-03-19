@@ -20,7 +20,12 @@ urlpatterns = [
     path("clock_out", views.clock_out,name="clock_out"),
     path("receive", views.receive,name='receive'),
     path("receive_list", views.ReceiveListView.as_view(), name="receive_list"),
-    path("lots", views.MetalLotListView.as_view(),name="metal_lot_list"),
-    path("lots/create",views.MetalLotReceiveView.as_view(),name="metal_lot_receive"),
-    path("lots/<int:pk>",views.MetalLotDetailView.as_view(),name="metal_lot_detail"),
-]
+    path("inventory/metal/receive/", views.MetalReceiptCreateView.as_view(), name="metal_receipt_create"),
+    path("inventory/metal/receipts/", views.MetalReceiptListView.as_view(), name="metal_receipt_list"),
+    path("inventory/metal/receipts/<int:pk>/", views.MetalReceiptDetailView.as_view(), name="metal_receipt_detail"),
+    path("inventory/metal/vendor-lots/", views.MetalVendorLotListView.as_view(), name="metal_vendor_lot_list"),
+    path("inventory/metal/vendor-lots/<int:pk>/", views.MetalVendorLotDetailView.as_view(), name="metal_vendor_lot_detail"),
+    path("inventory/metal/lots/", views.MetalLotListView.as_view(), name="metal_lot_list"),
+    path("inventory/metal/lots/<int:pk>/", views.MetalLotDetailView.as_view(), name="metal_lot_detail"),
+    path("inventory/", views.InventoryDashboardView.as_view(), name="inventory_dashboard"),
+    ]

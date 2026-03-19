@@ -1,6 +1,6 @@
 from django.db.models.query import QuerySet
 from django.http import HttpResponse, HttpResponseRedirect, HttpResponseBadRequest
-from .models import Job, Style, Activity, Employee, TimeClock, StyleMetal, StyleStone, MetalLot
+from .models import MetalVendorLot, MetalReceiptLine, Job, Style, Activity, Employee, TimeClock, StyleMetal, StyleStone, MetalLot, MetalReceipt
 from django.views import generic
 from django.urls import reverse_lazy, reverse
 from django.utils import timezone
@@ -9,10 +9,11 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
 from .filters import JobFilter, ActivityFilter
-from .forms import JobForm, StyleForm, JobUpdateForm, StyleMetalFormSet, StyleStoneFormSet, MetalLotFormSet
+from .forms import JobForm, StyleForm, JobUpdateForm, StyleMetalFormSet, StyleStoneFormSet, MetalLotFormSet, MetalReceiptForm, MetalReceiptLineForm, MetalReceiptLineFormSet
 from django.template.loader import render_to_string
 import copy
 from django.db import transaction
+from django.db.models import F
 
 def index(request):
     return render(request, 'authentication/login.html')
@@ -262,14 +263,50 @@ def receive(request):
     messages.success(request, f"Job {job.job_num} Received")
     return HttpResponseRedirect(reverse('culet:my_jobs'))
 
+class MetalVendorLotListView(LoginRequiredMixin, generic.ListView):
+    model = MetalVendorLot
+    template_name = "inventory/vendor_lot_list.html"
+    context_object_name = "lots"
+    ordering = ["-received_at"]
+
+class MetalVendorLotDetailView(LoginRequiredMixin, generic.DetailView):
+    model = MetalVendorLot
+    template_name = "inventory/vendor_lot_detail.html"
+    context_object_name = "vendor_lot"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context["part_lots"] = (
+            self.object.part_lots
+            .select_related("part")
+            .all()
+        )
+
+        context["receipt_lines"] = (
+            self.object.receipt_lines
+            .select_related("receipt", "part")
+            .order_by("-receipt__received_at")
+        )
+
+        return context
+
 class MetalLotListView(LoginRequiredMixin, generic.ListView):
     model = MetalLot
-    template = "inventory/metallot_list.html"
+    template_name = "inventory/metal_lot_list.html"
+    context_object_name = "metal_lots"
+
+    def get_queryset(self):
+        return (
+            MetalLot.objects
+            .select_related("vendor_lot", "vendor_lot__vendor", "part")
+            .order_by("-vendor_lot__received_at", "part__sku")
+        )
 
 class MetalLotReceiveView(LoginRequiredMixin, generic.FormView):
-    template_name = "inventory/metallot_receive.html"
+    template_name = "inventory/lot_receive.html"
     form_class = MetalLotFormSet
-    success_url = reverse_lazy("culet:metal_lot_list")
+    success_url = reverse_lazy("culet:lot_list")
 
     def get_form(self, form_class=None):
         if self.request.POST:
@@ -291,4 +328,169 @@ class MetalLotReceiveView(LoginRequiredMixin, generic.FormView):
     
 class MetalLotDetailView(LoginRequiredMixin, generic.DetailView):
     model = MetalLot
-    template = "inventory/metallot_detail.html"
+    template_name = "inventory/metal_lot_detail.html"
+    context_object_name = "metal_lot"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context["receipt_lines"] = (
+            MetalReceiptLine.objects
+            .filter(metal_lot=self.object)
+            .select_related("receipt", "vendor_lot", "part")
+            .order_by("-receipt__received_at")
+        )
+
+        return context
+
+class MetalReceiptCreateView(LoginRequiredMixin, generic.CreateView):
+    model = MetalReceipt
+    form_class = MetalReceiptForm
+    template_name = "inventory/metal_receipt_create.html"
+    success_url = reverse_lazy("culet:metal_vendor_lot_list")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        if self.request.POST:
+            context["line_formset"] = MetalReceiptLineFormSet(self.request.POST)
+        else:
+            context["line_formset"] = MetalReceiptLineFormSet()
+
+        return context
+
+    @transaction.atomic
+    def form_valid(self, form):
+        context = self.get_context_data()
+        line_formset = context["line_formset"]
+
+        if not line_formset.is_valid():
+            return self.render_to_response(self.get_context_data(form=form))
+
+        # Save receipt header
+        self.object = form.save(commit=False)
+        self.object.received_by = self.request.user
+        self.object.save()
+
+        lot_num = form.cleaned_data["lot_num"]
+        vendor = form.cleaned_data["vendor"]
+
+        # One vendor lot per vendor + lot number
+        vendor_lot, _created = MetalVendorLot.objects.get_or_create(
+            vendor=vendor,
+            lot_num=lot_num,
+        )
+
+        # Save receipt lines and update inventory balances
+        for line_form in line_formset:
+            if not line_form.has_changed():
+                continue
+
+            if line_formset.can_delete and line_form.cleaned_data.get("DELETE"):
+                continue
+
+            line = line_form.save(commit=False)
+            line.receipt = self.object
+            line.vendor_lot = vendor_lot
+
+            metal_lot, _created = MetalLot.objects.get_or_create(
+                vendor_lot=vendor_lot,
+                part=line.part,
+                defaults={"qty_on_hand": 0},
+            )
+
+            MetalLot.objects.filter(pk=metal_lot.pk).update(
+                qty_on_hand=F("qty_on_hand") + line.qty_received,
+                weight_on_hand = F("weight_on_hand") + line.weight_received,
+            )
+
+            line.metal_lot = metal_lot
+            line.save()
+
+        return redirect(self.get_success_url())
+
+    def form_invalid(self, form):
+        return self.render_to_response(self.get_context_data(form=form))
+    
+class MetalVendorLotListView(LoginRequiredMixin, generic.ListView):
+    model = MetalVendorLot
+    template_name = "inventory/vendor_lot_list.html"
+    context_object_name = "vendor_lots"
+    ordering = ["-received_at"]
+
+    def get_queryset(self):
+        return (
+            MetalVendorLot.objects
+            .select_related("vendor")
+            .order_by("-received_at")
+        )
+
+class MetalVendorLotDetailView(LoginRequiredMixin, generic.DetailView):
+    model = MetalVendorLot
+    template_name = "inventory/vendor_lot_detail.html"
+    context_object_name = "vendor_lot"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context["part_lots"] = (
+            self.object.part_lots
+            .select_related("part")
+            .order_by("part__sku")
+        )
+
+        context["receipt_lines"] = (
+            self.object.receipt_lines
+            .select_related("receipt", "part", "metal_lot")
+            .order_by("-receipt__received_at", "part__sku")
+        )
+
+        return context
+
+class MetalReceiptDetailView(LoginRequiredMixin, generic.DetailView):
+    model = MetalReceipt
+    template_name = "inventory/metal_receipt_detail.html"
+    context_object_name = "receipt"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context["lines"] = (
+            self.object.lines
+            .select_related("vendor_lot", "part", "metal_lot")
+            .order_by("part__sku")
+        )
+
+        return context
+    
+class MetalReceiptDetailView(LoginRequiredMixin, generic.DetailView):
+    model = MetalReceipt
+    template_name = "inventory/metal_receipt_detail.html"
+    context_object_name = "receipt"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context["lines"] = (
+            self.object.lines
+            .select_related("part", "metal_lot")
+            .all()
+        )
+
+        return context
+    
+class MetalReceiptListView(LoginRequiredMixin, generic.ListView):
+    model = MetalReceipt
+    template_name = "inventory/metal_receipt_list.html"
+    context_object_name = "receipts"
+    ordering = ["-received_at"]
+
+    def get_queryset(self):
+        return (
+            MetalReceipt.objects
+            .select_related("vendor", "received_by")
+            .order_by("-received_at")
+        )
+    
+class InventoryDashboardView(LoginRequiredMixin, generic.TemplateView):
+    template_name = "inventory/inventory_dashboard.html"

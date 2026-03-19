@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+
+
+{% block content %}
+    
+<h1>Metal Receipts</h1>
+
+<p>
+  <a href="{% url 'culet:metal_receipt_create' %}">Create New Receipt</a>
+</p>
+
+<table border="1" cellpadding="8">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Date</th>
+      <th>Vendor</th>
+      <th>Reference</th>
+      <th>Received By</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for receipt in receipts %}
+      <tr>
+        <td>
+          <a href="{% url 'culet:metal_receipt_detail' receipt.pk %}">
+            {{ receipt.pk }}
+          </a>
+        </td>
+        <td>{{ receipt.received_at }}</td>
+        <td>{{ receipt.vendor }}</td>
+        <td>{{ receipt.reference }}</td>
+        <td>{{ receipt.received_by }}</td>
+      </tr>
+    {% empty %}
+      <tr>
+        <td colspan="5">No receipts found.</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% endblock content %}
+    
+

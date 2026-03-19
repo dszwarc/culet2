@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+   
+
+{% block content %}
+    
+<h1>Metal Inventory</h1>
+
+<table border="1" cellpadding="8">
+  <thead>
+    <tr>
+      <th>Vendor Lot</th>
+      <th>Vendor</th>
+      <th>Part</th>
+      <th>Qty On Hand</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for lot in metal_lots %}
+      <tr>
+        <td>
+          <a href="{% url 'culet:metal_vendor_lot_detail' lot.vendor_lot.pk %}">
+            {{ lot.vendor_lot.lot_num }}
+          </a>
+        </td>
+        <td>{{ lot.vendor_lot.vendor }}</td>
+        <td>
+          <a href="{% url 'culet:metal_lot_detail' lot.pk %}">
+            {{ lot.part }}
+          </a>
+        </td>
+        <td>{{ lot.qty_on_hand }}</td>
+      </tr>
+    {% empty %}
+      <tr>
+        <td colspan="4">No metal inventory found.</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+    
+
+{% endblock content %}

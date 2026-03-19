@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+
+
+{% block content %}
+    
+<h1>Vendor Lots</h1>
+
+<table border="1" cellpadding="8">
+  <thead>
+    <tr>
+      <th>Lot Number</th>
+      <th>Vendor</th>
+      <th>Received At</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for lot in vendor_lots %}
+      <tr>
+        <td>
+          <a href="{% url 'culet:metal_vendor_lot_detail' lot.pk %}">
+            {{ lot.lot_num }}
+          </a>
+        </td>
+        <td>{{ lot.vendor }}</td>
+        <td>{{ lot.received_at }}</td>
+      </tr>
+    {% empty %}
+      <tr>
+        <td colspan="3">No vendor lots found.</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% endblock content %}
+    
+

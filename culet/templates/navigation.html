@@ -14,6 +14,7 @@
         <a class='nav_link' href="{% url 'culet:index_style' %}">Styles</a>
         <a class='nav_link' href="{% url 'culet:style_create' %}">Create New Style</a>
         <a class='nav_link' href="{% url 'culet:reporting' %}">Reporting</a>
+        <a class='nav_link' href="{% url 'culet:inventory_dashboard' %}">Inventory</a>
     </div>
     <div class="links_right">
         {% if user.is_authenticated %}
