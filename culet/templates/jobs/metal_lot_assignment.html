@@ -1,0 +1,31 @@
+
+{% block content %}
+    <h1>Assign Lots for {{ job_metal.job }} - {{ job_metal.part }}</h1>
+
+<p><strong>Required Qty:</strong> {{ job_metal.qty_req }}</p>
+<p><strong>Required Weight:</strong> {{ job_metal.weight_req }}</p>
+
+{% with allocated_qty=job_metal.lot_assignments.all|length %}
+{% endwith %}
+
+<form method="post">
+  {% csrf_token %}
+  {{ formset.management_form }}
+
+  {% if formset.non_form_errors %}
+    <div style="color:red;">
+      {{ formset.non_form_errors }}
+    </div>
+  {% endif %}
+
+  {% for f in formset %}
+    <div style="border:1px solid #ddd; padding:10px; margin-bottom:10px;">
+      {{ f.as_p }}
+    </div>
+  {% endfor %}
+
+  <button type="submit">Save Lot Assignments</button>
+</form>
+{% endblock content %}
+    
+    

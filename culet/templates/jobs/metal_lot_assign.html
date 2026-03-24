@@ -1,0 +1,23 @@
+
+{% block content %}
+    
+<h1>Assign Lots for {{ object.job }} - {{ object.part }}</h1>
+
+<p><strong>Required Qty:</strong> {{ object.qty_req }}</p>
+<p><strong>Required Weight:</strong> {{ object.weight_req }}</p>
+
+<form method="post">
+  {% csrf_token %}
+  {{ lot_formset.management_form }}
+
+  {% for f in lot_formset %}
+    <div style="border:1px solid #ddd; padding:10px; margin-bottom:10px;">
+      {{ f.as_p }}
+    </div>
+  {% endfor %}
+
+  <button type="submit">Save Lot Assignments</button>
+</form>
+
+{% endblock content %}
+    

@@ -7,11 +7,28 @@
     
 
 {% block content %}
-    <form method="POST">
-        {% csrf_token %}
-        {{ form.as_table }}
-        <button type="submit">Edit Job</button>
-    </form>
-    
-    <a href="{% url 'culet:index_job' %}">Back</a>
+<h1>Edit Job {{ object }}</h1>
+
+<form method="post">
+  {% csrf_token %}
+
+  <fieldset>
+    <legend>Job Header</legend>
+    {{ form.as_p }}
+  </fieldset>
+
+  <h2>Metal Requirements</h2>
+  {{ metal_formset.management_form }}
+  {% for f in metal_formset %}
+    <div class="metal-row">{{ f.as_p }}</div>
+  {% endfor %}
+
+  <h2>Stone Requirements</h2>
+  {{ stone_formset.management_form }}
+  {% for f in stone_formset %}
+    <div class="stone-row">{{ f.as_p }}</div>
+  {% endfor %}
+
+  <button type="submit">Save Changes</button>
+</form>
 {% endblock content %}

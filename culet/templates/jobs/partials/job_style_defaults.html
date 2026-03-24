@@ -1,0 +1,37 @@
+<form method="post">
+  {% csrf_token %}
+  <fieldset>
+    <legend>Job Info</legend>
+    {{ job_form.as_p }}
+  </fieldset>
+
+  <fieldset>
+    <legend>Metals</legend>
+    {{ metal_formset.management_form }}
+    <div id="metal-formset">
+      {% for f in metal_formset %}
+        <div class="metal-row" style="border:1px solid #ddd; padding:10px; margin-bottom:10px;">
+          {{ f.as_p }}
+        </div>
+      {% empty %}
+        <p>No metal requirements found for this style.</p>
+      {% endfor %}
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Stones</legend>
+    {{ stone_formset.management_form }}
+    <div id="stone-formset">
+      {% for f in stone_formset %}
+        <div class="stone-row" style="border:1px solid #ddd; padding:10px; margin-bottom:10px;">
+          {{ f.as_p }}
+        </div>
+      {% empty %}
+        <p>No stone requirements found for this style.</p>
+      {% endfor %}
+    </div>
+  </fieldset>
+
+  <button type="submit">Save Job</button>
+</form>

@@ -1,15 +1,44 @@
 from django.db.models.query import QuerySet
 from django.http import HttpResponse, HttpResponseRedirect, HttpResponseBadRequest
-from .models import MetalVendorLot, MetalReceiptLine, Job, Style, Activity, Employee, TimeClock, StyleMetal, StyleStone, MetalLot, MetalReceipt
+from .models import (
+    JobMetal,
+    MetalVendorLot, 
+    MetalReceiptLine, 
+    Job, 
+    Style, 
+    Activity, 
+    Employee, 
+    TimeClock, 
+    StyleMetal, 
+    StyleStone, 
+    MetalLot, 
+    MetalReceipt,
+    JobMetal,
+    JobStone,
+)
 from django.views import generic
 from django.urls import reverse_lazy, reverse
 from django.utils import timezone
 from django.contrib import messages
-from django.shortcuts import render, redirect
+from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
 from .filters import JobFilter, ActivityFilter
-from .forms import JobForm, StyleForm, JobUpdateForm, StyleMetalFormSet, StyleStoneFormSet, MetalLotFormSet, MetalReceiptForm, MetalReceiptLineForm, MetalReceiptLineFormSet
+from .forms import (
+    JobForm, 
+    StyleForm, 
+    JobUpdateForm, 
+    StyleMetalFormSet, 
+    StyleStoneFormSet, 
+    MetalLotFormSet, 
+    MetalReceiptForm, 
+    MetalReceiptLineForm, 
+    MetalReceiptLineFormSet,
+    JobMetalFormSet,
+    JobStoneFormSet,
+    JobMetalLotFormSet,
+    get_job_metal_formset,
+    get_job_stone_formset,)
 from django.template.loader import render_to_string
 import copy
 from django.db import transaction
@@ -79,29 +108,308 @@ class ActivityListView(LoginRequiredMixin,generic.ListView):
     def get_queryset(self):
         return Activity.objects.order_by("-start")
 
-class JobDetailView(LoginRequiredMixin,generic.DetailView):
+# class JobDetailView(LoginRequiredMixin,generic.DetailView):
+#     model = Job
+#     template_name = "jobs/detail.html"
+    
+#     def get_context_data(self, **kwargs):
+#         data = super().get_context_data(**kwargs)
+#         related_activities = Activity.objects.filter(job=data['job'])
+#         data['activity'] = related_activities
+#         return data
+    
+class JobDetailView(LoginRequiredMixin, generic.DetailView):
     model = Job
     template_name = "jobs/detail.html"
-    
-    def get_context_data(self, **kwargs):
-        data = super().get_context_data(**kwargs)
-        related_activities = Activity.objects.filter(job=data['job'])
-        data['activity'] = related_activities
-        return data
+    context_object_name = "job"
 
-class JobCreateView(LoginRequiredMixin,generic.CreateView):
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["job_metals"] = JobMetal.objects.filter(job=context['job'])
+        context["job_stones"] = JobStone.objects.filter(job=context['job'])
+        context["activity"] = Activity.objects.filter(job=context['job'])
+        return context
+
+# class JobCreateView(LoginRequiredMixin,generic.CreateView):
+#     model = Job
+#     form_class = JobForm
+#     template_name = "jobs/create.html"
+#     # fields = ['name','customer', 'job_num', 'style', 'due']
+#     # exclude = ['created','last_updated']*
+#     success_url=reverse_lazy('culet:index_job')
+
+class JobCreateView(LoginRequiredMixin, generic.CreateView):
     model = Job
     form_class = JobForm
     template_name = "jobs/create.html"
-    # fields = ['name','customer', 'job_num', 'style', 'due']
-    # exclude = ['created','last_updated']*
-    success_url=reverse_lazy('culet:index_job')
+    success_url = reverse_lazy("culet:index_job")  # adjust if needed
 
-class JobUpdateView(LoginRequiredMixin,generic.UpdateView):
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        if self.request.POST:
+            context["metal_formset"] = JobMetalFormSet(self.request.POST, prefix="metals")
+            context["stone_formset"] = JobStoneFormSet(self.request.POST, prefix="stones")
+        else:
+            context["metal_formset"] = JobMetalFormSet(prefix="metals")
+            context["stone_formset"] = JobStoneFormSet(prefix="stones")
+
+        return context
+
+    @transaction.atomic
+    def form_valid(self, form):
+        context = self.get_context_data()
+        metal_formset = context["metal_formset"]
+        stone_formset = context["stone_formset"]
+
+        if not (metal_formset.is_valid() and stone_formset.is_valid()):
+            return self.render_to_response(self.get_context_data(form=form))
+
+        self.object = form.save()
+
+        metal_formset.instance = self.object
+        metal_formset.save()
+
+        stone_formset.instance = self.object
+        stone_formset.save()
+
+        return redirect(self.object.get_absolute_url())
+
+    def form_invalid(self, form):
+        return self.render_to_response(self.get_context_data(form=form))
+
+class JobStyleDefaultsHTMXView(LoginRequiredMixin, generic.View):
+    template_name = "jobs/partials/job_style_defaults.html"
+
+    def get(self, request, *args, **kwargs):
+        style_id = request.GET.get("style_id")
+        if not style_id:
+            return HttpResponseBadRequest("Missing style_id")
+
+        style = get_object_or_404(Style, pk=style_id)
+
+        job_initial = {
+            "name": style.name,
+            "customer": style.customer_id,
+            "notes": style.description or "",
+            "style": style.pk,
+        }
+
+        job_form = JobForm(initial=job_initial)
+
+        metal_initial = [
+            {
+                "part": sm.part_id,
+                "qty_req": sm.qty_req,
+                "weight_req": sm.weight,
+                "metal_type": sm.metal_type_id,
+            }
+            for sm in style.stylemetal_set.all()
+        ]
+
+        stone_initial = [
+            {
+                "stone_type": ss.stone_type_id,
+                "stone_shape": ss.stone_shape_id,
+                "stone_size": ss.stone_size,
+                "qty_req": ss.qty_req,
+                "weight_req": getattr(ss, "weight_req", None),
+            }
+            for ss in style.stylestone_set.all()
+        ]
+
+        JobMetalCreateFormSet = get_job_metal_formset(extra=len(metal_initial))
+        JobStoneCreateFormSet = get_job_stone_formset(extra=len(stone_initial))
+
+        metal_formset = JobMetalCreateFormSet(prefix="metals", initial=metal_initial)
+        stone_formset = JobStoneCreateFormSet(prefix="stones", initial=stone_initial)
+
+        return render(
+            request,
+            self.template_name,
+            {
+                "job_form": job_form,
+                "metal_formset": metal_formset,
+                "stone_formset": stone_formset,
+                "style": style,
+            },
+        )
+# class JobUpdateView(LoginRequiredMixin,generic.UpdateView):
+#     model = Job
+#     form_class = JobUpdateForm
+#     template_name = "jobs/update.html"
+#     success_url=reverse_lazy('culet:index_job')
+
+class JobMetalLotAssignView(LoginRequiredMixin, generic.View):
+    template_name = "jobs/metal_lot_assign.html"
+
+    def get(self, request, pk):
+        job_metal = get_object_or_404(JobMetal, pk=pk)
+
+        formset = JobMetalLotFormSet(instance=job_metal, prefix="lots")
+        for form in formset.forms:
+            form.fields["metal_lot"].queryset = MetalLot.objects.filter(
+                part=job_metal.part,
+                qty_on_hand__gt=0
+            ).select_related("vendor_lot", "part")
+
+        return render(request, self.template_name, {
+            "job_metal": job_metal,
+            "formset": formset,
+        })
+
+    @transaction.atomic
+    def post(self, request, pk):
+        job_metal = get_object_or_404(JobMetal, pk=pk)
+
+        # restore previous allocations before recalculating
+        existing_allocations = list(job_metal.lot_assignments.select_related("metal_lot"))
+        for alloc in existing_allocations:
+            MetalLot.objects.filter(pk=alloc.metal_lot_id).update(
+                qty_on_hand=F("qty_on_hand") + alloc.qty_used,
+                weight_on_hand=F("weight_on_hand") + alloc.weight_used,
+            )
+
+        job_metal.lot_assignments.all().delete()
+
+        formset = JobMetalLotFormSet(request.POST, instance=job_metal, prefix="lots")
+        for form in formset.forms:
+            form.fields["metal_lot"].queryset = MetalLot.objects.filter(
+                part=job_metal.part,
+                qty_on_hand__gte=0
+            ).select_related("vendor_lot", "part")
+
+        if not formset.is_valid():
+            return render(request, self.template_name, {
+                "job_metal": job_metal,
+                "formset": formset,
+            })
+
+        assignments = formset.save(commit=False)
+
+        # Validate availability before saving
+        for alloc in assignments:
+            lot = alloc.metal_lot
+
+            if alloc.qty_used > lot.qty_on_hand:
+                formset.non_form_errors = lambda: ["Assigned quantity exceeds available quantity."]
+                return render(request, self.template_name, {
+                    "job_metal": job_metal,
+                    "formset": formset,
+                })
+
+            if alloc.weight_used > lot.weight_on_hand:
+                formset.non_form_errors = lambda: ["Assigned weight exceeds available weight."]
+                return render(request, self.template_name, {
+                    "job_metal": job_metal,
+                    "formset": formset,
+                })
+
+        # Save allocations and decrement inventory
+        for alloc in assignments:
+            lot = alloc.metal_lot
+
+            MetalLot.objects.filter(pk=lot.pk).update(
+                qty_on_hand=F("qty_on_hand") - alloc.qty_used,
+                weight_on_hand=F("weight_on_hand") - alloc.weight_used,
+            )
+
+            alloc.job_metal = job_metal
+            alloc.save()
+
+        return redirect(job_metal.job.get_absolute_url())
+
+class JobMetalLotAssignmentHTMXView(LoginRequiredMixin, generic.View):
+    template_name = "jobs/partials/job_metal_lot_formset.html"
+
+    def get(self, request, pk, *args, **kwargs):
+        job_metal = get_object_or_404(JobMetal, pk=pk)
+
+        formset = JobMetalLotFormSet(instance=job_metal, prefix=f"lots-{job_metal.pk}")
+
+        return render(request, self.template_name, {
+            "job_metal": job_metal,
+            "lot_formset": formset,
+        })
+
+    @transaction.atomic
+    def post(self, request, pk, *args, **kwargs):
+        job_metal = get_object_or_404(JobMetal, pk=pk)
+        formset = JobMetalLotFormSet(
+            request.POST,
+            instance=job_metal,
+            prefix=f"lots-{job_metal.pk}",
+        )
+
+        if not formset.is_valid():
+            return render(request, self.template_name, {
+                "job_metal": job_metal,
+                "lot_formset": formset,
+            })
+
+        # Roll back existing assignments to inventory before resaving
+        for existing in job_metal.lot_assignments.all():
+            MetalLot.objects.filter(pk=existing.metal_lot_id).update(
+                qty_on_hand=F("qty_on_hand") + existing.qty_used,
+                weight_on_hand=F("weight_on_hand") + existing.weight_used,
+            )
+
+        existing_ids = list(job_metal.lot_assignments.values_list("id", flat=True))
+        formset.save()
+
+        # Re-fetch current assignments and decrement inventory
+        for assignment in job_metal.lot_assignments.all():
+            MetalLot.objects.filter(pk=assignment.metal_lot_id).update(
+                qty_on_hand=F("qty_on_hand") - assignment.qty_used,
+                weight_on_hand=F("weight_on_hand") - assignment.weight_used,
+            )
+
+        return render(request, self.template_name, {
+            "job_metal": job_metal,
+            "lot_formset": JobMetalLotFormSet(
+                instance=job_metal,
+                prefix=f"lots-{job_metal.pk}",
+            ),
+            "saved": True,
+        })
+
+class JobUpdateView(LoginRequiredMixin, generic.UpdateView):
     model = Job
-    form_class = JobUpdateForm
+    form_class = JobForm
     template_name = "jobs/update.html"
-    success_url=reverse_lazy('culet:index_job')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        if self.request.POST:
+            context["metal_formset"] = JobMetalFormSet(self.request.POST, instance=self.object, prefix="metals")
+            context["stone_formset"] = JobStoneFormSet(self.request.POST, instance=self.object, prefix="stones")
+        else:
+            context["metal_formset"] = JobMetalFormSet(instance=self.object, prefix="metals")
+            context["stone_formset"] = JobStoneFormSet(instance=self.object, prefix="stones")
+
+        return context
+
+    @transaction.atomic
+    def form_valid(self, form):
+        context = self.get_context_data()
+        metal_formset = context["metal_formset"]
+        stone_formset = context["stone_formset"]
+
+        if not (metal_formset.is_valid() and stone_formset.is_valid()):
+            return self.render_to_response(self.get_context_data(form=form))
+
+        self.object = form.save()
+        metal_formset.instance = self.object
+        metal_formset.save()
+
+        stone_formset.instance = self.object
+        stone_formset.save()
+
+        return redirect(self.object.get_absolute_url())
+
+    def get_success_url(self):
+        return self.object.get_absolute_url()
 
 class StyleListView(LoginRequiredMixin,generic.ListView):
     model = Style
@@ -494,3 +802,4 @@ class MetalReceiptListView(LoginRequiredMixin, generic.ListView):
     
 class InventoryDashboardView(LoginRequiredMixin, generic.TemplateView):
     template_name = "inventory/inventory_dashboard.html"
+

@@ -55,6 +55,91 @@
         
 </table>
 
+<h1>Job {{ job }}</h1>
 
+<p><strong>Name:</strong> {{ job.name }}</p>
+<p><strong>Customer:</strong> {{ job.customer }}</p>
+<p><strong>Style:</strong> {{ job.style }}</p>
+<p><strong>Due:</strong> {{ job.due }}</p>
+<p><strong>Assigned To:</strong> {{ job.assigned_to }}</p>
+<p><strong>Location:</strong> {{ job.location }}</p>
+<p><strong>Notes:</strong> {{ job.notes }}</p>
+
+<p>
+  <a href="{% url 'culet:job_update' job.pk %}">Edit Job</a>
+</p>
+
+<h2>Metals</h2>
+<table border="1" cellpadding="8">
+  <tr>
+    <th>Part</th>
+    <th>Qty Req</th>
+    <th>Weight Req</th>
+    <th>Metal Type</th>
+    <th>Lots</th>
+  </tr>
+  
+  {% if job_metals %}
+    {% for jm in job_metals %}
+        <tr>
+        <td>{{ jm.part }}</td>
+        <td>{{ jm.qty_req }}</td>
+        <td>{{ jm.weight_req }}</td>
+        <td>{{ jm.metal_type }}</td>
+        <td>
+            {% for alloc in jm.lot_assignments.all %}
+            <div>
+                {{ alloc.metal_lot.vendor_lot.lot_num }} / {{ alloc.metal_lot.part }}
+                — qty {{ alloc.qty_used }}, wt {{ alloc.weight_used }}
+            </div>
+            {% empty %}
+            <div>No lots assigned</div>
+            {% endfor %}
+        </td>
+        <td>
+            {% for alloc in jm.lot_assignments.all %}
+                <div>
+                {{ alloc.metal_lot.vendor_lot.lot_num }} / {{ alloc.metal_lot.part }}
+                — qty {{ alloc.qty_used }}, wt {{ alloc.weight_used }}
+                </div>
+            {% empty %}
+                <div>No lots assigned</div>
+            {% endfor %}
+
+            <a href="{% url 'culet:job_metal_assign_lots' jm.pk %}">
+                Assign Lots
+            </a>
+        </td>
+        </tr>
+    {% endfor %}
+  {% endif %}
+    
+    
+</table>
+
+<h2>Stones</h2>
+<table border="1" cellpadding="8">
+  <tr>
+    <th>Type</th>
+    <th>Shape</th>
+    <th>Size</th>
+    <th>Qty Req</th>
+    <th>Weight Req</th>
+  </tr>
+  
+  {% if job_stones %}
+      {% for js in job_stones %}
+    <tr>
+      <td>{{ js.stone_type }}</td>
+      <td>{{ js.stone_shape }}</td>
+      <td>{{ js.stone_size }}</td>
+      <td>{{ js.qty_req }}</td>
+      <td>{{ js.weight_req }}</td>
+    </tr>
+  {% endfor %}
+  {% endif %}
+    
+
+</table>
 
 {% endblock content %}

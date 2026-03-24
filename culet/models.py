@@ -110,11 +110,22 @@ class Metal(models.Model):
     metal_type = models.ForeignKey(MetalType, on_delete=models.PROTECT, null=True, blank=True)
     weight = models.CharField(max_length=10)
 
+
 class MetalPart(models.Model):
     sku = models.CharField(max_length=50, unique=True)
     description = models.TextField(max_length=200, blank=True, null=True)
     def __str__(self):
         return self.sku
+
+class JobMetal(models.Model):
+    job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="job_metals")
+    part = models.ForeignKey(MetalPart, on_delete=models.PROTECT)
+    qty_req = models.PositiveIntegerField(null=True, blank=True)
+    weight_req = models.PositiveIntegerField(null=True, blank=True)
+    metal_type = models.ForeignKey(MetalType, on_delete=models.PROTECT, null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.job} - {self.part}"
 
 class MetalVendorLot(models.Model):
     lot_num = models.CharField(max_length=50, unique=True)
@@ -143,6 +154,25 @@ class MetalLot(models.Model):
 
     def __str__(self):
         return f"{self.vendor_lot.lot_num} - {self.part}"
+    
+class JobMetalLot(models.Model):
+    job_metal = models.ForeignKey(JobMetal, on_delete=models.CASCADE, related_name="lot_assignments")
+    metal_lot = models.ForeignKey(MetalLot, on_delete=models.PROTECT)
+    qty_used = models.PositiveIntegerField(default=0)
+    weight_used = models.DecimalField(max_digits=10, decimal_places=3, default=0)
+
+    def __str__(self):
+        return f"{self.job_metal} -> {self.metal_lot}"
+    
+class JobStone(models.Model):
+    job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="job_stones")
+    stone_type = models.ForeignKey(StoneType, on_delete=models.PROTECT, null=True, blank=True)
+    stone_shape = models.ForeignKey(StoneShape, on_delete=models.PROTECT, null=True, blank=True)
+    stone_size = models.CharField(max_length=10, blank=True, null=True)
+    qty_req = models.PositiveIntegerField()
+
+    def __str__(self):
+        return f"{self.job} - {self.stone_type}"
     
 class MetalReceipt(models.Model):
     received_at = models.DateTimeField(default=timezone.now, editable=False)

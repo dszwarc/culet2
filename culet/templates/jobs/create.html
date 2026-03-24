@@ -8,7 +8,7 @@
 
 {% block content %}
 
-<h1 class="header">Create New Job</h1>
+<!-- <h1 class="header">Create New Job</h1>
 
 <div class="form-group">
     <form method="POST">
@@ -16,6 +16,28 @@
         {{ form.as_p }}
         <button class="btn btn-primary" type="submit">Create Job</button>
     </form>
+</div> -->
+
+<h1>Create Job</h1>
+
+<div>
+  <label for="style-picker">Style</label>
+  <select
+    id="style-picker"
+    name="style_id"
+    hx-get="{% url 'culet:job_style_defaults_htmx' %}"
+    hx-trigger="change"
+    hx-target="#job-style-content"
+    hx-swap="innerHTML">
+    <option value="">---------</option>
+    {% for style in form.fields.style.queryset %}
+      <option value="{{ style.pk }}">{{ style }}</option>
+    {% endfor %}
+  </select>
+</div>
+
+<div id="job-style-content">
+  <p>Select a style to begin.</p>
 </div>
 
 {% endblock content %}
