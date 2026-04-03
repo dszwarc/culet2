@@ -241,7 +241,7 @@ class JobStyleDefaultsHTMXView(LoginRequiredMixin, generic.View):
 #     success_url=reverse_lazy('culet:index_job')
 
 class JobMetalLotAssignView(LoginRequiredMixin, generic.View):
-    template_name = "jobs/metal_lot_assign.html"
+    template_name = "jobs/metal_lot_assignment.html"
 
     def get(self, request, pk):
         job_metal = get_object_or_404(JobMetal, pk=pk)

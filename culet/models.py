@@ -3,6 +3,7 @@ from django.utils import timezone
 from django.urls import reverse
 from datetime import date, timedelta
 from django.contrib.auth.models import User
+from decimal import Decimal
 # Create your models here.
 
 class StoneType(models.Model):
@@ -104,6 +105,24 @@ class Job(models.Model):
     def get_absolute_url(self):
         return reverse('culet:job_detail', kwargs={'pk': self.pk})
     
+class Weight(models.Model):
+    job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="weights")
+    weight = models.DecimalField(max_digits=10, decimal_places=3, default=0)
+    sprue_weight = models.DecimalField(max_digits=10, decimal_places=3, default=0)
+    dust_weight = models.DecimalField(max_digits=10, decimal_places=3, default=0)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+    recorded_by = models.ForeignKey(User,on_delete=models.PROTECT, null=True, blank=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+
+    @property
+    def total_weight(self):
+        return (self.weight or Decimal("0")) + (self.sprue_weight or Decimal("0")) + (self.dust_weight or Decimal("0"))
+    
+    def __str__(self):
+        return f"Weight of {self.job} @ {self.created_at:%Y-%m-%d %H:%M}"
+
 class Metal(models.Model):
     lot_num = models.IntegerField(unique=True, blank=True)
     job = models.ForeignKey(Job, on_delete=models.CASCADE, null=True, blank=True)
