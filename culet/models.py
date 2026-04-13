@@ -99,13 +99,33 @@ class Job(models.Model):
     def is_near_due(self):
         return date.today() > self.due - timedelta(days=30)
 
+    @property
+    def initial_job_weight(self):
+        first_weight = self.weights.order_by("created_at", "id").first()
+        return first_weight.total_weight if first_weight else None
+
+    @property
+    def latest_job_weight(self):
+        latest_weight = self.weights.order_by("-created_at", "-id").first()
+        return latest_weight.total_weight if latest_weight else None
+
+    @property
+    def weight_loss_percent(self):
+        initial = self.initial_job_weight
+        latest = self.latest_job_weight
+        
+        if initial in (None, Decimal("0")) or latest is None:
+            return None
+        
+        return ((initial - latest)/initial) * Decimal("100")
+
     def __str__(self):
         return str(self.job_num).zfill(5)
     
     def get_absolute_url(self):
         return reverse('culet:job_detail', kwargs={'pk': self.pk})
     
-class Weight(models.Model):
+class JobWeight(models.Model):
     job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="weights")
     weight = models.DecimalField(max_digits=10, decimal_places=3, default=0)
     sprue_weight = models.DecimalField(max_digits=10, decimal_places=3, default=0)

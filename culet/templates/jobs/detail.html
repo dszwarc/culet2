@@ -142,4 +142,47 @@
 
 </table>
 
+<p>
+  <a href="{% url 'culet:job_weight_create' job.pk %}">Add Weight</a>
+</p>
+
+<h2>Weights</h2>
+
+<p><strong>Initial Total Weight:</strong> {{ job.initial_job_weight }}</p>
+<p><strong>Latest Total Weight:</strong> {{ job.latest_job_weight }}</p>
+<p>
+  <strong>% Weight Loss:</strong>
+  {% if job.weight_loss_percent is not None %}
+    {{ job.weight_loss_percent|floatformat:2 }}%
+  {% else %}
+    N/A
+  {% endif %}
+</p>
+
+<table border="1" cellpadding="8">
+  <tr>
+    <th>Recorded At</th>
+    <th>Weight</th>
+    <th>Sprue</th>
+    <th>Dust</th>
+    <th>Total</th>
+    <th>Recorded By</th>
+  </tr>
+
+  {% for jw in job_weights %}
+    <tr>
+      <td>{{ jw.created_at }}</td>
+      <td>{{ jw.weight }}</td>
+      <td>{{ jw.sprue_weight }}</td>
+      <td>{{ jw.dust_weight }}</td>
+      <td>{{ jw.total_weight }}</td>
+      <td>{{ jw.recorded_by }}</td>
+    </tr>
+  {% empty %}
+    <tr>
+      <td colspan="6">No weights recorded yet.</td>
+    </tr>
+  {% endfor %}
+</table>
+
 {% endblock content %}

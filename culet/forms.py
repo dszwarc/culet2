@@ -1,5 +1,5 @@
 from django import forms
-from .models import JobMetal, JobMetalLot, JobStone, Job, Style, StyleMetal, StyleStone, MetalLot, MetalReceipt, MetalReceiptLine
+from .models import JobWeight, JobMetal, JobMetalLot, JobStone, Job, Style, StyleMetal, StyleStone, MetalLot, MetalReceipt, MetalReceiptLine
 from django.utils import timezone
 from django.contrib.auth.forms import AuthenticationForm, UsernameField
 from django.forms import inlineformset_factory, formset_factory
@@ -20,6 +20,16 @@ class DateInput(forms.DateInput):
 #             'due': forms.DateInput(attrs={'class': 'form-control datepicker', 'type':'date'}),
 #             'notes': forms.Textarea(attrs={'class': 'form-control'}),
 #         }
+
+class JobWeightForm(forms.ModelForm):
+    class Meta:
+        model = JobWeight
+        fields = ["weight", "sprue_weight","dust_weight"]
+        widgets = {
+            "weight": forms.NumberInput(attrs={"step": "0.001", "min": "0"}),
+            "sprue_weight": forms.NumberInput(attrs={"step": "0.001", "min": "0"}),
+            "dust_weight": forms.NumberInput(attrs={"step": "0.001", "min": "0"}),
+        }
 
 class JobForm(forms.ModelForm):
     class Meta:

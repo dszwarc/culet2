@@ -15,6 +15,7 @@ from .models import (
     MetalReceipt,
     JobMetal,
     JobStone,
+    JobWeight,
 )
 from django.views import generic
 from django.urls import reverse_lazy, reverse
@@ -38,7 +39,9 @@ from .forms import (
     JobStoneFormSet,
     JobMetalLotFormSet,
     get_job_metal_formset,
-    get_job_stone_formset,)
+    get_job_stone_formset,
+    JobWeightForm,
+    )
 from django.template.loader import render_to_string
 import copy
 from django.db import transaction
@@ -128,6 +131,7 @@ class JobDetailView(LoginRequiredMixin, generic.DetailView):
         context["job_metals"] = JobMetal.objects.filter(job=context['job'])
         context["job_stones"] = JobStone.objects.filter(job=context['job'])
         context["activity"] = Activity.objects.filter(job=context['job'])
+        context["job_weights"] = context["job"].weights.order_by("-created_at","-id")
         return context
 
 # class JobCreateView(LoginRequiredMixin,generic.CreateView):
@@ -803,3 +807,23 @@ class MetalReceiptListView(LoginRequiredMixin, generic.ListView):
 class InventoryDashboardView(LoginRequiredMixin, generic.TemplateView):
     template_name = "inventory/inventory_dashboard.html"
 
+class JobWeightCreateView(LoginRequiredMixin, generic.CreateView):
+    template_name = "jobs/weight_create.html"
+    model = JobWeight
+    form_class = JobWeightForm 
+
+    def dispatch(self,request,*args,**kwargs):
+        self.job = get_object_or_404(Job, pk=self.kwargs["pk"])
+        return super().dispatch(request,*args,**kwargs)
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["job"] = self.job
+        return context
+    
+    def form_valid(self, form):
+        form.instance.job = self.job
+        form.instance.recorded_by = self.request.user
+        self.object = form.save()
+        return redirect(self.job.get_absolute_url())
+    
