@@ -1,43 +1,271 @@
 {% extends 'base.html' %}
 
-
 {% block title %}
     Create Job
 {% endblock title %}
-    
 
 {% block content %}
+<div class="job-create-page">
+    <div class="job-create-card">
+        <div class="job-create-header">
+            <div>
+                <p class="job-create-eyebrow">Production</p>
+                <h1 class="job-create-title">Create Job</h1>
+                <p class="job-create-subtitle">
+                    Choose a style to prefill the job, metal requirements, and stone requirements.
+                </p>
+            </div>
+        </div>
 
-<!-- <h1 class="header">Create New Job</h1>
+        <div class="job-style-picker-wrap">
+            <label for="style-picker" class="job-label">Style</label>
+            <select
+                id="style-picker"
+                name="style_id"
+                class="form-control form-control-lg job-style-picker"
+                hx-get="{% url 'culet:job_style_defaults_htmx' %}"
+                hx-trigger="change"
+                hx-target="#job-style-content"
+                hx-swap="innerHTML">
+                <option value="">Select a style</option>
+                {% for style in form.fields.style.queryset %}
+                    <option value="{{ style.pk }}">{{ style }}</option>
+                {% endfor %}
+            </select>
+        </div>
 
-<div class="form-group">
-    <form method="POST">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button class="btn btn-primary" type="submit">Create Job</button>
-    </form>
-</div> -->
-
-<h1>Create Job</h1>
-
-<div>
-  <label for="style-picker">Style</label>
-  <select
-    id="style-picker"
-    name="style_id"
-    hx-get="{% url 'culet:job_style_defaults_htmx' %}"
-    hx-trigger="change"
-    hx-target="#job-style-content"
-    hx-swap="innerHTML">
-    <option value="">---------</option>
-    {% for style in form.fields.style.queryset %}
-      <option value="{{ style.pk }}">{{ style }}</option>
-    {% endfor %}
-  </select>
+        <div id="job-style-content" class="job-style-content">
+            <div class="job-empty-state">
+                <h3>Start with a style</h3>
+                <p>
+                    Once you select a style, the job details and requirement rows will appear here.
+                </p>
+            </div>
+        </div>
+    </div>
 </div>
 
-<div id="job-style-content">
-  <p>Select a style to begin.</p>
-</div>
+<style>
+.job-create-page {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    padding: 2rem 1rem 3rem;
+}
 
+.job-create-card {
+    width: 100%;
+    max-width: 1150px;
+    background: #ffffff;
+    border: 1px solid #e7e7e7;
+    border-radius: 20px;
+    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.08);
+    padding: 2rem;
+}
+
+.job-create-header {
+    margin-bottom: 1.5rem;
+}
+
+.job-create-eyebrow {
+    margin: 0 0 .4rem 0;
+    font-size: .82rem;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: #6c757d;
+}
+
+.job-create-title {
+    margin: 0;
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1f2937;
+}
+
+.job-create-subtitle {
+    margin: .6rem 0 0 0;
+    color: #6b7280;
+    font-size: 1rem;
+}
+
+.job-style-picker-wrap {
+    margin-bottom: 1.75rem;
+}
+
+.job-label {
+    display: block;
+    margin-bottom: .45rem;
+    font-weight: 600;
+    color: #374151;
+}
+
+.job-style-picker,
+.job-input {
+    border-radius: 12px !important;
+    min-height: 48px;
+    border: 1px solid #d5d9e0;
+    box-shadow: none !important;
+}
+
+.job-style-picker:focus,
+.job-input:focus {
+    border-color: #111827;
+}
+
+.job-style-content {
+    margin-top: 1rem;
+}
+
+.job-empty-state {
+    border: 1px dashed #d1d5db;
+    border-radius: 16px;
+    padding: 3rem 1.5rem;
+    text-align: center;
+    background: #f9fafb;
+    color: #6b7280;
+}
+
+.job-empty-state h3 {
+    margin-bottom: .5rem;
+    color: #111827;
+}
+
+.job-section-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 18px;
+    padding: 1.25rem;
+    margin-bottom: 1.25rem;
+}
+
+.job-section-title {
+    margin: 0 0 1rem 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #111827;
+}
+
+.job-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.job-grid .job-field-full {
+    grid-column: 1 / -1;
+}
+
+.job-field label {
+    display: block;
+    margin-bottom: .45rem;
+    font-weight: 600;
+    color: #374151;
+}
+
+.job-table-wrap {
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    overflow: hidden;
+    background: #fff;
+}
+
+.job-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0;
+}
+
+.job-table thead {
+    background: #f8fafc;
+}
+
+.job-table th {
+    text-align: left;
+    font-size: .88rem;
+    font-weight: 700;
+    color: #374151;
+    padding: .9rem 1rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.job-table td {
+    padding: .85rem 1rem;
+    border-bottom: 1px solid #eef2f7;
+    vertical-align: middle;
+}
+
+.job-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.job-table input,
+.job-table select,
+.job-table textarea {
+    width: 100%;
+    min-height: 42px;
+    border: 1px solid #d5d9e0;
+    border-radius: 10px;
+    padding: .55rem .75rem;
+    background: #fff;
+}
+
+.job-table .delete-cell {
+    width: 90px;
+    text-align: center;
+}
+
+.job-table .delete-cell input[type="checkbox"] {
+    width: 18px;
+    min-height: auto;
+}
+
+.job-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 1.5rem;
+}
+
+.job-submit-btn {
+    border: none;
+    border-radius: 12px;
+    background: #111827;
+    color: #fff;
+    font-weight: 600;
+    padding: .9rem 1.4rem;
+}
+
+.job-submit-btn:hover {
+    background: #000;
+}
+
+.helptext,
+.errorlist {
+    margin-top: .35rem;
+    font-size: .86rem;
+}
+
+.errorlist {
+    color: #b91c1c;
+    padding-left: 1rem;
+}
+
+@media (max-width: 900px) {
+    .job-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .job-create-card {
+        padding: 1.25rem;
+    }
+
+    .job-table-wrap {
+        overflow-x: auto;
+    }
+
+    .job-table {
+        min-width: 720px;
+    }
+}
+</style>
 {% endblock content %}

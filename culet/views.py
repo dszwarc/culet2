@@ -41,6 +41,7 @@ from .forms import (
     get_job_metal_formset,
     get_job_stone_formset,
     JobWeightForm,
+    JobWeightLookupForm,
     )
 from django.template.loader import render_to_string
 import copy
@@ -808,22 +809,45 @@ class InventoryDashboardView(LoginRequiredMixin, generic.TemplateView):
     template_name = "inventory/inventory_dashboard.html"
 
 class JobWeightCreateView(LoginRequiredMixin, generic.CreateView):
-    template_name = "jobs/weight_create.html"
     model = JobWeight
-    form_class = JobWeightForm 
+    form_class = JobWeightForm
+    template_name = "jobs/weight_create.html"
 
-    def dispatch(self,request,*args,**kwargs):
+    def dispatch(self, request, *args, **kwargs):
         self.job = get_object_or_404(Job, pk=self.kwargs["pk"])
-        return super().dispatch(request,*args,**kwargs)
-    
+        return super().dispatch(request, *args, **kwargs)
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["job"] = self.job
+        context["job_weights"] = self.job.weights.order_by("-created_at", "-id")
         return context
-    
+
     def form_valid(self, form):
         form.instance.job = self.job
         form.instance.recorded_by = self.request.user
         self.object = form.save()
+        messages.success(self.request, f"Weight recorded for job {self.job.job_num}.")
         return redirect(self.job.get_absolute_url())
     
+class JobWeightLookupView(LoginRequiredMixin, generic.FormView):
+    template_name = "jobs/weight_lookup.html"
+    form_class = JobWeightLookupForm
+
+    def form_valid(self, form):
+        job_num = form.cleaned_data.get("job_num")
+        customer_ref_num = form.cleaned_data.get("customer_ref_num")
+
+        job = None
+
+        if job_num:
+            job = Job.objects.filter(job_num=job_num).first()
+
+        if not job and customer_ref_num:
+            job = Job.objects.filter(customer_ref_num=customer_ref_num).first()
+
+        if not job:
+            form.add_error(None, "No job found with the provided number.")
+            return self.form_invalid(form)
+
+        return redirect("culet:job_weight_create", pk=job.pk)

@@ -8,6 +8,7 @@ urlpatterns = [
     path("jobs/<int:pk>/edit/", views.JobUpdateView.as_view(), name="job_update"),
     path("jobs/create", views.JobCreateView.as_view(), name="job_create"),
     path("jobs/<int:pk>/weights/add/", views.JobWeightCreateView.as_view(), name="job_weight_create"),
+    path("jobs/weights/lookup/", views.JobWeightLookupView.as_view(), name="job_weight_lookup"),
     path("job-metals/<int:pk>/assign-lots",views.JobMetalLotAssignView.as_view(), name="job_metal_assign_lots"),
     path("htmx/job-style-defaults/", views.JobStyleDefaultsHTMXView.as_view(), name="job_style_defaults_htmx"),
     path("htmx/job-metal/<int:pk>/lots/", views.JobMetalLotAssignmentHTMXView.as_view(), name="job_metal_lot_htmx"),

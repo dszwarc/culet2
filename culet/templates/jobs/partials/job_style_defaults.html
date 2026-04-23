@@ -1,37 +1,159 @@
 <form method="post">
-  {% csrf_token %}
-  <fieldset>
-    <legend>Job Info</legend>
-    {{ job_form.as_p }}
-  </fieldset>
+    {% csrf_token %}
 
-  <fieldset>
-    <legend>Metals</legend>
-    {{ metal_formset.management_form }}
-    <div id="metal-formset">
-      {% for f in metal_formset %}
-        <div class="metal-row" style="border:1px solid #ddd; padding:10px; margin-bottom:10px;">
-          {{ f.as_p }}
+    <div class="job-section-card">
+        <h2 class="job-section-title">Job Information</h2>
+
+        <div class="job-grid">
+            <div class="job-field">
+                <label for="{{ job_form.name.id_for_label }}">{{ job_form.name.label }}</label>
+                {{ job_form.name }}
+                {{ job_form.name.errors }}
+            </div>
+
+            <div class="job-field">
+                <label for="{{ job_form.customer.id_for_label }}">{{ job_form.customer.label }}</label>
+                {{ job_form.customer }}
+                {{ job_form.customer.errors }}
+            </div>
+
+            <div class="job-field">
+                <label for="{{ job_form.customer_ref_num.id_for_label }}">{{ job_form.customer_ref_num.label }}</label>
+                {{ job_form.customer_ref_num }}
+                {{ job_form.customer_ref_num.errors }}
+            </div>
+
+            <div class="job-field">
+                <label for="{{ job_form.style.id_for_label }}">{{ job_form.style.label }}</label>
+                {{ job_form.style }}
+                {{ job_form.style.errors }}
+            </div>
+
+            <div class="job-field">
+                <label for="{{ job_form.due.id_for_label }}">{{ job_form.due.label }}</label>
+                {{ job_form.due }}
+                {{ job_form.due.errors }}
+            </div>
+
+            <div class="job-field">
+                <label for="{{ job_form.assigned_to.id_for_label }}">{{ job_form.assigned_to.label }}</label>
+                {{ job_form.assigned_to }}
+                {{ job_form.assigned_to.errors }}
+            </div>
+
+            <div class="job-field">
+                <label for="{{ job_form.location.id_for_label }}">{{ job_form.location.label }}</label>
+                {{ job_form.location }}
+                {{ job_form.location.errors }}
+            </div>
+
+            <div class="job-field job-field-full">
+                <label for="{{ job_form.notes.id_for_label }}">{{ job_form.notes.label }}</label>
+                {{ job_form.notes }}
+                {{ job_form.notes.errors }}
+            </div>
         </div>
-      {% empty %}
-        <p>No metal requirements found for this style.</p>
-      {% endfor %}
     </div>
-  </fieldset>
 
-  <fieldset>
-    <legend>Stones</legend>
-    {{ stone_formset.management_form }}
-    <div id="stone-formset">
-      {% for f in stone_formset %}
-        <div class="stone-row" style="border:1px solid #ddd; padding:10px; margin-bottom:10px;">
-          {{ f.as_p }}
-        </div>
-      {% empty %}
-        <p>No stone requirements found for this style.</p>
-      {% endfor %}
+    <div class="job-section-card">
+        <h2 class="job-section-title">Metal Requirements</h2>
+        {{ metal_formset.management_form }}
+
+        {% if metal_formset.forms %}
+            <div class="job-table-wrap">
+                <table class="job-table">
+                    <thead>
+                        <tr>
+                            <th>Part</th>
+                            <th>Qty Required</th>
+                            <th>Weight Required</th>
+                            <th>Metal Type</th>
+                            <th class="delete-cell">Delete</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for f in metal_formset %}
+                            <tr>
+                                <td>
+                                    {{ f.id }}
+                                    {{ f.part }}
+                                    {{ f.part.errors }}
+                                </td>
+                                <td>
+                                    {{ f.qty_req }}
+                                    {{ f.qty_req.errors }}
+                                </td>
+                                <td>
+                                    {{ f.weight_req }}
+                                    {{ f.weight_req.errors }}
+                                </td>
+                                <td>
+                                    {{ f.metal_type }}
+                                    {{ f.metal_type.errors }}
+                                </td>
+                                <td class="delete-cell">
+                                    {% if f.DELETE %}{{ f.DELETE }}{% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p>No metal requirements found for this style.</p>
+        {% endif %}
     </div>
-  </fieldset>
 
-  <button type="submit">Save Job</button>
+    <div class="job-section-card">
+        <h2 class="job-section-title">Stone Requirements</h2>
+        {{ stone_formset.management_form }}
+
+        {% if stone_formset.forms %}
+            <div class="job-table-wrap">
+                <table class="job-table">
+                    <thead>
+                        <tr>
+                            <th>Stone Type</th>
+                            <th>Shape</th>
+                            <th>Size</th>
+                            <th>Qty Required</th>
+                            <th class="delete-cell">Delete</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for f in stone_formset %}
+                            <tr>
+                                <td>
+                                    {{ f.id }}
+                                    {{ f.stone_type }}
+                                    {{ f.stone_type.errors }}
+                                </td>
+                                <td>
+                                    {{ f.stone_shape }}
+                                    {{ f.stone_shape.errors }}
+                                </td>
+                                <td>
+                                    {{ f.stone_size }}
+                                    {{ f.stone_size.errors }}
+                                </td>
+                                <td>
+                                    {{ f.qty_req }}
+                                    {{ f.qty_req.errors }}
+                                </td>
+                                <td class="delete-cell">
+                                    {% if f.DELETE %}{{ f.DELETE }}{% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p>No stone requirements found for this style.</p>
+        {% endif %}
+    </div>
+
+    <div class="job-actions">
+        <button type="submit" class="job-submit-btn">Create Job</button>
+    </div>
 </form>
