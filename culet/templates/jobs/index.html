@@ -14,7 +14,8 @@
     <div class="container">
         <table class="index_table job_index">
             <tr>
-                <td>Number</td>
+                <td>Job Num</td>
+                <td>Customer Ref Num</td>
                 <td>Name</td>
                 <td>Style</td>
                 <td>Assigned To</td>
@@ -25,6 +26,7 @@
             {% for job in latest_job_list %}
                     <tr class="{% if forloop.counter|divisibleby:2 %}even_row{% else %}odd_row{% endif %}">
                         <td><a href="{% url 'culet:job_detail' job.id %}">{{ job.job_num }}</a></td>
+                        <td>{{ job.customer_ref_num }}</td>
                         <td>{{ job.name }}</td>
                         <td>{{ job.style }}</td>
                         <td>

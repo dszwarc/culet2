@@ -7,6 +7,17 @@ from decimal import Decimal
 from django.db.models import Max
 # Create your models here.
 
+class Step(models.Model):
+    name = models.CharField(max_length=100,unique=True)
+    order = models.PositiveIntegerField(default=0)
+    active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["order", "name"]
+
+    def __str__(self):
+        return self.name
+
 class StoneType(models.Model):
     name = models.CharField(max_length=80, unique=True)
     def __str__(self):
@@ -95,7 +106,7 @@ class Job(models.Model):
     def save(self,*args, **kwargs):
         if self.job_num is None:
             with transaction.atomic():
-                latest_job_num = Job.objects.aggregate(Max("job_num"))["job_num_max"] or 0
+                latest_job_num = Job.objects.aggregate(Max("job_num"))["job_num__max"] or 0
                 self.job_num = latest_job_num + 1
         super().save(*args,**kwargs)
 
@@ -140,6 +151,7 @@ class JobWeight(models.Model):
     dust_weight = models.DecimalField(max_digits=10, decimal_places=3, default=0)
     created_at = models.DateTimeField(default=timezone.now, editable=False)
     recorded_by = models.ForeignKey(User,on_delete=models.PROTECT, null=True, blank=True)
+    weight_step = models.ForeignKey(Step, on_delete=models.PROTECT,related_name="job_weights", null=True, blank=True)
 
     class Meta:
         ordering = ["created_at", "id"]
@@ -331,3 +343,4 @@ class TimeClock(models.Model):
     clock_in = models.DateTimeField(null=True)
     clock_out = models.DateTimeField(null=True)
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
+
