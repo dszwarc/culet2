@@ -309,3 +309,25 @@ table{
     color: white;
     font-weight: 600;
 }
+
+.section-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.table-add-btn {
+    border: none;
+    background: #111827;
+    color: white;
+    border-radius: 10px;
+    padding: 0.65rem 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.table-add-btn:hover {
+    background: #000;
+}

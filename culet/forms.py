@@ -287,18 +287,36 @@ class StyleForm(forms.ModelForm):
         model = Style
         fields = ("name", "customer", "stamp", "description")
         widgets = {
-            "name": text_widget("Style name"),
-            "customer": select_widget(),
-            "stamp": text_widget("Stamp / hallmark"),
-            "description": textarea_widget("Style description...", rows=4),
+            "name": forms.TextInput(
+                attrs={
+                    "class": "form-control form-control-lg job-input",
+                    "placeholder": "Style name",
+                }
+            ),
+            "customer": forms.Select(
+                attrs={
+                    "class": "form-control job-input",
+                }
+            ),
+            "stamp": forms.TextInput(
+                attrs={
+                    "class": "form-control job-input",
+                    "placeholder": "Stamp / hallmark",
+                }
+            ),
+            "description": forms.Textarea(
+                attrs={
+                    "class": "form-control job-input",
+                    "rows": 4,
+                    "placeholder": "Style description...",
+                }
+            ),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
-        if "customer" in self.fields:
-            self.fields["customer"].required = False
-            self.fields["customer"].empty_label = "Select a customer"
+        self.fields["customer"].required = False
+        self.fields["customer"].empty_label = "Select a customer"
 
 
 class StyleMetalForm(forms.ModelForm):
@@ -306,23 +324,28 @@ class StyleMetalForm(forms.ModelForm):
         model = StyleMetal
         fields = ["part", "qty_req", "weight", "metal_type"]
         widgets = {
-            "part": table_select_widget(),
-            "qty_req": table_number_widget(min_value="0", placeholder="Qty"),
-            "weight": table_number_widget(step="0.001", min_value="0", placeholder="Weight"),
-            "metal_type": table_select_widget(),
+            "part": forms.Select(attrs={"class": "job-table-input"}),
+            "qty_req": forms.NumberInput(
+                attrs={
+                    "class": "job-table-input",
+                    "min": "0",
+                    "placeholder": "Qty",
+                }
+            ),
+            "weight": forms.NumberInput(
+                attrs={
+                    "class": "job-table-input",
+                    "min": "0",
+                    "step": "0.001",
+                    "placeholder": "Weight",
+                }
+            ),
+            "metal_type": forms.Select(attrs={"class": "job-table-input"}),
         }
         labels = {
             "qty_req": "Qty Required",
+            "metal_type": "Metal Type",
         }
-
-
-StyleMetalFormSet = inlineformset_factory(
-    parent_model=Style,
-    model=StyleMetal,
-    form=StyleMetalForm,
-    extra=1,
-    can_delete=True,
-)
 
 
 class StyleStoneForm(forms.ModelForm):
@@ -330,15 +353,33 @@ class StyleStoneForm(forms.ModelForm):
         model = StyleStone
         fields = ["stone_type", "stone_shape", "stone_size", "qty_req"]
         widgets = {
-            "stone_type": table_select_widget(),
-            "stone_shape": table_select_widget(),
-            "stone_size": table_text_widget("e.g. 2.5mm"),
-            "qty_req": table_number_widget(min_value="0", placeholder="Qty"),
+            "stone_type": forms.Select(attrs={"class": "job-table-input"}),
+            "stone_shape": forms.Select(attrs={"class": "job-table-input"}),
+            "stone_size": forms.TextInput(
+                attrs={
+                    "class": "job-table-input",
+                    "placeholder": "e.g. 2.5mm",
+                }
+            ),
+            "qty_req": forms.NumberInput(
+                attrs={
+                    "class": "job-table-input",
+                    "min": "0",
+                    "placeholder": "Qty",
+                }
+            ),
         }
         labels = {
             "qty_req": "Qty Required",
         }
-
+        
+StyleMetalFormSet = inlineformset_factory(
+    parent_model=Style,
+    model=StyleMetal,
+    form=StyleMetalForm,
+    extra=1,
+    can_delete=True,
+)
 
 StyleStoneFormSet = inlineformset_factory(
     Style,

@@ -4,7 +4,6 @@ from django.views.generic import RedirectView
 
 app_name = "culet"
 urlpatterns = [
-    path("", RedirectView.as_view(pattern_name="culet:home", permanent=False)),
     path("", views.HomeView.as_view(), name="home"),
     path("jobs/", views.JobListView.as_view(), name="index_job"),
     path("jobs/<int:pk>/", views.JobDetailView.as_view(), name="job_detail"),
