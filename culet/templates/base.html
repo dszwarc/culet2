@@ -14,7 +14,7 @@
     <link rel="stylesheet" href="{% static 'js/jquery-ui-1.14.1/jquery-ui.theme.min.css' %}">
 </head>
 <body>
-    {% include 'navigation.html' %}
+    <!-- {% include 'navigation.html' %} -->
 
         {% if user.employee %}    
             {% if user.employee.clocked_in == True %}
@@ -27,6 +27,10 @@
         Nothing found
     {% endblock %}
         
+    <div class="top-home-link">
+    <a href="{% url 'culet:home' %}">Culet Home</a>
+    </div>
+
     <script src="{% static 'js/jquery-3.7.1.js' %}"></script>
     <script src="js/jquery-ui-1.14.1/jquery-ui.js"></script>
     <script src="{% static 'js/culet_js.js' %}"></script>

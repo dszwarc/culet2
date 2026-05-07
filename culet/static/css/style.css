@@ -196,3 +196,116 @@ table{
 .login_form_title{
     padding: 2em 0 0 0;
 }
+/* ===== FULL PAGE ===== */
+.home-body {
+    margin: 0;
+    font-family: system-ui, -apple-system, sans-serif;
+    background: #0f172a;
+    color: white;
+}
+
+/* ===== LAYOUT ===== */
+.home-container {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    padding: 1.25rem;
+}
+
+/* ===== HEADER ===== */
+.home-header {
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+.home-header h1 {
+    font-size: 2rem;
+    margin: 0;
+}
+
+.home-header p {
+    margin: 0;
+    color: #94a3b8;
+}
+
+/* ===== BUTTON GRID ===== */
+.home-buttons {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    flex-grow: 1;
+}
+
+/* Tablet+ */
+@media (min-width: 600px) {
+    .home-buttons {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+/* Desktop */
+@media (min-width: 900px) {
+    .home-buttons {
+        grid-template-columns: 1fr 1fr 1fr;
+    }
+}
+
+/* ===== MAIN BUTTON ===== */
+.home-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    height: 90px;
+    font-size: 1.2rem;
+    font-weight: 600;
+
+    background: #1e293b;
+    border-radius: 16px;
+    text-decoration: none;
+    color: white;
+
+    transition: transform 0.1s ease, background 0.1s ease;
+}
+
+.home-btn:active {
+    transform: scale(0.98);
+    background: #334155;
+}
+
+/* ===== FOOTER ===== */
+.home-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+/* ===== CLOCK BUTTON ===== */
+.clock-btn {
+    text-align: center;
+    padding: 1rem;
+    border-radius: 14px;
+    font-weight: 700;
+    text-decoration: none;
+    color: white;
+}
+
+.clock-in {
+    background: #16a34a;
+}
+
+.clock-out {
+    background: #dc2626;
+}
+
+/* ===== LOGOUT ===== */
+.logout-btn {
+    width: 100%;
+    padding: 0.9rem;
+    border-radius: 14px;
+    border: none;
+    background: #334155;
+    color: white;
+    font-weight: 600;
+}

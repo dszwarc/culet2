@@ -1,27 +1,113 @@
 from django import forms
-from .models import JobWeight, JobMetal, JobMetalLot, JobStone, Job, Style, StyleMetal, StyleStone, MetalLot, MetalReceipt, MetalReceiptLine
-from django.utils import timezone
 from django.contrib.auth.forms import AuthenticationForm, UsernameField
 from django.forms import inlineformset_factory, formset_factory
+from django.utils import timezone
 from decimal import Decimal
 from django.core.exceptions import ValidationError
 
+from .models import (
+    JobWeight,
+    JobMetal,
+    JobMetalLot,
+    JobStone,
+    Job,
+    Style,
+    StyleMetal,
+    StyleStone,
+    MetalLot,
+    MetalReceipt,
+    MetalReceiptLine,
+)
+
+
 class DateInput(forms.DateInput):
-    input_type = 'date'
+    input_type = "date"
 
-# class JobForm(forms.ModelForm):
-#     class Meta:
-#         model = Job
-#         fields = ('name','customer','job_num','style','due','notes')
 
-#         widgets = {
-#             'name': forms.TextInput(attrs={'class': 'form-control'}),
-#             'customer': forms.TextInput(attrs={'class': 'form-control'}),
-#             'job_num': forms.TextInput(attrs={'class': 'form-control'}),
-#             'style': forms.Select(attrs={'class': 'form-control'}),
-#             'due': forms.DateInput(attrs={'class': 'form-control datepicker', 'type':'date'}),
-#             'notes': forms.Textarea(attrs={'class': 'form-control'}),
-#         }
+# -------------------------------------------------
+# Shared widget helpers
+# -------------------------------------------------
+
+BASE_INPUT_CLASS = "form-control job-input"
+TABLE_INPUT_CLASS = "job-table-input"
+
+
+def text_widget(placeholder="", extra_classes=""):
+    return forms.TextInput(
+        attrs={
+            "class": f"{BASE_INPUT_CLASS} {extra_classes}".strip(),
+            "placeholder": placeholder,
+        }
+    )
+
+
+def textarea_widget(placeholder="", rows=4, extra_classes=""):
+    return forms.Textarea(
+        attrs={
+            "class": f"{BASE_INPUT_CLASS} {extra_classes}".strip(),
+            "placeholder": placeholder,
+            "rows": rows,
+        }
+    )
+
+
+def select_widget(extra_classes=""):
+    return forms.Select(
+        attrs={
+            "class": f"{BASE_INPUT_CLASS} {extra_classes}".strip(),
+        }
+    )
+
+
+def number_widget(placeholder="", step=None, min_value=None, extra_classes=""):
+    attrs = {
+        "class": f"{BASE_INPUT_CLASS} {extra_classes}".strip(),
+        "placeholder": placeholder,
+    }
+    if step is not None:
+        attrs["step"] = step
+    if min_value is not None:
+        attrs["min"] = min_value
+    return forms.NumberInput(attrs=attrs)
+
+
+def date_widget(extra_classes=""):
+    return forms.DateInput(
+        attrs={
+            "class": f"{BASE_INPUT_CLASS} {extra_classes}".strip(),
+            "type": "date",
+        }
+    )
+
+
+def table_select_widget():
+    return forms.Select(attrs={"class": TABLE_INPUT_CLASS})
+
+
+def table_text_widget(placeholder=""):
+    return forms.TextInput(
+        attrs={
+            "class": TABLE_INPUT_CLASS,
+            "placeholder": placeholder,
+        }
+    )
+
+
+def table_number_widget(step=None, min_value=None, placeholder=""):
+    attrs = {
+        "class": TABLE_INPUT_CLASS,
+        "placeholder": placeholder,
+    }
+    if step is not None:
+        attrs["step"] = step
+    if min_value is not None:
+        attrs["min"] = min_value
+    return forms.NumberInput(attrs=attrs)
+
+
+# -------------------------------------------------
+# Forms
+# -------------------------------------------------
 
 class JobWeightForm(forms.ModelForm):
     class Meta:
@@ -81,53 +167,14 @@ class JobForm(forms.ModelForm):
             "notes",
         ]
         widgets = {
-            "name": forms.TextInput(
-                attrs={
-                    "class": "form-control form-control-lg job-input",
-                    "placeholder": "Job name",
-                }
-            ),
-            "customer": forms.Select(
-                attrs={
-                    "class": "form-control job-input",
-                }
-            ),
-            "customer_ref_num": forms.NumberInput(
-                attrs={
-                    "class": "form-control job-input",
-                    "placeholder": "Customer reference #",
-                    "min": "0",
-                }
-            ),
-            "style": forms.Select(
-                attrs={
-                    "class": "form-control job-input",
-                    "id": "id_style",
-                }
-            ),
-            "due": forms.DateInput(
-                attrs={
-                    "class": "form-control job-input",
-                    "type": "date",
-                }
-            ),
-            "assigned_to": forms.Select(
-                attrs={
-                    "class": "form-control job-input",
-                }
-            ),
-            "location": forms.Select(
-                attrs={
-                    "class": "form-control job-input",
-                }
-            ),
-            "notes": forms.Textarea(
-                attrs={
-                    "class": "form-control job-input",
-                    "rows": 4,
-                    "placeholder": "Add notes for the shop...",
-                }
-            ),
+            "name": text_widget("Job name", "form-control-lg"),
+            "customer": select_widget(),
+            "customer_ref_num": number_widget("Customer reference #", min_value="0"),
+            "style": select_widget(),
+            "due": date_widget(),
+            "assigned_to": select_widget(),
+            "location": select_widget(),
+            "notes": textarea_widget("Add notes for the shop...", rows=4),
         }
         labels = {
             "customer_ref_num": "Customer Ref #",
@@ -144,20 +191,29 @@ class JobForm(forms.ModelForm):
         self.fields["location"].required = False
         self.fields["notes"].required = False
 
-        self.fields["style"].empty_label = "Select a style"
-        self.fields["customer"].empty_label = "Select a customer"
-        self.fields["assigned_to"].empty_label = "Unassigned"
-        self.fields["location"].empty_label = "No current location"
+        if "style" in self.fields:
+            self.fields["style"].empty_label = "Select a style"
+        if "customer" in self.fields:
+            self.fields["customer"].empty_label = "Select a customer"
+        if "assigned_to" in self.fields:
+            self.fields["assigned_to"].empty_label = "Unassigned"
+        if "location" in self.fields:
+            self.fields["location"].empty_label = "No current location"
+
 
 class JobMetalForm(forms.ModelForm):
     class Meta:
         model = JobMetal
         fields = ["part", "qty_req", "weight_req", "metal_type"]
         widgets = {
-            "part": forms.Select(attrs={"class": "job-table-input"}),
-            "qty_req": forms.NumberInput(attrs={"class": "job-table-input", "min": "0"}),
-            "weight_req": forms.NumberInput(attrs={"class": "job-table-input", "min": "0"}),
-            "metal_type": forms.Select(attrs={"class": "job-table-input"}),
+            "part": table_select_widget(),
+            "qty_req": table_number_widget(min_value="0", placeholder="Qty"),
+            "weight_req": table_number_widget(step="0.001", min_value="0", placeholder="Weight"),
+            "metal_type": table_select_widget(),
+        }
+        labels = {
+            "qty_req": "Qty Required",
+            "weight_req": "Weight Required",
         }
 
 
@@ -166,16 +222,29 @@ class JobStoneForm(forms.ModelForm):
         model = JobStone
         fields = ["stone_type", "stone_shape", "stone_size", "qty_req"]
         widgets = {
-            "stone_type": forms.Select(attrs={"class": "job-table-input"}),
-            "stone_shape": forms.Select(attrs={"class": "job-table-input"}),
-            "stone_size": forms.TextInput(attrs={"class": "job-table-input", "placeholder": "e.g. 2.5mm"}),
-            "qty_req": forms.NumberInput(attrs={"class": "job-table-input", "min": "0"}),
+            "stone_type": table_select_widget(),
+            "stone_shape": table_select_widget(),
+            "stone_size": table_text_widget("e.g. 2.5mm"),
+            "qty_req": table_number_widget(min_value="0", placeholder="Qty"),
         }
+        labels = {
+            "qty_req": "Qty Required",
+        }
+
 
 class JobMetalLotForm(forms.ModelForm):
     class Meta:
         model = JobMetalLot
         fields = ["metal_lot", "qty_used", "weight_used"]
+        widgets = {
+            "metal_lot": select_widget(),
+            "qty_used": number_widget("Qty used", min_value="0"),
+            "weight_used": number_widget("Weight used", step="0.001", min_value="0"),
+        }
+        labels = {
+            "qty_used": "Qty Used",
+            "weight_used": "Weight Used",
+        }
 
     def __init__(self, *args, **kwargs):
         job_metal = kwargs.pop("job_metal", None)
@@ -187,80 +256,165 @@ class JobMetalLotForm(forms.ModelForm):
                 qty_on_hand__gt=0,
             ).order_by("vendor_lot__lot_num")
 
+        if "metal_lot" in self.fields:
+            self.fields["metal_lot"].empty_label = "Select a metal lot"
+
+
 class JobUpdateForm(forms.ModelForm):
     class Meta:
         model = Job
-        fields = ('name','customer','job_num','style','due','notes')
-
+        fields = ("name", "customer", "job_num", "style", "due", "notes")
         widgets = {
-            'name': forms.TextInput(attrs={'class': 'form-control'}),
-            'customer': forms.TextInput(attrs={'class': 'form-control'}),
-            'job_num': forms.TextInput(attrs={'class': 'form-control'}),
-            'style': forms.Select(attrs={'class': 'form-control'}),
-            'due': forms.DateInput(attrs={'class': 'form-control','type':'date'}),
-            'notes': forms.Textarea(attrs={'class': 'form-control'}),
+            "name": text_widget("Job name"),
+            "customer": select_widget(),
+            "job_num": number_widget("Job number", min_value="0"),
+            "style": select_widget(),
+            "due": date_widget(),
+            "notes": textarea_widget("Add notes...", rows=4),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if "customer" in self.fields:
+            self.fields["customer"].empty_label = "Select a customer"
+        if "style" in self.fields:
+            self.fields["style"].empty_label = "Select a style"
+
 
 class StyleForm(forms.ModelForm):
     class Meta:
         model = Style
-        fields = ('name','customer', 'stamp', 'description')
-
+        fields = ("name", "customer", "stamp", "description")
         widgets = {
-            'name': forms.TextInput(attrs={'class': 'form-control'}),
-            'product': forms.Select(attrs={'class': 'form-control'}),
+            "name": text_widget("Style name"),
+            "customer": select_widget(),
+            "stamp": text_widget("Stamp / hallmark"),
+            "description": textarea_widget("Style description...", rows=4),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if "customer" in self.fields:
+            self.fields["customer"].required = False
+            self.fields["customer"].empty_label = "Select a customer"
+
 
 class StyleMetalForm(forms.ModelForm):
     class Meta:
         model = StyleMetal
         fields = ["part", "qty_req", "weight", "metal_type"]
+        widgets = {
+            "part": table_select_widget(),
+            "qty_req": table_number_widget(min_value="0", placeholder="Qty"),
+            "weight": table_number_widget(step="0.001", min_value="0", placeholder="Weight"),
+            "metal_type": table_select_widget(),
+        }
+        labels = {
+            "qty_req": "Qty Required",
+        }
+
 
 StyleMetalFormSet = inlineformset_factory(
-    parent_model = Style,
-    model = StyleMetal,
-    form = StyleMetalForm,
-    extra = 1,
-    can_delete = True
+    parent_model=Style,
+    model=StyleMetal,
+    form=StyleMetalForm,
+    extra=1,
+    can_delete=True,
 )
+
 
 class StyleStoneForm(forms.ModelForm):
     class Meta:
         model = StyleStone
         fields = ["stone_type", "stone_shape", "stone_size", "qty_req"]
+        widgets = {
+            "stone_type": table_select_widget(),
+            "stone_shape": table_select_widget(),
+            "stone_size": table_text_widget("e.g. 2.5mm"),
+            "qty_req": table_number_widget(min_value="0", placeholder="Qty"),
+        }
+        labels = {
+            "qty_req": "Qty Required",
+        }
+
 
 StyleStoneFormSet = inlineformset_factory(
     Style,
     StyleStone,
     form=StyleStoneForm,
     extra=1,
-    can_delete=True
+    can_delete=True,
 )
 
+
 class MetalReceiptForm(forms.ModelForm):
-    lot_num = forms.CharField(max_length=50)
+    lot_num = forms.CharField(
+        max_length=50,
+        widget=text_widget("Vendor lot number"),
+        label="Lot Number",
+    )
 
     class Meta:
         model = MetalReceipt
         fields = ["vendor", "reference", "notes", "lot_num"]
+        widgets = {
+            "vendor": select_widget(),
+            "reference": text_widget("PO, invoice, or reference"),
+            "notes": textarea_widget("Receipt notes...", rows=3),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if "vendor" in self.fields:
+            self.fields["vendor"].empty_label = "Select a vendor"
+
 
 class MetalReceiptLineForm(forms.ModelForm):
     class Meta:
         model = MetalReceiptLine
         fields = ["part", "qty_received"]
+        widgets = {
+            "part": table_select_widget(),
+            "qty_received": table_number_widget(
+                step="0.001",
+                min_value="0",
+                placeholder="Qty received",
+            ),
+        }
+        labels = {
+            "qty_received": "Qty Received",
+        }
+
 
 class MetalLotForm(forms.ModelForm):
     class Meta:
         model = MetalLot
-        fields = ["part","vendor_lot","qty_on_hand"]
+        fields = ["part", "vendor_lot", "qty_on_hand"]
         widgets = {
-            "qty_on_hand": forms.NumberInput(attrs={"min":0}),
+            "part": select_widget(),
+            "vendor_lot": select_widget(),
+            "qty_on_hand": number_widget("Qty on hand", step="0.001", min_value="0"),
         }
+        labels = {
+            "qty_on_hand": "Qty On Hand",
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if "part" in self.fields:
+            self.fields["part"].empty_label = "Select a part"
+        if "vendor_lot" in self.fields:
+            self.fields["vendor_lot"].empty_label = "Select a vendor lot"
+
 
 MetalLotFormSet = formset_factory(
     MetalLotForm,
     extra=5,
-    can_delete=True
+    can_delete=True,
 )
 
 MetalReceiptLineFormSet = inlineformset_factory(
@@ -295,7 +449,6 @@ JobMetalLotFormSet = inlineformset_factory(
     can_delete=True,
 )
 
-from django.forms import inlineformset_factory
 
 def get_job_metal_formset(extra=0):
     return inlineformset_factory(
@@ -305,6 +458,7 @@ def get_job_metal_formset(extra=0):
         extra=extra,
         can_delete=True,
     )
+
 
 def get_job_stone_formset(extra=0):
     return inlineformset_factory(

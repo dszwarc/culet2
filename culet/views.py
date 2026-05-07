@@ -48,6 +48,9 @@ import copy
 from django.db import transaction
 from django.db.models import F
 
+class HomeView(LoginRequiredMixin, generic.TemplateView):
+    template_name = "home.html"
+
 def index(request):
     return render(request, 'authentication/login.html')
 
