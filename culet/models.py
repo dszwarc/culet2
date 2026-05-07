@@ -1,9 +1,10 @@
-from django.db import models
+from django.db import models, transaction
 from django.utils import timezone
 from django.urls import reverse
 from datetime import date, timedelta
 from django.contrib.auth.models import User
 from decimal import Decimal
+from django.db.models import Max
 # Create your models here.
 
 class StoneType(models.Model):
@@ -78,7 +79,7 @@ class Job(models.Model):
 
     name = models.CharField(max_length=80,default="N/A")
     customer = models.ForeignKey(Customer, on_delete=models.PROTECT, null=True)
-    job_num = models.IntegerField(default=0, unique=True)
+    job_num = models.IntegerField(blank=True,null=True, unique=True)
     customer_ref_num = models.IntegerField(null=True, unique=True)
     active = models.BooleanField(default=True)
     shipped = models.BooleanField(default=False)
@@ -90,6 +91,13 @@ class Job(models.Model):
     assigned_to = models.ForeignKey(Employee, on_delete=models.CASCADE, null=True, related_name='job_assignment')
     location = models.ForeignKey(Employee, on_delete=models.CASCADE, null=True, related_name='job_location')
     notes = models.TextField(default="", null=True)
+
+    def save(self,*args, **kwargs):
+        if self.job_num is None:
+            with transaction.atomic():
+                latest_job_num = Job.objects.aggregate(Max("job_num"))["job_num_max"] or 0
+                self.job_num = latest_job_num + 1
+        super().save(*args,**kwargs)
 
     @property
     def is_past_due(self):

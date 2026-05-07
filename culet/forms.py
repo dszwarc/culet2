@@ -263,11 +263,10 @@ class JobMetalLotForm(forms.ModelForm):
 class JobUpdateForm(forms.ModelForm):
     class Meta:
         model = Job
-        fields = ("name", "customer", "job_num", "style", "due", "notes")
+        fields = ("name", "customer", "style", "due", "notes")
         widgets = {
             "name": text_widget("Job name"),
             "customer": select_widget(),
-            "job_num": number_widget("Job number", min_value="0"),
             "style": select_widget(),
             "due": date_widget(),
             "notes": textarea_widget("Add notes...", rows=4),
@@ -372,7 +371,7 @@ class StyleStoneForm(forms.ModelForm):
         labels = {
             "qty_req": "Qty Required",
         }
-        
+
 StyleMetalFormSet = inlineformset_factory(
     parent_model=Style,
     model=StyleMetal,
