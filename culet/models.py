@@ -147,6 +147,10 @@ class Job(models.Model):
         super().save(*args,**kwargs)
 
     @property
+    def active_activity(self):
+        return self.activity_set.filter(active=True, end__isnull=True).first()
+
+    @property
     def is_past_due(self):
         return date.today() > self.due
 
@@ -383,9 +387,11 @@ class Activity(models.Model):
             duration = (self.end - self.start).total_seconds()%3600
             duration = duration//60
             return int(duration)
+        
     def save(self, *args, **kwargs):
         if self.step and not self.name:
             self.name = self.step.name
+        super().save(*args,**kwargs)
 
     def __str__(self):
         step_name = self.step.name if self.step else self.name

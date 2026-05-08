@@ -42,6 +42,7 @@ from .forms import (
     get_job_stone_formset,
     JobWeightForm,
     JobWeightLookupForm,
+    ActivityStartForm,
     )
 from django.template.loader import render_to_string
 import copy
@@ -68,15 +69,25 @@ class JobListView(LoginRequiredMixin,generic.ListView):
         context = {'latest_job_list':filt_jobs, 'filter':myFilter}
 
         return context
+
     
-class MyJobListView(LoginRequiredMixin,generic.ListView):
+class MyJobListView(LoginRequiredMixin, generic.ListView):
     model = Job
     template_name = "jobs/my_jobs.html"
     context_object_name = "latest_job_list"
+
     def get_queryset(self):
         employee = Employee.objects.get(user=self.request.user)
-        job_query = Job.objects.filter(assigned_to=employee,location=employee)
-        return job_query
+        return Job.objects.filter(
+            assigned_to=employee,
+            location=employee
+        ).prefetch_related("activity_set")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        employee = Employee.objects.get(user=self.request.user)
+        context["activity_start_form"] = ActivityStartForm(employee=employee)
+        return context
 
 class ReceiveListView(LoginRequiredMixin, generic.ListView):
     model = Job
@@ -137,14 +148,6 @@ class JobDetailView(LoginRequiredMixin, generic.DetailView):
         context["activity"] = Activity.objects.filter(job=context['job'])
         context["job_weights"] = context["job"].weights.order_by("-created_at","-id")
         return context
-
-# class JobCreateView(LoginRequiredMixin,generic.CreateView):
-#     model = Job
-#     form_class = JobForm
-#     template_name = "jobs/create.html"
-#     # fields = ['name','customer', 'job_num', 'style', 'due']
-#     # exclude = ['created','last_updated']*
-#     success_url=reverse_lazy('culet:index_job')
 
 class JobCreateView(LoginRequiredMixin, generic.CreateView):
     model = Job
@@ -242,11 +245,6 @@ class JobStyleDefaultsHTMXView(LoginRequiredMixin, generic.View):
                 "style": style,
             },
         )
-# class JobUpdateView(LoginRequiredMixin,generic.UpdateView):
-#     model = Job
-#     form_class = JobUpdateForm
-#     template_name = "jobs/update.html"
-#     success_url=reverse_lazy('culet:index_job')
 
 class JobMetalLotAssignView(LoginRequiredMixin, generic.View):
     template_name = "jobs/metal_lot_assignment.html"
@@ -489,50 +487,123 @@ class AssignJobView(LoginRequiredMixin,generic.TemplateView):
         #return render(request, 'jobs/assign.html')
         return HttpResponseRedirect(reverse('culet:assign_job'))
 
+@login_required
 def startWork(request):
-    #NEED LOGIC TO PREVENT EMP FROM STARTING WORK THAT IS NOT ASSIGNED TO THEM OR IF THEY ARE NOT LOGGED IN
-    if request.user:
-        job_query = Job.objects.get(job_num=request.POST["job"])
+    if request.method != "POST":
+        return redirect("culet:my_jobs")
 
-        #check to see if job that is being queried is assigned to the user before allowing user to start work.
-        if job_query.assigned_to == Employee.objects.get(user=request.user):
-        # if job is not active, creates an acitivty for it with start time now
-            if job_query.in_work == False:
-                activity = Activity(
-                    name = request.POST["name"],
-                    start = timezone.now(),
-                    job = job_query,
-                    employee = request.user.employee,
-                )
-                activity.save()
+    employee = request.user.employee
+
+    job = get_object_or_404(
+        Job,
+        id=request.POST.get("job_id"),
+        assigned_to=employee,
+        location=employee,
+    )
+
+    if job.in_work:
+        messages.error(request, f"Job {job.job_num} could not be started. Activity already started.")
+        return redirect("culet:my_jobs")
+
+    form = ActivityStartForm(request.POST, employee=employee)
+
+    if not form.is_valid():
+        messages.error(request, "Please choose a valid activity step.")
+        return redirect("culet:my_jobs")
+
+    activity = form.save(commit=False)
+    activity.employee = employee
+    activity.job = job
+    activity.start = timezone.now()
+    activity.name = activity.step.name
+    activity.save()
+
+    job.in_work = True
+    job.assigned_to = employee
+    job.location = employee
+    job.save()
+
+    messages.success(request, f"Job {job.job_num} has been started. ({activity.step.name})")
+    return redirect("culet:my_jobs")
+
+# def startWork(request):
+#     #NEED LOGIC TO PREVENT EMP FROM STARTING WORK THAT IS NOT ASSIGNED TO THEM OR IF THEY ARE NOT LOGGED IN
+#     if request.user:
+#         job_query = Job.objects.get(job_num=request.POST["job"])
+
+#         #check to see if job that is being queried is assigned to the user before allowing user to start work.
+#         if job_query.assigned_to == Employee.objects.get(user=request.user):
+#         # if job is not active, creates an acitivty for it with start time now
+#             if job_query.in_work == False:
+#                 activity = Activity(
+#                     name = request.POST["name"],
+#                     start = timezone.now(),
+#                     job = job_query,
+#                     employee = request.user.employee,
+#                 )
+#                 activity.save()
                 
-                #makes job object active if it was not
-                job_query.in_work = True
+#                 #makes job object active if it was not
+#                 job_query.in_work = True
                 
-                job_query.assigned_to = Employee.objects.get(user=request.user)
+#                 job_query.assigned_to = Employee.objects.get(user=request.user)
                 
-                job_query.save()
-                messages.success(request,f"Job {job_query.job_num} has been started. ({activity.name})")
-            else:
-                messages.error(request,f"Job {job_query.job_num} could not be started. Activity already started.")
-            return HttpResponseRedirect(reverse('culet:my_jobs'))
-    else:
-        messages.error(request,f"Job {job_query.job_num} could not be started. User not logged in.")
+#                 job_query.save()
+#                 messages.success(request,f"Job {job_query.job_num} has been started. ({activity.name})")
+#             else:
+#                 messages.error(request,f"Job {job_query.job_num} could not be started. Activity already started.")
+#             return HttpResponseRedirect(reverse('culet:my_jobs'))
+#     else:
+#         messages.error(request,f"Job {job_query.job_num} could not be started. User not logged in.")
+
+@login_required
 def stopWork(request, pk, job_id):
-    #NEED LOGIC TO PREVENT EMP FROM STARTING WORK THAT IS NOT ASSIGNED TO THEM OR IF THEY ARE NOT LOGGED IN
-    act = Activity.objects.get(id=pk)
-    if not act.end:
-        act.end = timezone.now()
-        act.active = False
-        act.save()
-    else:
-        pass
-    job = Job.objects.get(id=job_id)
+    if request.method != "POST":
+        return redirect("culet:my_jobs")
+
+    employee = request.user.employee
+
+    job = get_object_or_404(
+        Job,
+        id=job_id,
+        assigned_to=employee,
+        location=employee,
+    )
+
+    act = get_object_or_404(
+        Activity,
+        id=pk,
+        job=job,
+        employee=employee,
+        active=True,
+        end__isnull=True,
+    )
+
+    act.end = timezone.now()
+    act.active = False
+    act.save()
+
     job.in_work = False
     job.save()
-    # return HttpResponseRedirect(reverse('culet:index_job'))
-    messages.success(request,f"Job {job.job_num} has been stopped. ({act.name})")
-    return HttpResponseRedirect(reverse('culet:my_jobs'))
+
+    messages.success(request, f"Job {job.job_num} has been stopped. ({act.name})")
+    return redirect("culet:my_jobs")
+
+# def stopWork(request, pk, job_id):
+#     #NEED LOGIC TO PREVENT EMP FROM STARTING WORK THAT IS NOT ASSIGNED TO THEM OR IF THEY ARE NOT LOGGED IN
+#     act = Activity.objects.get(id=pk)
+#     if not act.end:
+#         act.end = timezone.now()
+#         act.active = False
+#         act.save()
+#     else:
+#         pass
+#     job = Job.objects.get(id=job_id)
+#     job.in_work = False
+#     job.save()
+#     # return HttpResponseRedirect(reverse('culet:index_job'))
+#     messages.success(request,f"Job {job.job_num} has been stopped. ({act.name})")
+#     return HttpResponseRedirect(reverse('culet:my_jobs'))
 
 def createStyle(request):
     new_style = Style()

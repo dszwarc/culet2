@@ -32,6 +32,45 @@
                         <td>{{ job.customer }}</td>
                         <td {% if job.is_past_due%}class="past_due"{% else %}{% endif %}>{{ job.due }}</td>
                         <td>{{ job.active }}</td>
+                        <td>
+                            {% if job.in_work and job.active_activity %}
+                                <form
+                                method="post"
+                                action="{% url 'culet:stop_work' job.active_activity.id job.id %}"
+                                style="display:inline;"
+                                >
+                                {% csrf_token %}
+                                <button
+                                    type="submit"
+                                    class="btn btn-danger"
+                                    onclick="return confirm('Stop work on Job {{ job.job_num }}?');"
+                                >
+                                    Stop Work
+                                </button>
+                                </form>
+                            {% else %}
+                                <form method="post" action="{% url 'culet:start_work' %}" style="display:inline;">
+                                {% csrf_token %}
+                                <input type="hidden" name="job_id" value="{{ job.id }}">
+
+                                <select name="step" required>
+                                    <option value="">Choose step</option>
+                                    {% for step in activity_start_form.fields.step.queryset %}
+                                    <option value="{{ step.id }}">{{ step.name }}</option>
+                                    {% endfor %}
+                                </select>
+
+                                <button
+                                    type="submit"
+                                    class="btn btn-success"
+                                    onclick="return confirm('Start work on Job {{ job.job_num }}?');"
+                                >
+                                    Start Work
+                                </button>
+                                </form>
+                            {% endif %}
+                        
+                        </td>
                     </tr>
                 
             {% endfor %}
@@ -41,22 +80,6 @@
         <p>No jobs are available.</p>
     {% endif %}
 
-{% endif %}
-
-
-{% if user.employee.clocked_in == True %}    
-    <form action="/culet/activities/start" method="POST">
-        {% csrf_token %}
-        <input name="job" type="text">
-        <select name="name" id="">
-            <option value="cleaning">Cleaning</option>
-            <option value="polishing">Polishing</option>
-            <option value="setting">Setting</option>
-        </select>
-        <button type="submit">Start Job</button>
-    </form>
-{% else %}
-    Plese Clock In to Start Work
 {% endif %}
 
 {% endblock content %}

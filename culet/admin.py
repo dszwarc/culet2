@@ -1,7 +1,7 @@
 from django.contrib import admin
 
 # Register your models here.
-from .models import ActivityStep,Step, Vendor, StoneShape, FindingType, FindingStock,StyleStone,StyleMetal,MetalLot,MetalPart, Job, Style, Activity, Employee, Customer, Department, MetalType, StoneType
+from .models import Role, ActivityStep,Step, Vendor, StoneShape, FindingType, FindingStock,StyleStone,StyleMetal,MetalLot,MetalPart, Job, Style, Activity, Employee, Customer, Department, MetalType, StoneType
 
 admin.site.register(Job)
 admin.site.register(Style)
@@ -21,3 +21,4 @@ admin.site.register(StoneShape)
 admin.site.register(Vendor)
 admin.site.register(Step)
 admin.site.register(ActivityStep)
+admin.site.register(Role)

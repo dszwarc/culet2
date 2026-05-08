@@ -111,21 +111,26 @@ def table_number_widget(step=None, min_value=None, placeholder=""):
 # Forms
 # -------------------------------------------------
 
+from .models import Activity, ActivityStep
+
+
 class ActivityStartForm(forms.ModelForm):
     class Meta:
         model = Activity
-        fields = ["job", "step"]
+        fields = ["step"]
 
     def __init__(self, *args, employee=None, **kwargs):
-        super().__init__(*args,**kwargs)
+        super().__init__(*args, **kwargs)
 
-        qs = ActivityStep.objects.filter(active=True)
+        qs = ActivityStep.objects.all()
 
-                # Since Employee.department is currently text, match department name.
-        if employee and employee.department:
-            qs = qs.filter(departments__name=employee.department).distinct()
+        if employee and employee.department_fk:
+            qs = qs.filter(
+                departments=employee.department_fk
+            ).distinct()
 
         self.fields["step"].queryset = qs
+        self.fields["step"].empty_label = "Choose activity step"
 
 class JobWeightForm(forms.ModelForm):
     class Meta:
