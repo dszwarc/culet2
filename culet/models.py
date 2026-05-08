@@ -16,7 +16,7 @@ class Step(models.Model):
         ordering = ["order", "name"]
 
     def __str__(self):
-        return self.name
+        return f"{self.name} "
 
 class StoneType(models.Model):
     name = models.CharField(max_length=80, unique=True)
@@ -151,7 +151,7 @@ class JobWeight(models.Model):
     dust_weight = models.DecimalField(max_digits=10, decimal_places=3, default=0)
     created_at = models.DateTimeField(default=timezone.now, editable=False)
     recorded_by = models.ForeignKey(User,on_delete=models.PROTECT, null=True, blank=True)
-    weight_step = models.ForeignKey(Step, on_delete=models.PROTECT,related_name="job_weights", null=True, blank=True)
+    step = models.ForeignKey(Step, on_delete=models.PROTECT,related_name="job_weights", null=True, blank=True)
 
     class Meta:
         ordering = ["created_at", "id"]

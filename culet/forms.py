@@ -112,7 +112,7 @@ def table_number_widget(step=None, min_value=None, placeholder=""):
 class JobWeightForm(forms.ModelForm):
     class Meta:
         model = JobWeight
-        fields = ["weight", "sprue_weight", "dust_weight"]
+        fields = ["step","weight", "sprue_weight", "dust_weight"]
         widgets = {
             "weight": forms.NumberInput(attrs={"step": "0.001", "min": "0"}),
             "sprue_weight": forms.NumberInput(attrs={"step": "0.001", "min": "0"}),
