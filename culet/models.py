@@ -359,7 +359,7 @@ class ActivityStep(models.Model):
 
 class Activity(models.Model):
     name = models.CharField(max_length=80)
-    activity_step = models.ForeignKey(ActivityStep, on_delete=models.PROTECT,null=True,blank=True,related_name="activities")
+    step = models.ForeignKey(ActivityStep, on_delete=models.PROTECT,null=True,blank=True,related_name="activities")
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
     start = models.DateTimeField(default=timezone.now)
     end = models.DateTimeField(blank=True, null=True)
