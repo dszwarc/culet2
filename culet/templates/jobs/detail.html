@@ -128,9 +128,7 @@
 
 </table>
 
-<p>
-  <a href="{% url 'culet:job_weight_create' job.pk %}">Add Weight</a>
-</p>
+
 
 <h2>Weights</h2>
 
@@ -143,6 +141,10 @@
   {% else %}
     N/A
   {% endif %}
+</p>
+
+<p>
+  <a href="{% url 'culet:job_weight_create' job.pk %}">Add Weight</a>
 </p>
 
 <table border="1" cellpadding="8">
