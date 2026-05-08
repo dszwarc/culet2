@@ -17,6 +17,8 @@ from .models import (
     MetalLot,
     MetalReceipt,
     MetalReceiptLine,
+    Activity,
+    ActivityStep
 )
 
 
@@ -108,6 +110,22 @@ def table_number_widget(step=None, min_value=None, placeholder=""):
 # -------------------------------------------------
 # Forms
 # -------------------------------------------------
+
+class ActivityStartForm(forms.ModelForm):
+    class Meta:
+        model = Activity
+        fields = ["job", "step"]
+
+    def __init__(self, *args, employee=None, **kwargs):
+        super().__init__(*args,**kwargs)
+
+        qs = ActivityStep.objects.filter(active=True)
+
+                # Since Employee.department is currently text, match department name.
+        if employee and employee.department:
+            qs = qs.filter(departments__name=employee.department).distinct()
+
+        self.fields["step"].queryset = qs
 
 class JobWeightForm(forms.ModelForm):
     class Meta:

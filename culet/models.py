@@ -55,6 +55,23 @@ class Vendor(models.Model):
 
 class Department(models.Model):
     name = models.CharField(max_length=80, default="Production")
+    active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.name
+
+class Role(models.Model):
+    name = models.CharField(max_length=80, unique=True)
+    department = models.ForeignKey(
+        Department,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="roles"
+    )
+    requires_clock_in = models.BooleanField(default=True)
+    can_start_activities = models.BooleanField(default=True)
+    active = models.BooleanField(default=True)
 
     def __str__(self):
         return self.name
@@ -68,13 +85,32 @@ class Employee(models.Model):
     ]
 
     user = models.OneToOneField(User, on_delete=models.CASCADE)
+
     department = models.CharField(max_length=80, default="Product Management")
+    
+    department_fk = models.ForeignKey(
+    Department,
+    on_delete=models.PROTECT,
+    null=True,
+    blank=True,
+    related_name="employees"
+    )
+
+    role_fk = models.ForeignKey(
+    Role,
+    on_delete=models.PROTECT,
+    null=True,
+    blank=True,
+    related_name="employees"
+    )
+
     role = models.CharField(max_length = 2,choices=employee_choices, default = "PD")
+
     clocked_in = models.BooleanField(default=False)
     
 
     def __str__(self):
-        return (str(self.user.first_name) + " " + str(self.user.last_name))
+        return f"{self.user.first_name} {self.user.last_name}"
 
 class Style(models.Model):
     name = models.CharField(max_length=50, unique=True)
@@ -310,8 +346,20 @@ class FindingStock(models.Model):
     name = models.CharField(max_length=50, unique=True)
     qty_in_stock = models.DecimalField(max_digits=12, decimal_places=3, default=0)
 
+class ActivityStep(models.Model):
+    name = models.CharField(max_length=80, unique=True)
+    departments = models.ManyToManyField(
+        Department,
+        blank=True,
+        related_name="activity_steps"
+    )
+
+    def __str__(self):
+        return f"{self.name}"
+
 class Activity(models.Model):
     name = models.CharField(max_length=80)
+    activity_step = models.ForeignKey(ActivityStep, on_delete=models.PROTECT,null=True,blank=True,related_name="activities")
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
     start = models.DateTimeField(default=timezone.now)
     end = models.DateTimeField(blank=True, null=True)
@@ -335,9 +383,13 @@ class Activity(models.Model):
             duration = (self.end - self.start).total_seconds()%3600
             duration = duration//60
             return int(duration)
+    def save(self, *args, **kwargs):
+        if self.step and not self.name:
+            self.name = self.step.name
 
     def __str__(self):
-        return (str(self.job.job_num) + " " + str(self.name))
+        step_name = self.step.name if self.step else self.name
+        return f"{self.job.job_num} {step_name}"
     
 class TimeClock(models.Model):
     clock_in = models.DateTimeField(null=True)
