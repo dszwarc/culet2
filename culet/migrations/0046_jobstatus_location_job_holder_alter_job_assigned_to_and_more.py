@@ -10,45 +10,80 @@ class Migration(migrations.Migration):
         ('culet', '0045_job_size_job_stamp_alter_job_assigned_to_and_more'),
     ]
 
-    operations = [
-        migrations.CreateModel(
-            name='JobStatus',
-            fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=80, unique=True)),
-                ('active', models.BooleanField(default=True)),
-                ('sort_order', models.PositiveIntegerField(default=0)),
-            ],
-            options={
-                'ordering': ['sort_order', 'name'],
-            },
+operations = [
+    migrations.CreateModel(
+        name='JobStatus',
+        fields=[
+            ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+            ('name', models.CharField(max_length=80, unique=True)),
+            ('active', models.BooleanField(default=True)),
+            ('sort_order', models.PositiveIntegerField(default=0)),
+        ],
+        options={
+            'ordering': ['sort_order', 'name'],
+        },
+    ),
+
+    migrations.CreateModel(
+        name='Location',
+        fields=[
+            ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+            ('name', models.CharField(max_length=80, unique=True)),
+            ('active', models.BooleanField(default=True)),
+        ],
+    ),
+
+    migrations.RenameField(
+        model_name='job',
+        old_name='location',
+        new_name='holder',
+    ),
+
+    migrations.AlterField(
+        model_name='job',
+        name='assigned_to',
+        field=models.ForeignKey(
+            blank=True,
+            null=True,
+            on_delete=django.db.models.deletion.SET_NULL,
+            related_name='job_assignments',
+            to='culet.employee',
         ),
-        migrations.CreateModel(
-            name='Location',
-            fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=80, unique=True)),
-                ('active', models.BooleanField(default=True)),
-            ],
+    ),
+
+    migrations.AlterField(
+        model_name='job',
+        name='holder',
+        field=models.ForeignKey(
+            blank=True,
+            null=True,
+            on_delete=django.db.models.deletion.SET_NULL,
+            related_name='held_jobs',
+            to='culet.employee',
         ),
-        migrations.AddField(
-            model_name='job',
-            name='holder',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='held_jobs', to='culet.employee'),
+    ),
+
+    migrations.AddField(
+        model_name='job',
+        name='location',
+        field=models.ForeignKey(
+            blank=True,
+            null=True,
+            on_delete=django.db.models.deletion.SET_NULL,
+            related_name='jobs',
+            to='culet.location',
         ),
-        migrations.AlterField(
-            model_name='job',
-            name='assigned_to',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='job_assignments', to='culet.employee'),
+    ),
+
+    migrations.AddField(
+        model_name='job',
+        name='status',
+        field=models.ForeignKey(
+            blank=True,
+            null=True,
+            on_delete=django.db.models.deletion.SET_NULL,
+            related_name='jobs',
+            to='culet.jobstatus',
         ),
-        migrations.AddField(
-            model_name='job',
-            name='status',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='jobs', to='culet.jobstatus'),
-        ),
-        migrations.AlterField(
-            model_name='job',
-            name='location',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='jobs', to='culet.location'),
-        ),
-    ]
+    ),
+]
