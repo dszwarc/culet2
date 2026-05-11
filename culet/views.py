@@ -494,6 +494,10 @@ def startWork(request):
 
     employee = request.user.employee
 
+    if employee.clocked_in == False:
+        messages.error(request, f"Activity could not be started, please clock in first")
+        return redirect("culet:my_jobs")
+
     job = get_object_or_404(
         Job,
         id=request.POST.get("job_id"),
@@ -556,6 +560,17 @@ def startWork(request):
 #     else:
 #         messages.error(request,f"Job {job_query.job_num} could not be started. User not logged in.")
 
+#helper function for stop_work and clock_out
+def stop_activity(activity):
+    activity.end = timezone.now()
+    activity.active = False
+    activity.save()
+
+    if activity.job:
+        activity.job.in_work = False
+        activity.job.save()
+
+
 @login_required
 def stopWork(request, pk, job_id):
     if request.method != "POST":
@@ -579,12 +594,7 @@ def stopWork(request, pk, job_id):
         end__isnull=True,
     )
 
-    act.end = timezone.now()
-    act.active = False
-    act.save()
-
-    job.in_work = False
-    job.save()
+    stop_activity(act)
 
     messages.success(request, f"Job {job.job_num} has been stopped. ({act.name})")
     return redirect("culet:my_jobs")
@@ -617,30 +627,36 @@ def clock_in(request):
         clocking_in.save()
         request.user.employee.clocked_in = True
         request.user.employee.save()
-        return HttpResponseRedirect(reverse('culet:index_job'))
+        return HttpResponseRedirect(reverse('culet:my_jobs'))
     else:
         messages.success(request, "Already logged in.")
-        return HttpResponseRedirect(reverse('culet:index_job'))
+        return HttpResponseRedirect(reverse('culet:my_job'))
 
+@login_required
 def clock_out(request):
-    if request.user.employee.clocked_in == True:
+    if request.method != "POST":
+        return redirect("culet:index")
 
-        activities_in_progress = Activity.objects.filter(employee=request.user.employee,active=True)
-        print(activities_in_progress)
-        for act in activities_in_progress:
-            stopWork(request,act.id,act.job.id)
+    employee = request.user.employee
 
-        clocking_out = TimeClock.objects.filter(employee=request.user.employee,clock_out__isnull=True)
-        for obj in clocking_out:
-            obj.clock_out = timezone.now()
-            obj.save()
-        request.user.employee.clocked_in = False
-        request.user.employee.save()
+    stopped_count = 0
 
-        return HttpResponseRedirect(reverse('culet:index_job'))
+    for activity in employee.active_activities:
+        stop_activity(activity)
+        stopped_count += 1
+
+    employee.clocked_in = False
+    employee.save()
+
+    if stopped_count:
+        messages.success(
+            request,
+            f"You have been clocked out. {stopped_count} active job(s) were stopped."
+        )
     else:
-        messages.success(request, "Can't clock out because you are not clocked in.")
-        return HttpResponseRedirect(reverse('culet:index_job'))
+        messages.success(request, "You have been clocked out.")
+
+    return redirect("culet:home")
 
 def receive(request):
     #NOT TESTED. NEEDS UPDATING FOR LIMITING WHEN THIS IS ALLOWED

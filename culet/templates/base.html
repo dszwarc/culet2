@@ -14,16 +14,15 @@
     <link rel="stylesheet" href="{% static 'js/jquery-ui-1.14.1/jquery-ui.theme.min.css' %}">
 </head>
 <body>
-
-        {% if user.employee %}    
-            {% if user.employee.clocked_in == True %}
-                <span class="clock_status" style='background-color:green;'>YOU ARE CLOCKED IN</span>
-            {% else %}
-                <span class="clock_status" style='background-color:red;'>PLEASE CLOCK IN</span>
-            {% endif %}
-         {% endif %}      
+    {% include 'navigation.html' %} 
+            {% if user.employee.role_fk.requires_clock_in %}    
+                {% if user.employee.clocked_in == True %}
+                    <span class="clock_status" style='background-color:green;'>YOU ARE CLOCKED IN</span>
+                {% else %}
+                    <span class="clock_status" style='background-color:red;'>PLEASE CLOCK IN</span>
+                {% endif %}
+            {% endif %}   
           <div class="top-home-link">
-        <a href="{% url 'culet:home' %}">Culet Home</a>
     </div> 
     {% block content %}
     {% endblock %}

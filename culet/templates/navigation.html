@@ -1,34 +1,43 @@
 <div id="my_nav">
     <div class="links_left">
-        <a class='nav_link' href="{% url 'culet:index_job' %}">Jobs</a>
+        <a class='nav_link' href="{% url 'culet:home' %}">Home</a>
         <!-- Removed in favor of django-filter which filters Jobs list view -->
         <!-- <a class='nav_link' href="{% url 'culet:activities_index' %}">Active Jobs</a> -->
-        
-        {% if user.employee.role != "PD" %}
-            <a class='nav_link' href="{% url 'culet:assign_job' %}">Assign Job</a>
-        {% endif %}
             
         <a class='nav_link' href="{% url 'culet:my_jobs' %}">My Jobs</a>
-        <a class='nav_link' href="{% url 'culet:receive_list' %}">Receive Jobs</a>
-        <a class='nav_link' href="{% url 'culet:job_create' %}">Create New Job</a>
-        <a class='nav_link' href="{% url 'culet:index_style' %}">Styles</a>
-        <a class='nav_link' href="{% url 'culet:style_create' %}">Create New Style</a>
-        <a class='nav_link' href="{% url 'culet:reporting' %}">Reporting</a>
-        <a class='nav_link' href="{% url 'culet:inventory_dashboard' %}">Inventory</a>
     </div>
     <div class="links_right">
         {% if user.is_authenticated %}
             <a class="nav_link" href="{% url 'culet:my_jobs' %}">Welcome, {{user.first_name}}</a>
-            {% if user.employee.clocked_in == True %}
-            <a class="tc_button btn btn-danger" href="{% url 'culet:clock_out' %}">Clock Out</a>        
-            {% else %}
-                <a class="tc_button btn btn-success" href="{% url 'culet:clock_in' %}">Clock In</a>
-            {% endif %}
-                <!-- <a class="nav_link" href="{% url 'logout' %}">Log Out</a> -->
-                 <form action="{% url 'logout' %}" method="POST">
-                    {% csrf_token %}
-                    <button type="link" class="nav_link">Logout</button>
-                 </form>
+            
+                
+                
+                {% if user.employee.role_fk.requires_clock_in %}
+                        
+                    {% if user.employee.clocked_in == True %}
+                    <!-- <a class="tc_button btn btn-danger" href="{% url 'culet:clock_out' %}">Clock Out</a>-->
+                        <form method="post" action="{% url 'culet:clock_out' %}">
+                            {% csrf_token %}
+
+                            <button
+                                type="submit"
+                                class="btn btn-danger"
+                                onclick="return confirm('Clock out? All jobs you currently have in work will be stopped.');"
+                            >
+                                Clock Out
+                            </button>
+                        </form>
+                    {% else %}
+                        <a class="tc_button btn btn-success" href="{% url 'culet:clock_in' %}">Clock In</a>
+                    {% endif %}
+                    
+                {% endif %}
+
+
+                <form action="{% url 'logout' %}" method="POST">
+                {% csrf_token %}
+                <button type="link" class="nav_link">Logout</button>
+                </form>
         {% else %}
                 <a class="nav_link" href="{% url 'login' %}">Login</a>
         {% endif %}

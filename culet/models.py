@@ -61,7 +61,7 @@ class Department(models.Model):
         return self.name
 
 class Role(models.Model):
-    name = models.CharField(max_length=80, unique=True)
+    name = models.CharField(max_length=80, unique=False, blank=True, null=True)
     department = models.ForeignKey(
         Department,
         on_delete=models.PROTECT,
@@ -108,6 +108,9 @@ class Employee(models.Model):
 
     clocked_in = models.BooleanField(default=False)
     
+    @property
+    def active_activities(self):
+        return self.activity_set.filter(active=True,end__isnull=True)
 
     def __str__(self):
         return f"{self.user.first_name} {self.user.last_name}"
@@ -127,7 +130,7 @@ class Job(models.Model):
     name = models.CharField(max_length=80,default="N/A")
     customer = models.ForeignKey(Customer, on_delete=models.PROTECT, null=True)
     job_num = models.IntegerField(blank=True,null=True, unique=True)
-    customer_ref_num = models.IntegerField(null=True, unique=True)
+    customer_ref_num = models.IntegerField(null=True, blank=True)
     active = models.BooleanField(default=True)
     shipped = models.BooleanField(default=False)
     in_work = models.BooleanField(default=False)

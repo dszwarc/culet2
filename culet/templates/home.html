@@ -3,7 +3,15 @@
 
 {% block content %}
     
-
+{% if messages %}
+    <ul class="messages">
+        
+        {% for message in messages %}
+            <li {% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+        {% endfor %}
+            
+    </ul>
+{% endif %}
     
 <div class="home-container">
 
@@ -57,25 +65,6 @@
         <a class="home-btn" href="{% url 'culet:reporting' %}">
             Reporting
         </a>
-
-    </div>
-
-    <div class="home-footer">
-
-        {% if user.employee.clocked_in %}
-            <a class="clock-btn clock-out" href="{% url 'culet:clock_out' %}">
-                Clock Out
-            </a>
-        {% else %}
-            <a class="clock-btn clock-in" href="{% url 'culet:clock_in' %}">
-                Clock In
-            </a>
-        {% endif %}
-
-        <form action="{% url 'logout' %}" method="POST">
-            {% csrf_token %}
-            <button class="logout-btn" type="submit">Logout</button>
-        </form>
 
     </div>
 
