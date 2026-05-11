@@ -153,14 +153,20 @@ class JobCreateView(LoginRequiredMixin, generic.CreateView):
     model = Job
     form_class = JobForm
     template_name = "jobs/create.html"
-    success_url = reverse_lazy("culet:index_job")  # adjust if needed
+    success_url = reverse_lazy("culet:index_job")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
         if self.request.POST:
-            context["metal_formset"] = JobMetalFormSet(self.request.POST, prefix="metals")
-            context["stone_formset"] = JobStoneFormSet(self.request.POST, prefix="stones")
+            context["metal_formset"] = JobMetalFormSet(
+                self.request.POST,
+                prefix="metals",
+            )
+            context["stone_formset"] = JobStoneFormSet(
+                self.request.POST,
+                prefix="stones",
+            )
         else:
             context["metal_formset"] = JobMetalFormSet(prefix="metals")
             context["stone_formset"] = JobStoneFormSet(prefix="stones")
@@ -174,9 +180,21 @@ class JobCreateView(LoginRequiredMixin, generic.CreateView):
         stone_formset = context["stone_formset"]
 
         if not (metal_formset.is_valid() and stone_formset.is_valid()):
-            return self.render_to_response(self.get_context_data(form=form))
+            return self.render_to_response(
+                self.get_context_data(form=form)
+            )
 
-        self.object = form.save()
+        self.object = form.save(commit=False)
+
+        if self.object.style:
+            if not self.object.stamp:
+                self.object.stamp = self.object.style.stamp or ""
+
+            if not self.object.notes:
+                self.object.notes = self.object.style.description or ""
+
+        self.object.save()
+        form.save_m2m()
 
         metal_formset.instance = self.object
         metal_formset.save()
@@ -187,13 +205,16 @@ class JobCreateView(LoginRequiredMixin, generic.CreateView):
         return redirect(self.object.get_absolute_url())
 
     def form_invalid(self, form):
-        return self.render_to_response(self.get_context_data(form=form))
+        return self.render_to_response(
+            self.get_context_data(form=form)
+        )
 
 class JobStyleDefaultsHTMXView(LoginRequiredMixin, generic.View):
     template_name = "jobs/partials/job_style_defaults.html"
 
     def get(self, request, *args, **kwargs):
         style_id = request.GET.get("style_id")
+
         if not style_id:
             return HttpResponseBadRequest("Missing style_id")
 
@@ -202,8 +223,9 @@ class JobStyleDefaultsHTMXView(LoginRequiredMixin, generic.View):
         job_initial = {
             "name": style.name,
             "customer": style.customer_id,
-            "notes": style.description or "",
             "style": style.pk,
+            "stamp": style.stamp or "",
+            "notes": style.description or "",
         }
 
         job_form = JobForm(initial=job_initial)
@@ -229,11 +251,21 @@ class JobStyleDefaultsHTMXView(LoginRequiredMixin, generic.View):
             for ss in style.stylestone_set.all()
         ]
 
-        JobMetalCreateFormSet = get_job_metal_formset(extra=len(metal_initial))
-        JobStoneCreateFormSet = get_job_stone_formset(extra=len(stone_initial))
+        JobMetalCreateFormSet = get_job_metal_formset(
+            extra=len(metal_initial)
+        )
+        JobStoneCreateFormSet = get_job_stone_formset(
+            extra=len(stone_initial)
+        )
 
-        metal_formset = JobMetalCreateFormSet(prefix="metals", initial=metal_initial)
-        stone_formset = JobStoneCreateFormSet(prefix="stones", initial=stone_initial)
+        metal_formset = JobMetalCreateFormSet(
+            prefix="metals",
+            initial=metal_initial,
+        )
+        stone_formset = JobStoneCreateFormSet(
+            prefix="stones",
+            initial=stone_initial,
+        )
 
         return render(
             request,

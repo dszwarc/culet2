@@ -183,7 +183,8 @@ class JobForm(forms.ModelForm):
             "name",
             "customer",
             "customer_ref_num",
-            "style",
+            "size",
+            "stamp",
             "due",
             "assigned_to",
             "location",
@@ -193,10 +194,7 @@ class JobForm(forms.ModelForm):
             "name": text_widget("Job name", "form-control-lg"),
             "customer": select_widget(),
             "customer_ref_num": number_widget("Customer reference #", min_value="0"),
-            "style": select_widget(),
             "due": date_widget(),
-            "assigned_to": select_widget(),
-            "location": select_widget(),
             "notes": textarea_widget("Add notes for the shop...", rows=4),
         }
         labels = {
@@ -210,9 +208,9 @@ class JobForm(forms.ModelForm):
         self.fields["name"].required = False
         self.fields["customer"].required = False
         self.fields["customer_ref_num"].required = False
-        self.fields["assigned_to"].required = False
-        self.fields["location"].required = False
         self.fields["notes"].required = False
+        self.fields["size"].required = False
+        self.fields["stamp"].required = False
 
         if "style" in self.fields:
             self.fields["style"].empty_label = "Select a style"
@@ -286,11 +284,13 @@ class JobMetalLotForm(forms.ModelForm):
 class JobUpdateForm(forms.ModelForm):
     class Meta:
         model = Job
-        fields = ("name", "customer", "style", "due", "notes")
+        fields = ("name", "customer", "style", "size", "stamp", "due", "notes")
         widgets = {
             "name": text_widget("Job name"),
             "customer": select_widget(),
             "style": select_widget(),
+            "size": text_widget("Size"),
+            "stamp": text_widget("Stamp / hallmark"),
             "due": date_widget(),
             "notes": textarea_widget("Add notes...", rows=4),
         }

@@ -131,6 +131,11 @@ class Job(models.Model):
     customer = models.ForeignKey(Customer, on_delete=models.PROTECT, null=True)
     job_num = models.IntegerField(blank=True,null=True, unique=True)
     customer_ref_num = models.IntegerField(null=True, blank=True)
+
+    size = models.CharField(default="",blank=True,max_length=80)
+    stamp = models.CharField(default="", blank=True, max_length=80)
+    notes = models.TextField(default="", blank=True)
+
     active = models.BooleanField(default=True)
     shipped = models.BooleanField(default=False)
     in_work = models.BooleanField(default=False)
@@ -138,9 +143,9 @@ class Job(models.Model):
     created = models.DateTimeField(default=timezone.now, editable = False)
     due = models.DateField(default=timezone.now)
     last_updated = models.DateTimeField(auto_now=True)
-    assigned_to = models.ForeignKey(Employee, on_delete=models.CASCADE, null=True, related_name='job_assignment')
-    location = models.ForeignKey(Employee, on_delete=models.CASCADE, null=True, related_name='job_location')
-    notes = models.TextField(default="", null=True)
+    assigned_to = models.ForeignKey(Employee, on_delete=models.CASCADE, blank=True, null=True, related_name='job_assignment')
+    location = models.ForeignKey(Employee, on_delete=models.CASCADE, blank=True, null=True, related_name='job_location')
+    
 
     def save(self,*args, **kwargs):
         if self.job_num is None:
