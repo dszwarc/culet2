@@ -186,6 +186,9 @@ class JobCreateView(LoginRequiredMixin, generic.CreateView):
 
         self.object = form.save(commit=False)
 
+        self.object.assigned_to = None
+        self.object.location = self.request.user.employee
+
         if self.object.style:
             if not self.object.stamp:
                 self.object.stamp = self.object.style.stamp or ""

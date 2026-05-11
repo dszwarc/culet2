@@ -7,6 +7,24 @@ from decimal import Decimal
 from django.db.models import Max
 # Create your models here.
 
+class Location(models.Model):
+    name = models.CharField(max_length=80, unique=True)
+    active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.name
+    
+class JobStatus(models.Model):
+    name = models.CharField(max_length=80,unique=True)
+    active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["sort_order", "name"]
+
+    def __str__(self):
+        return self.name
+
 class Step(models.Model):
     name = models.CharField(max_length=100,unique=True)
     order = models.PositiveIntegerField(default=0)
@@ -143,9 +161,37 @@ class Job(models.Model):
     created = models.DateTimeField(default=timezone.now, editable = False)
     due = models.DateField(default=timezone.now)
     last_updated = models.DateTimeField(auto_now=True)
-    assigned_to = models.ForeignKey(Employee, on_delete=models.CASCADE, blank=True, null=True, related_name='job_assignment')
-    location = models.ForeignKey(Employee, on_delete=models.CASCADE, blank=True, null=True, related_name='job_location')
-    
+    assigned_to = models.ForeignKey(
+        Employee,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="job_assignments",
+    )
+
+    holder = models.ForeignKey(
+        Employee,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="held_jobs",
+    )
+
+    location = models.ForeignKey(
+        Location,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="jobs",
+    )
+
+    status = models.ForeignKey(
+        JobStatus,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="jobs",
+    )    
 
     def save(self,*args, **kwargs):
         if self.job_num is None:

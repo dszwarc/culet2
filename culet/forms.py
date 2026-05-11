@@ -183,17 +183,19 @@ class JobForm(forms.ModelForm):
             "name",
             "customer",
             "customer_ref_num",
+            "style",
             "size",
             "stamp",
             "due",
-            "assigned_to",
-            "location",
             "notes",
         ]
         widgets = {
             "name": text_widget("Job name", "form-control-lg"),
             "customer": select_widget(),
             "customer_ref_num": number_widget("Customer reference #", min_value="0"),
+            "style": forms.HiddenInput(),
+            "size": text_widget("Size"),
+            "stamp": text_widget("Stamp / hallmark"),
             "due": date_widget(),
             "notes": textarea_widget("Add notes for the shop...", rows=4),
         }

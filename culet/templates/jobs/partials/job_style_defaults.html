@@ -1,6 +1,6 @@
 <form method="post">
   {% csrf_token %}
-
+    {{ job_form.style }}
   <div class="job-section-card">
     <h2 class="job-section-title">Job Information</h2>
 
@@ -24,12 +24,6 @@
       </div>
 
       <div class="job-field">
-        <label for="{{ job_form.style.id_for_label }}">{{ job_form.style.label }}</label>
-        {{ job_form.style }}
-        {{ job_form.style.errors }}
-      </div>
-
-      <div class="job-field">
         <label for="{{ job_form.size.id_for_label }}">{{ job_form.size.label }}</label>
         {{ job_form.size }}
         {{ job_form.size.errors }}
@@ -45,18 +39,6 @@
         <label for="{{ job_form.due.id_for_label }}">{{ job_form.due.label }}</label>
         {{ job_form.due }}
         {{ job_form.due.errors }}
-      </div>
-
-      <div class="job-field">
-        <label for="{{ job_form.assigned_to.id_for_label }}">{{ job_form.assigned_to.label }}</label>
-        {{ job_form.assigned_to }}
-        {{ job_form.assigned_to.errors }}
-      </div>
-
-      <div class="job-field">
-        <label for="{{ job_form.location.id_for_label }}">{{ job_form.location.label }}</label>
-        {{ job_form.location }}
-        {{ job_form.location.errors }}
       </div>
 
       <div class="job-field job-field-full">
