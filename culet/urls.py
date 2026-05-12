@@ -35,4 +35,7 @@ urlpatterns = [
     path("inventory/metal/lots/", views.MetalLotListView.as_view(), name="metal_lot_list"),
     path("inventory/metal/lots/<int:pk>/", views.MetalLotDetailView.as_view(), name="metal_lot_detail"),
     path("inventory/", views.InventoryDashboardView.as_view(), name="inventory_dashboard"),
+
+    #Reports Below This Line
+    path("reports/inactive-jobs/", views.InactiveJobsReportView.as_view(), name="report_inactive_jobs",),
     ]

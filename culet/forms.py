@@ -533,3 +533,14 @@ def get_job_stone_formset(extra=0):
         extra=extra,
         can_delete=True,
     )
+
+class InactiveJobsReportForm(forms.Form):
+    days = forms.IntegerField(
+        min_value=1,
+        initial=7,
+        label="Inactive for at least this many days",
+        widget=forms.NumberInput(attrs={
+            "class": "form-control job-input",
+            "min": "1",
+        }),
+    )

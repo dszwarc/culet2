@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-container">
+  <h1>Inactive Jobs Report</h1>
+
+  <form method="get" class="job-card mb-4">
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-primary">Run Report</button>
+  </form>
+
+  {% if form.is_valid %}
+    <h2>{{ jobs|length }} inactive jobs found</h2>
+
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Job #</th>
+          <th>Customer</th>
+          <th>Style</th>
+          <th>Status</th>
+          <th>Location</th>
+          <th>Assigned To</th>
+          <th>Last Activity</th>
+          <th>Created</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for job in jobs %}
+          <tr>
+            <td>
+              <a href="{{ job.get_absolute_url }}">{{ job }}</a>
+            </td>
+            <td>{{ job.customer }}</td>
+            <td>{{ job.style }}</td>
+            <td>{{ job.status|default:"—" }}</td>
+            <td>{{ job.location|default:"—" }}</td>
+            <td>{{ job.assigned_to|default:"—" }}</td>
+            <td>{{ job.last_activity_start|date:"Y-m-d H:i"|default:"Never" }}</td>
+            <td>{{ job.created|date:"Y-m-d" }}</td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="8">No inactive jobs found.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+</div>
+{% endblock %}

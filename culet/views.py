@@ -1,5 +1,19 @@
 from django.db.models.query import QuerySet
 from django.http import HttpResponse, HttpResponseRedirect, HttpResponseBadRequest
+from django.template.loader import render_to_string
+import copy
+from django.db import transaction
+from django.db.models import F, Q, Max
+from django.views import generic
+from django.urls import reverse_lazy, reverse
+from django.utils import timezone
+from django.contrib import messages
+from django.shortcuts import get_object_or_404, render, redirect
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.decorators import login_required
+from .filters import JobFilter, ActivityFilter
+from datetime import timedelta
+
 from .models import (
     JobMetal,
     MetalVendorLot, 
@@ -20,14 +34,6 @@ from .models import (
     JobStatus
 )
 
-from django.views import generic
-from django.urls import reverse_lazy, reverse
-from django.utils import timezone
-from django.contrib import messages
-from django.shortcuts import get_object_or_404, render, redirect
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib.auth.decorators import login_required
-from .filters import JobFilter, ActivityFilter
 from .forms import (
     JobForm, 
     StyleForm, 
@@ -46,11 +52,9 @@ from .forms import (
     JobWeightForm,
     JobWeightLookupForm,
     ActivityStartForm,
+    InactiveJobsReportForm
     )
-from django.template.loader import render_to_string
-import copy
-from django.db import transaction
-from django.db.models import F
+
 
 class HomeView(LoginRequiredMixin, generic.TemplateView):
     template_name = "home.html"
@@ -1028,3 +1032,41 @@ class JobWeightLookupView(LoginRequiredMixin, generic.FormView):
             return self.form_invalid(form)
 
         return redirect("culet:job_weight_create", pk=job.pk)
+
+class InactiveJobsReportView(LoginRequiredMixin, generic.TemplateView):
+    template_name = "reports/inactive_jobs.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        form = InactiveJobsReportForm(self.request.GET or None)
+        jobs = Job.objects.none()
+        cutoff = None
+
+        if form.is_valid():
+            days = form.cleaned_data["days"]
+            cutoff = timezone.now() - timedelta(days=days)
+
+            jobs = (
+                Job.objects
+                .filter(active=True, shipped=False)
+                .annotate(last_activity_start=Max("activity__start"))
+                .filter(
+                    Q(last_activity_start__lt=cutoff) |
+                    Q(last_activity_start__isnull=True, created__lt=cutoff)
+                )
+                .select_related(
+                    "customer",
+                    "style",
+                    "assigned_to__user",
+                    "holder__user",
+                    "status",
+                    "location",
+                )
+                .order_by("last_activity_start", "created")
+            )
+
+        context["form"] = form
+        context["jobs"] = jobs
+        context["cutoff"] = cutoff
+        return context
