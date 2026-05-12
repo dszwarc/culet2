@@ -534,7 +534,7 @@ class AssignJobView(LoginRequiredMixin, generic.TemplateView):
         role_name = current_employee.role_fk.name if current_employee.role_fk else ""
         dept_name = current_employee.department_fk.name if current_employee.department_fk else ""
 
-        if role_name == "Super" and dept_name == "Office":
+        if role_name == "Super":
             return employees
 
         if role_name == "Manager":
@@ -548,8 +548,8 @@ class AssignJobView(LoginRequiredMixin, generic.TemplateView):
         employees = self.get_assignable_employees()
 
         context = {
-            "managers": employees.filter(role_fk__name="Manager"),
-            "employees": employees.exclude(role_fk__name="Manager"),
+            "managers": employees.filter(role_fk__name="Manager") | employees.filter(role_fk__name="Super"),
+            "employees": employees.exclude(role_fk__name="Manager").exclude(role_fk__name="Super"),
         }
 
         return render(request, self.template_name, context)

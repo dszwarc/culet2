@@ -1,7 +1,7 @@
 <div id="my_nav">
     <div class="links_left">
 
-        {% if user.employee.role_fk.name == 'Manager' %}
+        {% if user.employee.role_fk.name != 'Hourly' %}
                   <a class='nav_link' href="{% url 'culet:home' %}">Home</a>  
         {% endif %}
             
