@@ -10,7 +10,8 @@
 
         
         {% if user.employee.role_fk.name != 'Manager' %}
-                <a class='nav_link' href="{% url 'culet:my_jobs' %}">My Jobs</a>            
+                <a class='nav_link' href="{% url 'culet:my_jobs' %}">My Jobs</a>   
+                <a href="{% url 'culet:receive_list' %}" class="nav_link">Receive Jobs</a>
         {% endif %}
             
         
@@ -18,8 +19,6 @@
     <div class="links_right">
         {% if user.is_authenticated %}
             <a class="nav_link" href="{% url 'culet:my_jobs' %}">Welcome, {{user.first_name}}</a>
-            
-                
                 
                 {% if user.employee.role_fk.requires_clock_in %}
                         

@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-container">
+
+  <h1>Time Clock Report</h1>
+
+  <form method="get" class="job-card">
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-primary">Run Report</button>
+  </form>
+
+  {% if form.is_valid %}
+    <div class="job-card">
+      <h2>Summary</h2>
+
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Employee</th>
+            <th>Clocked Hours</th>
+            <th>Activity Hours</th>
+            <th>Difference</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in employee_rows %}
+            <tr>
+              <td>{{ row.employee }}</td>
+              <td>{{ row.clock_total_hours|floatformat:2 }}</td>
+              <td>{{ row.activity_total_hours|floatformat:2 }}</td>
+              <td>{{ row.difference_hours|floatformat:2 }}</td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="4">No employees found.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% for row in employee_rows %}
+      <div class="job-card">
+        <h2>{{ row.employee }}</h2>
+
+        <p>
+          <strong>Clocked Hours:</strong> {{ row.clock_total_hours|floatformat:2 }}
+          |
+          <strong>Activity Hours:</strong> {{ row.activity_total_hours|floatformat:2 }}
+          |
+          <strong>Difference:</strong> {{ row.difference_hours|floatformat:2 }}
+        </p>
+
+        <h3>Clock In / Clock Out Schedule</h3>
+
+        {% for day in row.clock_days %}
+          <div class="report-day-header">
+            <h4>{{ day.date|date:"l, F j, Y" }}</h4>
+            <p>Total clocked: {{ day.day_total_hours|floatformat:2 }} hours</p>
+          </div>
+
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Clock In</th>
+                <th>Clock Out</th>
+                <th>Hours</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for entry in day.entries %}
+                <tr>
+                  <td>{{ entry.clock_in|date:"g:i A" }}</td>
+                  <td>
+                    {% if entry.clock_out %}
+                      {{ entry.clock_out|date:"g:i A" }}
+                    {% else %}
+                      Still Clocked In
+                    {% endif %}
+                  </td>
+                  <td>{{ entry.duration_hours|floatformat:2 }}</td>
+                  <td>
+                    <a href="{% url 'culet:time_clock_edit' entry.timeclock.pk %}" class="small-link">
+                      Edit
+                    </a>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% empty %}
+          <p>No time clock entries found.</p>
+        {% endfor %}
+      </div>
+    {% endfor %}
+  {% endif %}
+
+</div>
+{% endblock %}

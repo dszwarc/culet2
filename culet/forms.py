@@ -18,7 +18,9 @@ from .models import (
     MetalReceipt,
     MetalReceiptLine,
     Activity,
-    ActivityStep
+    ActivityStep,
+    Employee,
+    TimeClock,
 )
 
 
@@ -544,3 +546,100 @@ class InactiveJobsReportForm(forms.Form):
             "min": "1",
         }),
     )
+
+class WeightLossByStyleReportForm(forms.Form):
+    style = forms.ModelChoiceField(
+        queryset=Style.objects.all().order_by("name"),
+        required=False,
+        empty_label="All styles",
+        widget=forms.Select(attrs={
+            "class": "form-control job-input",
+        }),
+    )
+
+class EmployeeActivityReportForm(forms.Form):
+    employee = forms.ModelChoiceField(
+        queryset=Employee.objects.select_related("user").order_by(
+            "user__last_name",
+            "user__first_name",
+        ),
+        required=True,
+        label="Employee",
+        widget=select_widget(),
+    )
+
+    start_date = forms.DateField(
+        required=True,
+        label="Start Date",
+        widget=date_widget(),
+    )
+
+    end_date = forms.DateField(
+        required=True,
+        label="End Date",
+        widget=date_widget(),
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        start_date = cleaned_data.get("start_date")
+        end_date = cleaned_data.get("end_date")
+
+        if start_date and end_date and end_date < start_date:
+            raise forms.ValidationError("End date cannot be before start date.")
+
+        return cleaned_data
+    
+class TimeClockReportForm(forms.Form):
+    employee = forms.ModelChoiceField(
+        queryset=Employee.objects.select_related("user").order_by(
+            "user__last_name",
+            "user__first_name",
+        ),
+        required=False,
+        empty_label="All employees",
+        label="Employee",
+        widget=select_widget(),
+    )
+
+    start_date = forms.DateField(
+        required=True,
+        label="Start Date",
+        widget=date_widget(),
+    )
+
+    end_date = forms.DateField(
+        required=True,
+        label="End Date",
+        widget=date_widget(),
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        start_date = cleaned_data.get("start_date")
+        end_date = cleaned_data.get("end_date")
+
+        if start_date and end_date and end_date < start_date:
+            raise forms.ValidationError("End date cannot be before start date.")
+
+        return cleaned_data
+    
+class TimeClockEditForm(forms.ModelForm):
+    class Meta:
+        model = TimeClock
+        fields = ["employee", "clock_in", "clock_out"]
+        widgets = {
+            "employee": select_widget(),
+            "clock_in": forms.DateTimeInput(
+                attrs={
+                    "type": "datetime-local",
+                    "class": "form-control job-input",
+                }
+            ),
+            "clock_out": forms.DateTimeInput(
+                attrs={
+                    "type": "datetime-local",
+                    "class": "form-control job-input",
+                }
+            ),
+        }

@@ -1,76 +1,67 @@
 {% extends 'base.html' %}
 
-
 {% block content %}
-    
-{% if messages %}
-    <ul class="messages">
-        
-        {% for message in messages %}
-            <li {% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
-        {% endfor %}
-            
-    </ul>
-{% endif %}
-    
+
 <div class="home-container">
-
-    <div class="home-header">
-        <h1>Culet</h1>
-        {% if user.is_authenticated %}
-            <p>{{ user.first_name|default:user.username }}</p>
-        {% endif %}
-    </div>
-
+  <section class="home-section">
+    <h2>Jobs</h2>
     <div class="home-buttons">
-
-        <a class="home-btn" href="{% url 'culet:my_jobs' %}">
-            My Jobs
-        </a>
-
-        <a class="home-btn" href="{% url 'culet:index_job' %}">
-            All Jobs
-        </a>
-
-        <a class="home-btn" href="{% url 'culet:job_create' %}">
-            Create Job
-        </a>
-
-        <a class="home-btn" href="{% url 'culet:job_weight_lookup' %}">
-            Update Weights
-        </a>
-
-        {% if user.employee.role != "PD" %}
-        <a class="home-btn" href="{% url 'culet:assign_job' %}">
-            Assign Jobs
-        </a>
-        {% endif %}
-
-        <a class="home-btn" href="{% url 'culet:receive_list' %}">
-            Receive Jobs
-        </a>
-
-        <a class="home-btn" href="{% url 'culet:index_style' %}">
-            Styles
-        </a>
-
-        <a class="home-btn" href="{% url 'culet:style_create' %}">
-            Create Style
-        </a>
-
-        <a class="home-btn" href="{% url 'culet:inventory_dashboard' %}">
-            Inventory
-        </a>
-
-        <a class="home-btn" href="{% url 'culet:reporting' %}">
-            Reporting
-        </a>
-
-        <a href="{% url 'culet:report_inactive_jobs' %}" class="home-button">
-            Inactive Jobs Report
-        </a>
-
+      <a href="{% url 'culet:my_jobs' %}" class="home-btn">My Jobs</a>
+      <a href="{% url 'culet:index_job' %}" class="home-btn">All Jobs</a>
+      <a href="{% url 'culet:job_create' %}" class="home-btn">Create Job</a>
+      <a href="{% url 'culet:job_weight_lookup' %}" class="home-btn">Update Weights</a>
+      {% if user.employee.role_fk.name != "PD" %}
+        <a href="{% url 'culet:assign_job' %}" class="home-btn">Assign Jobs</a>
+      {% endif %}
+      <a href="{% url 'culet:receive_list' %}" class="home-btn">Receive Jobs</a>
     </div>
+  </section>
+
+  <section class="home-section">
+    <h2>Styles</h2>
+    <div class="home-buttons">
+      <a href="{% url 'culet:index_style' %}" class="home-btn">Styles</a>
+      <a href="{% url 'culet:style_create' %}" class="home-btn">Create Style</a>
+    </div>
+  </section>
+
+  <section class="home-section">
+    <h2>Inventory</h2>
+    <div class="home-buttons">
+      <a href="{% url 'culet:inventory_dashboard' %}" class="home-btn">Inventory Dashboard</a>
+      <a href="{% url 'culet:metal_receipt_create' %}" class="home-btn">Receive Metal</a>
+      <a href="{% url 'culet:metal_receipt_list' %}" class="home-btn">Metal Receipts</a>
+      <a href="{% url 'culet:metal_vendor_lot_list' %}" class="home-btn">Vendor Lots</a>
+      <a href="{% url 'culet:metal_lot_list' %}" class="home-btn">Metal Lots</a>
+    </div>
+  </section>
+
+  <section class="home-section">
+    <h2>Reports</h2>
+    <div class="home-buttons">
+        <a href="{% url 'culet:reporting' %}" class="home-btn">Activity Reporting</a>
+
+        <a href="{% url 'culet:report_inactive_jobs' %}" class="home-btn report-btn">
+            Inactive Jobs
+        </a>
+
+        <a href="{% url 'culet:report_weight_loss_by_style' %}" class="home-btn report-btn">
+            Weight Loss by Style
+        </a>
+
+        <a href="{% url 'culet:report_employee_activity' %}" class="home-btn report-btn">
+        Employee Activity
+        </a>
+
+        <a href="{% url 'culet:report_time_clock' %}" class="home-btn report-btn">
+            Time Clock Report
+        </a>
+        <a href="{% url 'culet:report_late_jobs' %}" class="home-btn report-btn">
+            Late Jobs
+        </a>
+    </div>
+  </section>
 
 </div>
+
 {% endblock content %}

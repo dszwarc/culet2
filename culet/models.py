@@ -449,3 +449,10 @@ class TimeClock(models.Model):
     clock_out = models.DateTimeField(null=True)
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
 
+    def __str__(self):
+        if self.clock_out:
+            clock_out = self.clock_out
+        else:
+            clock_out = "Not Clocked Out"
+        return f"{self.employee.user.first_name} {self.employee.user.last_name} Clocked in: {self.clock_in} - Clocked out: {clock_out}"
+

@@ -25,6 +25,7 @@ urlpatterns = [
     path("reporting", views.ReportingListView.as_view(), name="reporting"),
     path("clock_in",views.clock_in,name="clock_in"),
     path("clock_out", views.clock_out,name="clock_out"),
+    path("time-clock/<int:pk>/edit/",views.TimeClockUpdateView.as_view(),name="time_clock_edit"),
     path("receive", views.receive,name='receive'),
     path("receive_list", views.ReceiveListView.as_view(), name="receive_list"),
     path("inventory/metal/receive/", views.MetalReceiptCreateView.as_view(), name="metal_receipt_create"),
@@ -37,5 +38,9 @@ urlpatterns = [
     path("inventory/", views.InventoryDashboardView.as_view(), name="inventory_dashboard"),
 
     #Reports Below This Line
-    path("reports/inactive-jobs/", views.InactiveJobsReportView.as_view(), name="report_inactive_jobs",),
+    path("reports/inactive-jobs/", views.InactiveJobsReportView.as_view(), name="report_inactive_jobs"),
+    path("reports/weight-loss-by-style/", views.WeightLossByStyleReportView.as_view(), name="report_weight_loss_by_style"),
+    path("reports/employee-activity/",views.EmployeeActivityReportView.as_view(),name="report_employee_activity"),
+    path("reports/time-clock/",views.TimeClockReportView.as_view(),name="report_time_clock"),
+    path("reports/late-jobs/",views.LateJobsReportView.as_view(),name="report_late_jobs"),
     ]

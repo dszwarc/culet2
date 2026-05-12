@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-container">
+
+  <h1>Weight Loss % by Style</h1>
+
+  <form method="get" class="job-card">
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-primary">Run Report</button>
+  </form>
+
+  <div class="job-card">
+    <h2>Style Summary</h2>
+
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Style</th>
+          <th>Jobs</th>
+          <th>Initial Weight</th>
+          <th>Latest Weight</th>
+          <th>Total Loss</th>
+          <th>Loss %</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in style_rows %}
+          <tr>
+            <td>{{ row.style }}</td>
+            <td>{{ row.job_count }}</td>
+            <td>{{ row.initial_total|floatformat:3 }}</td>
+            <td>{{ row.latest_total|floatformat:3 }}</td>
+            <td>{{ row.loss_total|floatformat:3 }}</td>
+            <td>{{ row.loss_percent|floatformat:2 }}%</td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="6">No jobs with enough weight records found.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="job-card">
+  <h2>Loss Per Step</h2>
+  <p>
+    This shows the total weight loss credited to each step, using the later weight record's step.
+  </p>
+
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Style</th>
+        <th>Step</th>
+        <th>Total Loss</th>
+        <th>Weight Events</th>
+        <th>Avg Loss/Event</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in step_rows %}
+        <tr>
+          <td>{{ row.style }}</td>
+          <td>{{ row.step }}</td>
+          <td>{{ row.loss_total|floatformat:3 }}</td>
+          <td>{{ row.event_count }}</td>
+          <td>{{ row.avg_loss|floatformat:3 }}</td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="5">No step-level weight loss found.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+</div>
+{% endblock %}

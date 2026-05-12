@@ -4,22 +4,6 @@
     
 {% if user.is_authenticated %}
 
-<form action="{% url 'culet:receive' %}" method="POST">
-    {% csrf_token %}
-    <input name="job" type="text">
-    <button type="submit">Receive Job</button>
-</form>
-
-{% if messages %}
-    <ul class="messages">
-        
-        {% for message in messages %}
-            <li {% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
-        {% endfor %}
-            
-    </ul>
-{% endif %}
-
     {% if receive_list %}
 
         <table class="index_table job_index">
@@ -44,7 +28,7 @@
                             <form action="{% url 'culet:receive' %}" method="POST">
                                 {% csrf_token %}
                                 <input name="job" type="hidden" value="{{ job.job_num }}">
-                                <button class="btn btn-success" type="submit">Receive Job</button>
+                                <button class="btn btn-success" type="submit" onclick="return confirm('Receive job number {{job.job_num}}?');">Receive Job</button>
                             </form>
                         </td>
                     </tr>

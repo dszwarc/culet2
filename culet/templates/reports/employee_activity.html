@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-container">
+
+  <h1>Employee Activity Report</h1>
+
+  <form method="get" class="job-card">
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-primary">Run Report</button>
+  </form>
+
+  {% if form.is_valid %}
+    <div class="job-card">
+      <h2>Summary</h2>
+      <p><strong>Employee:</strong> {{ form.cleaned_data.employee }}</p>
+      <p>
+        <strong>Date Range:</strong>
+        {{ form.cleaned_data.start_date }} to {{ form.cleaned_data.end_date }}
+      </p>
+      <p><strong>Completed Activities:</strong> {{ activities|length }}</p>
+      <p><strong>Total Hours:</strong> {{ total_hours|floatformat:2 }}</p>
+    </div>
+
+    <div class="job-card">
+      <h2>Completed Activities</h2>
+
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Job</th>
+            <th>Customer</th>
+            <th>Style</th>
+            <th>Step</th>
+            <th>Started</th>
+            <th>Completed</th>
+            <th>Duration</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for activity in activities %}
+            <tr>
+              <td>
+                {% if activity.job %}
+                  <a href="{{ activity.job.get_absolute_url }}">{{ activity.job }}</a>
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td>{{ activity.job.customer|default:"—" }}</td>
+              <td>{{ activity.job.style|default:"—" }}</td>
+              <td>{{ activity.step|default:activity.name }}</td>
+              <td>{{ activity.start|date:"Y-m-d H:i" }}</td>
+              <td>{{ activity.end|date:"Y-m-d H:i" }}</td>
+              <td>
+                {{ activity.duration_hours }}h {{ activity.duration_min }}m
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="7">No completed activities found for this employee and date range.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}

@@ -12,7 +12,9 @@ from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
 from .filters import JobFilter, ActivityFilter
-from datetime import timedelta
+from datetime import timedelta, datetime, time, date
+from collections import defaultdict
+from decimal import Decimal
 
 from .models import (
     JobMetal,
@@ -52,7 +54,11 @@ from .forms import (
     JobWeightForm,
     JobWeightLookupForm,
     ActivityStartForm,
-    InactiveJobsReportForm
+    InactiveJobsReportForm,
+    WeightLossByStyleReportForm,
+    EmployeeActivityReportForm,
+    TimeClockReportForm,
+    TimeClockEditForm,
     )
 
 
@@ -1033,6 +1039,8 @@ class JobWeightLookupView(LoginRequiredMixin, generic.FormView):
 
         return redirect("culet:job_weight_create", pk=job.pk)
 
+# Reports Below This Line
+
 class InactiveJobsReportView(LoginRequiredMixin, generic.TemplateView):
     template_name = "reports/inactive_jobs.html"
 
@@ -1069,4 +1077,290 @@ class InactiveJobsReportView(LoginRequiredMixin, generic.TemplateView):
         context["form"] = form
         context["jobs"] = jobs
         context["cutoff"] = cutoff
+        return context
+    
+class WeightLossByStyleReportView(LoginRequiredMixin, generic.TemplateView):
+    template_name = "reports/weight_loss_by_style.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        form = WeightLossByStyleReportForm(self.request.GET or None)
+
+        jobs = (
+            Job.objects
+            .filter(weights__isnull=False)
+            .select_related("style", "customer")
+            .prefetch_related("weights__step")
+            .distinct()
+            .order_by("style__name", "job_num")
+        )
+
+        if form.is_valid():
+            style = form.cleaned_data.get("style")
+            if style:
+                jobs = jobs.filter(style=style)
+
+        style_data = defaultdict(lambda: {
+            "style": None,
+            "job_count": 0,
+            "initial_total": Decimal("0"),
+            "latest_total": Decimal("0"),
+            "loss_total": Decimal("0"),
+        })
+
+        step_data = defaultdict(lambda: {
+            "style": None,
+            "step": None,
+            "loss_total": Decimal("0"),
+            "event_count": 0,
+        })
+
+        for job in jobs:
+            weights = list(job.weights.all().order_by("created_at", "id"))
+
+            if len(weights) < 2:
+                continue
+
+            initial = weights[0].total_weight
+            latest = weights[-1].total_weight
+
+            if not initial or initial <= 0:
+                continue
+
+            loss = initial - latest
+
+            style_key = job.style_id
+            style_data[style_key]["style"] = job.style
+            style_data[style_key]["job_count"] += 1
+            style_data[style_key]["initial_total"] += initial
+            style_data[style_key]["latest_total"] += latest
+            style_data[style_key]["loss_total"] += loss
+
+            for previous_weight, current_weight in zip(weights, weights[1:]):
+                interval_loss = previous_weight.total_weight - current_weight.total_weight
+
+                if interval_loss <= 0:
+                    continue
+
+                step_name = current_weight.step.name if current_weight.step else "No Step Recorded"
+                step_key = (job.style_id, step_name)
+
+                step_data[step_key]["style"] = job.style
+                step_data[step_key]["step"] = step_name
+                step_data[step_key]["loss_total"] += interval_loss
+                step_data[step_key]["event_count"] += 1
+
+        style_rows = []
+        for row in style_data.values():
+            row["loss_percent"] = (
+                row["loss_total"] / row["initial_total"]
+            ) * Decimal("100")
+            style_rows.append(row)
+
+        style_rows.sort(
+            key=lambda row: row["loss_percent"],
+            reverse=True,
+        )
+
+        step_rows = list(step_data.values())
+
+        for row in step_rows:
+            if row["event_count"]:
+                row["avg_loss"] = row["loss_total"] / row["event_count"]
+            else:
+                row["avg_loss"] = Decimal("0")
+
+        step_rows.sort(
+            key=lambda row: row["loss_total"],
+            reverse=True,
+        )
+
+        context["form"] = form
+        context["style_rows"] = style_rows
+        context["step_rows"] = step_rows
+        return context
+
+class EmployeeActivityReportView(LoginRequiredMixin, generic.TemplateView):
+    template_name = "reports/employee_activity.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        form = EmployeeActivityReportForm(self.request.GET or None)
+        activities = Activity.objects.none()
+        total_hours = 0
+
+        if form.is_valid():
+            employee = form.cleaned_data["employee"]
+            start_date = form.cleaned_data["start_date"]
+            end_date = form.cleaned_data["end_date"]
+
+            activities = (
+                Activity.objects
+                .filter(
+                    employee=employee,
+                    end__isnull=False,
+                    end__date__gte=start_date,
+                    end__date__lte=end_date,
+                )
+                .select_related(
+                    "employee__user",
+                    "job",
+                    "job__customer",
+                    "job__style",
+                    "step",
+                )
+                .order_by("-end", "-start")
+            )
+
+            total_hours = sum(
+                activity.duration or 0
+                for activity in activities
+            )
+
+        context["form"] = form
+        context["activities"] = activities
+        context["total_hours"] = total_hours
+        return context
+    
+class TimeClockReportView(LoginRequiredMixin, generic.TemplateView):
+    template_name = "reports/time_clock_report.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        form = TimeClockReportForm(self.request.GET or None)
+        employee_rows = []
+
+        if form.is_valid():
+            selected_employee = form.cleaned_data.get("employee")
+            start_date = form.cleaned_data["start_date"]
+            end_date = form.cleaned_data["end_date"]
+
+            start_dt = timezone.make_aware(datetime.combine(start_date, time.min))
+            end_dt = timezone.make_aware(datetime.combine(end_date, time.max))
+
+            employees = (
+                Employee.objects
+                .select_related("user", "department_fk", "role_fk")
+                .order_by("user__last_name", "user__first_name")
+            )
+
+            if selected_employee:
+                employees = employees.filter(pk=selected_employee.pk)
+
+            for employee in employees:
+                clock_entries = (
+                    TimeClock.objects
+                    .filter(employee=employee, clock_in__lte=end_dt)
+                    .filter(Q(clock_out__gte=start_dt) | Q(clock_out__isnull=True))
+                    .order_by("clock_in")
+                )
+
+                activities = Activity.objects.filter(
+                    employee=employee,
+                    end__isnull=False,
+                    end__gte=start_dt,
+                    end__lte=end_dt,
+                )
+
+                clock_total_hours = 0
+                clock_entries_by_day = {}
+
+                for entry in clock_entries:
+                    effective_start = max(entry.clock_in, start_dt)
+
+                    if entry.clock_out:
+                        effective_end = min(entry.clock_out, end_dt)
+                    else:
+                        effective_end = min(timezone.now(), end_dt)
+
+                    duration_hours = 0
+                    if effective_end > effective_start:
+                        duration_hours = (
+                            effective_end - effective_start
+                        ).total_seconds() / 3600
+
+                    clock_total_hours += duration_hours
+
+                    entry_day = timezone.localtime(entry.clock_in).date()
+
+                    if entry_day not in clock_entries_by_day:
+                        clock_entries_by_day[entry_day] = {
+                            "date": entry_day,
+                            "entries": [],
+                            "day_total_hours": 0,
+                        }
+
+                    clock_entries_by_day[entry_day]["entries"].append({
+                        "timeclock": entry,
+                        "clock_in": entry.clock_in,
+                        "clock_out": entry.clock_out,
+                        "duration_hours": duration_hours,
+                    })
+
+                    clock_entries_by_day[entry_day]["day_total_hours"] += duration_hours
+
+                activity_total_hours = sum(
+                    activity.duration or 0
+                    for activity in activities
+                )
+
+                employee_rows.append({
+                    "employee": employee,
+                    "clock_days": list(clock_entries_by_day.values()),
+                    "clock_total_hours": clock_total_hours,
+                    "activity_total_hours": activity_total_hours,
+                    "difference_hours": clock_total_hours - activity_total_hours,
+                })
+
+        context["form"] = form
+        context["employee_rows"] = employee_rows
+        return context
+    
+class TimeClockUpdateView(LoginRequiredMixin, generic.UpdateView):
+    model = TimeClock
+    form_class = TimeClockEditForm
+    template_name = "timeclock/time_clock_edit.html"
+
+    def get_success_url(self):
+        return reverse("culet:report_time_clock")
+    
+class LateJobsReportView(LoginRequiredMixin, generic.TemplateView):
+    template_name = "reports/late_jobs.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        today = date.today()
+
+        jobs = (
+            Job.objects
+            .filter(
+                active=True,
+                shipped=False,
+                due__lt=today,
+            )
+            .select_related(
+                "customer",
+                "style",
+                "assigned_to__user",
+                "holder__user",
+                "status",
+                "location",
+            )
+            .order_by("due", "job_num")
+        )
+
+        job_rows = []
+
+        for job in jobs:
+            job_rows.append({
+                "job": job,
+                "days_late": (today - job.due).days,
+            })
+
+        context["today"] = today
+        context["job_rows"] = job_rows
         return context

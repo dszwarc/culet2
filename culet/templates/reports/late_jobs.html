@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-container">
+
+  <h1>Late Jobs Report</h1>
+
+  <div class="job-card">
+    <p><strong>Today:</strong> {{ today|date:"F j, Y" }}</p>
+    <p><strong>Late Jobs:</strong> {{ job_rows|length }}</p>
+  </div>
+
+  <div class="job-card">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Job</th>
+          <th>Customer</th>
+          <th>Style</th>
+          <th>Due Date</th>
+          <th>Days Late</th>
+          <th>Status</th>
+          <th>Location</th>
+          <th>Assigned To</th>
+          <th>Holder</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in job_rows %}
+          <tr>
+            <td>
+              <a href="{{ row.job.get_absolute_url }}">
+                {{ row.job }}
+              </a>
+            </td>
+            <td>{{ row.job.customer }}</td>
+            <td>{{ row.job.style }}</td>
+            <td>{{ row.job.due|date:"Y-m-d" }}</td>
+            <td>{{ row.days_late }}</td>
+            <td>{{ row.job.status|default:"—" }}</td>
+            <td>{{ row.job.location|default:"—" }}</td>
+            <td>{{ row.job.assigned_to|default:"—" }}</td>
+            <td>{{ row.job.holder|default:"—" }}</td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="9">No late jobs found.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+</div>
+{% endblock %}
