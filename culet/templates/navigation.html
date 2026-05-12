@@ -1,10 +1,19 @@
 <div id="my_nav">
     <div class="links_left">
-        <a class='nav_link' href="{% url 'culet:home' %}">Home</a>
+
+        {% if user.employee.role_fk.name == 'Manager' %}
+                  <a class='nav_link' href="{% url 'culet:home' %}">Home</a>  
+        {% endif %}
+            
         <!-- Removed in favor of django-filter which filters Jobs list view -->
         <!-- <a class='nav_link' href="{% url 'culet:activities_index' %}">Active Jobs</a> -->
+
+        
+        {% if user.employee.role_fk.name != 'Manager' %}
+                <a class='nav_link' href="{% url 'culet:my_jobs' %}">My Jobs</a>            
+        {% endif %}
             
-        <a class='nav_link' href="{% url 'culet:my_jobs' %}">My Jobs</a>
+        
     </div>
     <div class="links_right">
         {% if user.is_authenticated %}

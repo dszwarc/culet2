@@ -16,7 +16,10 @@ from .models import (
     JobMetal,
     JobStone,
     JobWeight,
+    Location,
+    JobStatus
 )
+
 from django.views import generic
 from django.urls import reverse_lazy, reverse
 from django.utils import timezone
@@ -80,7 +83,7 @@ class MyJobListView(LoginRequiredMixin, generic.ListView):
         employee = Employee.objects.get(user=self.request.user)
         return Job.objects.filter(
             assigned_to=employee,
-            location=employee
+            holder=employee
         ).prefetch_related("activity_set")
 
     def get_context_data(self, **kwargs):
@@ -95,7 +98,7 @@ class ReceiveListView(LoginRequiredMixin, generic.ListView):
     context_object_name = "receive_list"
     def get_queryset(self):
         employee = Employee.objects.get(user=self.request.user)
-        job_query = Job.objects.filter(assigned_to=employee).exclude(location=employee)
+        job_query = Job.objects.filter(assigned_to=employee).exclude(holder=employee)
         return job_query
     
 class ReportingListView(LoginRequiredMixin, generic.ListView):
@@ -187,7 +190,9 @@ class JobCreateView(LoginRequiredMixin, generic.CreateView):
         self.object = form.save(commit=False)
 
         self.object.assigned_to = None
-        self.object.location = self.request.user.employee
+        self.object.holder = None
+        self.object.location = Location.objects.get(name="Office")
+        self.object.status = JobStatus.objects.get(name="Waiting on Metal")
 
         if self.object.style:
             if not self.object.stamp:
@@ -512,8 +517,13 @@ class StyleCreateView(LoginRequiredMixin, generic.CreateView):
 
 class AssignJobView(LoginRequiredMixin,generic.TemplateView):
     def get(self, request, *args, **kwargs):
-        context = {'employees':Employee.objects.all()}
-        return render(request, 'jobs/assign.html', context)
+        if self.request.user.employee.role_fk.name == "Super":
+            context = {'employees':Employee.objects.all()}
+            return render(request, 'jobs/assign.html', context)
+        elif self.request.user.employee.role_fk.name == "Manager":
+            employees = Employee.objects.filter(department_fk=[self.request.employee.department_fk])
+            context = {'employees':employees}
+            return render(request, 'jobs/assign.html', context)
     def post(self, request, *args, **kwargs):
         job = Job.objects.get(job_num=request.POST["job"])
         job.assigned_to = Employee.objects.get(id=request.POST["employee"])
@@ -537,7 +547,7 @@ def startWork(request):
         Job,
         id=request.POST.get("job_id"),
         assigned_to=employee,
-        location=employee,
+        holder=employee,
     )
 
     if job.in_work:
@@ -559,7 +569,7 @@ def startWork(request):
 
     job.in_work = True
     job.assigned_to = employee
-    job.location = employee
+    job.holder = employee
     job.save()
 
     messages.success(request, f"Job {job.job_num} has been started. ({activity.step.name})")
@@ -617,7 +627,7 @@ def stopWork(request, pk, job_id):
         Job,
         id=job_id,
         assigned_to=employee,
-        location=employee,
+        holder=employee,
     )
 
     act = get_object_or_404(
@@ -696,7 +706,7 @@ def clock_out(request):
 def receive(request):
     #NOT TESTED. NEEDS UPDATING FOR LIMITING WHEN THIS IS ALLOWED
     job = Job.objects.get(job_num=request.POST["job"])
-    job.location = request.user.employee
+    job.holder = request.user.employee
     job.save()
     messages.success(request, f"Job {job.job_num} Received")
     return HttpResponseRedirect(reverse('culet:my_jobs'))

@@ -19,6 +19,7 @@
                 <td>Name</td>
                 <td>Style</td>
                 <td>Assigned To</td>
+                <td>Holder</td>
                 <td>Location</td>
                 <td>Customer</td>
                 <td>Due Date</td>
@@ -34,6 +35,7 @@
                                 {{job.assigned_to}}
                             {% endif %}
                         </td>
+                        <td>{{ job.holder }}</td>
                         <td>{{ job.location }}</td>
                         <td>{{ job.customer }}</td>
                         <td {% if job.is_past_due%}class="past_due"{% elif job.is_near_due %}class="near_due"{% endif %}>{{ job.due }}</td>
