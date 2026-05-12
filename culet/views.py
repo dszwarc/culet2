@@ -515,53 +515,63 @@ class StyleCreateView(LoginRequiredMixin, generic.CreateView):
         # If formset invalid, re-render page with errors
         return self.render_to_response(self.get_context_data(form=form))
 
-class AssignJobView(LoginRequiredMixin,generic.TemplateView):
+class AssignJobView(LoginRequiredMixin, generic.TemplateView):
+    template_name = "jobs/assign.html"
+
     def get_assignable_employees(self):
         current_employee = self.request.user.employee
 
-        base_qs = (
-            Employee.objects.select_related("user","department_fk","role_fk")
-            .order_by("role_fk__name", "user__last_name","user__first_name")
+        employees = Employee.objects.select_related(
+            "user",
+            "department_fk",
+            "role_fk",
+        ).order_by(
+            "role_fk__name",
+            "user__last_name",
+            "user__first_name",
         )
 
-        role_name = (current_employee.role_fk.name or "").lower() if current_employee.role_fk else ""
-        dept_name = (current_employee.department_fk.name or "").lower() if current_employee.department_fk else ""
+        role_name = current_employee.role_fk.name if current_employee.role_fk else ""
+        dept_name = current_employee.department_fk.name if current_employee.department_fk else ""
 
-        #Super + Office can assign to everyone
-        if role_name == "super" and dept_name == "office":
-            return base_qs
-        
-        # Managers can assign to managers + employees in their department
-        if role_name == "manager":
-            return base_qs.filter(pk=current_employee.pk)
+        if role_name == "Super" and dept_name == "Office":
+            return employees
+
+        if role_name == "Manager":
+            return employees.filter(
+                department_fk=current_employee.department_fk
+            )
+
+        return Employee.objects.none()
 
     def get(self, request, *args, **kwargs):
         employees = self.get_assignable_employees()
-        
-        managers = employees.filter(role_fk__name__iexact="Manager")
-        non_managers = employees.exclude(role_fk__name__iexact="Manager")
 
         context = {
-            'managers': managers,
-            'employees':employees,
-                   }
-        
-        return render(request, 'jobs/assign.html', context)
-    
+            "managers": employees.filter(role_fk__name="Manager"),
+            "employees": employees.exclude(role_fk__name="Manager"),
+        }
+
+        return render(request, self.template_name, context)
+
     def post(self, request, *args, **kwargs):
-        assignable_employees = self.get_assignable_employees()
+        employees = self.get_assignable_employees()
 
         job = get_object_or_404(Job, job_num=request.POST.get("job"))
+
         employee = get_object_or_404(
-            assignable_employees,
+            employees,
             id=request.POST.get("employee")
         )
 
         job.assigned_to = employee
-        job.location = employee
         job.save()
 
-        messages.success(request, f"Job {job.job_num} has been assigned to {employee}.")
+        messages.success(
+            request,
+            f"Job {job.job_num} has been assigned to {employee}."
+        )
+
         return redirect("culet:assign_job")
 
 @login_required

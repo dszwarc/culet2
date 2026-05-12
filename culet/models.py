@@ -79,14 +79,7 @@ class Department(models.Model):
         return self.name
 
 class Role(models.Model):
-    name = models.CharField(max_length=80, unique=False, blank=True, null=True)
-    department = models.ForeignKey(
-        Department,
-        on_delete=models.PROTECT,
-        null=True,
-        blank=True,
-        related_name="roles"
-    )
+    name = models.CharField(max_length=80, unique=True, blank=True, null=True)
     requires_clock_in = models.BooleanField(default=True)
     can_start_activities = models.BooleanField(default=True)
     active = models.BooleanField(default=True)
