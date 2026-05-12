@@ -1,39 +1,145 @@
 {% extends 'base.html' %}
 
-
 {% block content %}
 
-{% if messages %}
-    <ul class="messages">
-        
-        {% for message in messages %}
-            <li {% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
-        {% endfor %}
-            
-    </ul>
-{% endif %}
+<div class="page-container">
 
-{% if user %}
-    <p>{{user.employee}} is logged in</p>
-{% endif %}
-
-<form action="/culet/jobs/assign" method="POST">
-    {% csrf_token %}
-   
-    <div class="radio_employee_select">
-    
-        
-        {% for emp in employees %}
-            <input type="radio" name="employee" id={{emp.id}} class="employee_assign_button" value={{emp.id}}>
-            <label for={{emp.id}}>{{emp}}</label>
-        {% endfor %}
-            
+    <div class="page-header">
+        <h1>Assign Job</h1>
+        <p>Select a job and assign it to an employee.</p>
     </div>
-        <!-- Adding comment to test git branch -->
-    
-    <input name="job" type="text" placeholder="Enter Job Number">
 
-    <button class="btn btn-primary" type="submit">Assign</button>
-</form>
+    {% if messages %}
+        <div class="messages-container">
+            {% for message in messages %}
+                <div class="message {{ message.tags }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
 
-{% endblock content %}
+    <div class="card">
+        <form method="POST">
+
+            {% csrf_token %}
+
+            <div class="form-section">
+                <label for="job-search">Search Job</label>
+
+                <input
+                    type="text"
+                    id="job-search"
+                    placeholder="Enter Job Number"
+                    autocomplete="off"
+                >
+
+                <input
+                    type="hidden"
+                    name="job"
+                    id="selected-job"
+                >
+
+                <div id="job-results" class="search-results"></div>
+            </div>
+
+            <div class="employee-sections">
+
+                <div class="employee-group">
+                    <h2>Managers</h2>
+
+                    {% if managers %}
+                        {% for employee in managers %}
+                            <label class="employee-card">
+                                <input
+                                    type="radio"
+                                    name="employee"
+                                    value="{{ employee.id }}"
+                                    required
+                                >
+
+                                <div class="employee-info">
+                                    <div class="employee-name">
+                                        {{ employee.user.first_name }}
+                                        {{ employee.user.last_name }}
+                                    </div>
+
+                                    <div class="employee-meta">
+                                        {{ employee.role_fk.name }}
+                                        •
+                                        {{ employee.department_fk.name }}
+                                    </div>
+                                </div>
+                            </label>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-state">
+                            No managers available.
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="employee-group">
+                    <h2>Employees</h2>
+
+                    {% if employees %}
+                        {% for employee in employees %}
+                            <label class="employee-card">
+                                <input
+                                    type="radio"
+                                    name="employee"
+                                    value="{{ employee.id }}"
+                                    required
+                                >
+
+                                <div class="employee-info">
+                                    <div class="employee-name">
+                                        {{ employee.user.first_name }}
+                                        {{ employee.user.last_name }}
+                                    </div>
+
+                                    <div class="employee-meta">
+                                        {{ employee.role_fk.name }}
+                                        •
+                                        {{ employee.department_fk.name }}
+                                    </div>
+                                </div>
+                            </label>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-state">
+                            No employees available.
+                        </div>
+                    {% endif %}
+                </div>
+
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="primary-btn">
+                    Assign Job
+                </button>
+            </div>
+
+        </form>
+    </div>
+
+</div>
+
+
+<script>
+
+document.addEventListener("DOMContentLoaded", function () {
+
+    const searchInput = document.getElementById("job-search");
+    const selectedJobInput = document.getElementById("selected-job");
+
+    searchInput.addEventListener("change", function () {
+        selectedJobInput.value = searchInput.value;
+    });
+
+});
+
+</script>
+
+{% endblock %}

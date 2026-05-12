@@ -331,3 +331,145 @@ table{
 .table-add-btn:hover {
     background: #000;
 }
+
+/* Style for Assign Page  */
+
+.page-container {
+    max-width: 900px;
+    margin: 2rem auto;
+    padding: 1rem;
+}
+
+.page-header {
+    margin-bottom: 2rem;
+}
+
+.page-header h1 {
+    margin-bottom: 0.25rem;
+}
+
+.page-header p {
+    color: #666;
+}
+
+.card {
+    background: white;
+    border-radius: 16px;
+    padding: 2rem;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+
+.form-section {
+    margin-bottom: 2rem;
+}
+
+.form-section label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.form-section input[type="text"] {
+    width: 100%;
+    padding: 0.9rem 1rem;
+    border-radius: 10px;
+    border: 1px solid #ccc;
+    font-size: 1rem;
+}
+
+.employee-sections {
+    display: grid;
+    gap: 2rem;
+}
+
+.employee-group h2 {
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 0.5rem;
+}
+
+.employee-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    margin-bottom: 0.75rem;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.employee-card:hover {
+    border-color: #999;
+    background: #fafafa;
+}
+
+.employee-card input[type="radio"] {
+    transform: scale(1.2);
+}
+
+.employee-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.employee-name {
+    font-weight: 600;
+}
+
+.employee-meta {
+    color: #666;
+    font-size: 0.9rem;
+    margin-top: 0.15rem;
+}
+
+.form-actions {
+    margin-top: 2rem;
+    text-align: right;
+}
+
+.primary-btn {
+    background: #111827;
+    color: white;
+    border: none;
+    padding: 0.9rem 1.4rem;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.primary-btn:hover {
+    opacity: 0.92;
+}
+
+.messages-container {
+    margin-bottom: 1rem;
+}
+
+.message {
+    padding: 1rem;
+    border-radius: 10px;
+    margin-bottom: 0.5rem;
+}
+
+.message.success {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.message.error {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.empty-state {
+    color: #777;
+    padding: 1rem 0;
+}
+
+.search-results {
+    margin-top: 0.5rem;
+}
