@@ -9,16 +9,6 @@
         <p>Select a job and assign it to an employee.</p>
     </div>
 
-    {% if messages %}
-        <div class="messages-container">
-            {% for message in messages %}
-                <div class="message {{ message.tags }}">
-                    {{ message }}
-                </div>
-            {% endfor %}
-        </div>
-    {% endif %}
-
     <div class="card">
         <form method="POST">
 

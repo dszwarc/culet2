@@ -172,6 +172,53 @@
     </div>
 </div>
 
+<div class="job-section-card">
+  <div class="section-header-row">
+    <h2 class="job-section-title">Finding Requirements</h2>
+
+    <button
+      type="button"
+      class="table-add-btn"
+      id="add-finding-row">
+      + Add Finding
+    </button>
+  </div>
+
+  {{ finding_formset.management_form }}
+
+  <div class="job-table-wrap">
+    <table class="job-table">
+      <thead>
+        <tr>
+          <th>Finding</th>
+          <th>Qty Required</th>
+          <th class="delete-cell">Delete</th>
+        </tr>
+      </thead>
+      <tbody id="finding-formset-body">
+        {% for f in finding_formset %}
+          <tr class="finding-form-row">
+            <td>
+              {{ f.id }}
+              {{ f.finding }}
+              {{ f.finding.errors }}
+            </td>
+            <td>
+              {{ f.qty_req }}
+              {{ f.qty_req.errors }}
+            </td>
+            <td class="delete-cell">
+              {% if f.DELETE %}
+                {{ f.DELETE }}
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
 <div class="job-actions">
     <button type="submit" class="job-submit-btn">Save Style</button>
 </div>
@@ -224,17 +271,24 @@ function setupDynamicFormset({
 }
 
 setupDynamicFormset({
-    addButtonId: "add-metal-row",
-    tableBodyId: "metal-formset-body",
-    totalFormsId: "id_stylemetal_set-TOTAL_FORMS",
-    rowClass: "metal-form-row"
+  addButtonId: "add-metal-row",
+  tableBodyId: "metal-formset-body",
+  totalFormsId: "id_stylemetal_set-TOTAL_FORMS",
+  rowClass: "metal-form-row"
 });
 
 setupDynamicFormset({
-    addButtonId: "add-stone-row",
-    tableBodyId: "stone-formset-body",
-    totalFormsId: "id_stylestone_set-TOTAL_FORMS",
-    rowClass: "stone-form-row"
+  addButtonId: "add-stone-row",
+  tableBodyId: "stone-formset-body",
+  totalFormsId: "id_stylestone_set-TOTAL_FORMS",
+  rowClass: "stone-form-row"
+});
+
+setupDynamicFormset({
+  addButtonId: "add-finding-row",
+  tableBodyId: "finding-formset-body",
+  totalFormsId: "id_stylefindings_set-TOTAL_FORMS",
+  rowClass: "finding-form-row"
 });
 </script>
 {% endblock content %}
