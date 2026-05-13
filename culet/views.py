@@ -33,7 +33,9 @@ from .models import (
     JobStone,
     JobWeight,
     Location,
-    JobStatus
+    JobStatus,
+    StyleFinding,
+    JobFinding,
 )
 
 from .forms import (
@@ -59,6 +61,9 @@ from .forms import (
     EmployeeActivityReportForm,
     TimeClockReportForm,
     TimeClockEditForm,
+    get_job_finding_formset,
+    JobFindingFormSet,
+    StyleFindingFormSet,
     )
 
 
@@ -158,6 +163,7 @@ class JobDetailView(LoginRequiredMixin, generic.DetailView):
         context = super().get_context_data(**kwargs)
         context["job_metals"] = JobMetal.objects.filter(job=context['job'])
         context["job_stones"] = JobStone.objects.filter(job=context['job'])
+        context["job_findings"] = JobFinding.objects.filter(job=context["job"])
         context["activity"] = Activity.objects.filter(job=context['job'])
         context["job_weights"] = context["job"].weights.order_by("-created_at","-id")
         return context
@@ -172,17 +178,13 @@ class JobCreateView(LoginRequiredMixin, generic.CreateView):
         context = super().get_context_data(**kwargs)
 
         if self.request.POST:
-            context["metal_formset"] = JobMetalFormSet(
-                self.request.POST,
-                prefix="metals",
-            )
-            context["stone_formset"] = JobStoneFormSet(
-                self.request.POST,
-                prefix="stones",
-            )
+            context["metal_formset"] = JobMetalFormSet(self.request.POST, prefix="metals")
+            context["stone_formset"] = JobStoneFormSet(self.request.POST, prefix="stones")
+            context["finding_formset"] = JobFindingFormSet(self.request.POST, prefix="findings")
         else:
             context["metal_formset"] = JobMetalFormSet(prefix="metals")
             context["stone_formset"] = JobStoneFormSet(prefix="stones")
+            context["finding_formset"] = JobFindingFormSet(prefix="findings")
 
         return context
 
@@ -191,11 +193,14 @@ class JobCreateView(LoginRequiredMixin, generic.CreateView):
         context = self.get_context_data()
         metal_formset = context["metal_formset"]
         stone_formset = context["stone_formset"]
+        finding_formset = context["finding_formset"]
 
-        if not (metal_formset.is_valid() and stone_formset.is_valid()):
-            return self.render_to_response(
-                self.get_context_data(form=form)
-            )
+        if not (
+            metal_formset.is_valid()
+            and stone_formset.is_valid()
+            and finding_formset.is_valid()
+        ):
+            return self.render_to_response(self.get_context_data(form=form))
 
         self.object = form.save(commit=False)
 
@@ -219,6 +224,9 @@ class JobCreateView(LoginRequiredMixin, generic.CreateView):
 
         stone_formset.instance = self.object
         stone_formset.save()
+
+        finding_formset.instance = self.object
+        finding_formset.save()
 
         return redirect(self.object.get_absolute_url())
 
@@ -269,11 +277,24 @@ class JobStyleDefaultsHTMXView(LoginRequiredMixin, generic.View):
             for ss in style.stylestone_set.all()
         ]
 
+        finding_initial = [
+            {
+                "finding": sf.finding_id,
+                "qty_req": sf.qty_req,
+                "qty_used": 0,
+            }
+            for sf in style.stylefinding_set.all()
+        ]
+
         JobMetalCreateFormSet = get_job_metal_formset(
             extra=len(metal_initial)
         )
         JobStoneCreateFormSet = get_job_stone_formset(
             extra=len(stone_initial)
+        )
+
+        JobFindingCreateFormSet = get_job_finding_formset(
+            extra=len(finding_initial)
         )
 
         metal_formset = JobMetalCreateFormSet(
@@ -285,6 +306,12 @@ class JobStyleDefaultsHTMXView(LoginRequiredMixin, generic.View):
             initial=stone_initial,
         )
 
+
+        finding_formset = JobFindingCreateFormSet(
+            prefix="findings",
+            initial=finding_initial,
+        )
+
         return render(
             request,
             self.template_name,
@@ -292,6 +319,7 @@ class JobStyleDefaultsHTMXView(LoginRequiredMixin, generic.View):
                 "job_form": job_form,
                 "metal_formset": metal_formset,
                 "stone_formset": stone_formset,
+                "finding_formset": finding_formset,
                 "style": style,
             },
         )
@@ -440,9 +468,11 @@ class JobUpdateView(LoginRequiredMixin, generic.UpdateView):
         if self.request.POST:
             context["metal_formset"] = JobMetalFormSet(self.request.POST, instance=self.object, prefix="metals")
             context["stone_formset"] = JobStoneFormSet(self.request.POST, instance=self.object, prefix="stones")
+            context["finding_formset"] = JobFindingFormSet(self.request.POST, instance=self.object, prefix="findings")
         else:
             context["metal_formset"] = JobMetalFormSet(instance=self.object, prefix="metals")
             context["stone_formset"] = JobStoneFormSet(instance=self.object, prefix="stones")
+            context["finding_formset"] = JobFindingFormSet(instance=self.object, prefix="findings")
 
         return context
 
@@ -451,8 +481,13 @@ class JobUpdateView(LoginRequiredMixin, generic.UpdateView):
         context = self.get_context_data()
         metal_formset = context["metal_formset"]
         stone_formset = context["stone_formset"]
+        finding_formset = context["finding_formset"]
 
-        if not (metal_formset.is_valid() and stone_formset.is_valid()):
+        if not (
+            metal_formset.is_valid()
+            and stone_formset.is_valid()
+            and finding_formset.is_valid()
+        ):
             return self.render_to_response(self.get_context_data(form=form))
 
         self.object = form.save()
@@ -461,6 +496,9 @@ class JobUpdateView(LoginRequiredMixin, generic.UpdateView):
 
         stone_formset.instance = self.object
         stone_formset.save()
+
+        finding_formset.instance = self.object
+        finding_formset.save()
 
         return redirect(self.object.get_absolute_url())
 
@@ -488,6 +526,8 @@ class StyleDetailView(LoginRequiredMixin,generic.DetailView):
         data['metal'] = req_metal
         req_stones = StyleStone.objects.filter(style=data['style'])
         data['stones'] = req_stones
+        req_findings = StyleFinding.objects.filter(style=data["style"])
+        data["findings"] = req_findings
         return data
 
 class StyleCreateView(LoginRequiredMixin, generic.CreateView):
@@ -502,9 +542,11 @@ class StyleCreateView(LoginRequiredMixin, generic.CreateView):
         if self.request.POST:
             context["metal_formset"] = StyleMetalFormSet(self.request.POST)
             context["stone_formset"] = StyleStoneFormSet(self.request.POST)
+            context["finding_formset"] = StyleFindingFormSet(self.request.POST)
         else:
             context["metal_formset"] = StyleMetalFormSet()
             context["stone_formset"] = StyleStoneFormSet()
+            context["finding_formset"] = StyleFindingFormSet()
 
         return context
 
@@ -513,13 +555,24 @@ class StyleCreateView(LoginRequiredMixin, generic.CreateView):
         metal_formset = context["metal_formset"]
         stone_formset = context["stone_formset"]
 
-        if metal_formset.is_valid() and stone_formset.is_valid():
-            self.object = form.save()  # save Style first
+        finding_formset = context["finding_formset"]
+
+        if (
+            metal_formset.is_valid()
+            and stone_formset.is_valid()
+            and finding_formset.is_valid()
+        ):
+            self.object = form.save()
+
             metal_formset.instance = self.object
             metal_formset.save()
 
             stone_formset.instance = self.object
             stone_formset.save()
+
+            finding_formset.instance = self.object
+            finding_formset.save()
+
             return redirect(self.get_success_url())
 
         # If formset invalid, re-render page with errors

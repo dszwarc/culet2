@@ -21,6 +21,8 @@ from .models import (
     ActivityStep,
     Employee,
     TimeClock,
+    StyleFinding,
+    JobFinding,
 )
 
 
@@ -532,6 +534,31 @@ def get_job_stone_formset(extra=0):
         Job,
         JobStone,
         form=JobStoneForm,
+        extra=extra,
+        can_delete=True,
+    )
+
+StyleFindingFormSet = inlineformset_factory(
+    Style,
+    StyleFinding,
+    fields=("finding", "qty_req"),
+    extra=1,
+    can_delete=True,
+)
+
+JobFindingFormSet = inlineformset_factory(
+    Job,
+    JobFinding,
+    fields=("finding", "qty_req", "qty_used"),
+    extra=1,
+    can_delete=True,
+)
+
+def get_job_finding_formset(extra=0):
+    return inlineformset_factory(
+        Job,
+        JobFinding,
+        fields=("finding", "qty_req", "qty_used"),
         extra=extra,
         can_delete=True,
     )

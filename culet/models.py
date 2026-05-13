@@ -392,11 +392,39 @@ class FindingType(models.Model):
     name = models.CharField(max_length=80, unique=True)
     unit = models.CharField(max_length=10, default="pcs")
 
-class FindingStock(models.Model):
-    finding_type = models.ForeignKey(FindingType,on_delete=models.CASCADE)
-    name = models.CharField(max_length=50, unique=True)
-    qty_in_stock = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+    def __str__(self):
+        return self.name
 
+
+class FindingStock(models.Model):
+    finding_type = models.ForeignKey(FindingType, on_delete=models.PROTECT)
+    name = models.CharField(max_length=80, unique=True)
+    sku = models.CharField(max_length=50, blank=True)
+    metal_type = models.ForeignKey(MetalType, on_delete=models.PROTECT, null=True, blank=True)
+    qty_on_hand = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+    active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.name
+    
+class StyleFinding(models.Model):
+    style = models.ForeignKey(Style, on_delete=models.CASCADE, related_name="style_findings")
+    finding = models.ForeignKey(FindingStock, on_delete=models.PROTECT)
+    qty_req = models.DecimalField(max_digits=10, decimal_places=3, default=0)
+
+    def __str__(self):
+        return f"{self.style} - {self.finding}"
+
+
+class JobFinding(models.Model):
+    job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="job_findings")
+    finding = models.ForeignKey(FindingStock, on_delete=models.PROTECT)
+    qty_req = models.DecimalField(max_digits=10, decimal_places=3, default=0)
+    qty_used = models.DecimalField(max_digits=10, decimal_places=3, default=0)
+
+    def __str__(self):
+        return f"{self.job} - {self.finding}"
+    
 class ActivityStep(models.Model):
     name = models.CharField(max_length=80, unique=True)
     departments = models.ManyToManyField(

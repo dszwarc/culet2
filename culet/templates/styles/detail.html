@@ -47,6 +47,14 @@
             
         </tr>
     {% endfor %}
+
+<h2>Findings</h2>
+
+{% for f in findings %}
+  <p>{{ f.finding }} — Qty: {{ f.qty_req }}</p>
+{% empty %}
+  <p>No findings required.</p>
+{% endfor %}
         
 </table>
 

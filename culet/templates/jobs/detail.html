@@ -128,7 +128,30 @@
 
 </table>
 
+## Findings
 
+{% if job_findings %}
+<table>
+  <thead>
+    <tr>
+      <th>Finding</th>
+      <th>Qty Req</th>
+      <th>Qty Used</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for jf in job_findings %}
+      <tr>
+        <td>{{ jf.finding }}</td>
+        <td>{{ jf.qty_req }}</td>
+        <td>{{ jf.qty_used }}</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No findings required.</p>
+{% endif %}
 
 <h2>Weights</h2>
 
