@@ -15,6 +15,7 @@
         {% if user.employee.role_fk.name != 'Manager' %}
                 <a class='nav_link' href="{% url 'culet:my_jobs' %}">My Jobs</a>   
                 <a href="{% url 'culet:receive_list' %}" class="nav_link">Receive Jobs</a>
+                <a href="{% url 'culet:return_job' %}" class="nav_link">Return Jobs</a>
         {% endif %}
             
         

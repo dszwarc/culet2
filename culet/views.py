@@ -637,6 +637,39 @@ class AssignJobView(LoginRequiredMixin, generic.TemplateView):
 
         return redirect("culet:assign_job")
 
+class ReturnJobView(LoginRequiredMixin, generic.TemplateView):
+    template_name = "jobs/return.html"
+
+    def get(self, request, *args, **kwargs):
+        employees = Employee.objects.exclude(role_fk__name="Hourly")
+
+        context = {
+            "managers": employees.filter(role_fk__name="Manager") | employees.filter(role_fk__name="Super"),
+        }
+
+        return render(request, self.template_name, context)
+
+    def post(self, request, *args, **kwargs):
+        employees = self.get_assignable_employees()
+
+        job = get_object_or_404(Job, job_num=request.POST.get("job"))
+
+        employee = get_object_or_404(
+            employees,
+            id=request.POST.get("employee")
+        )
+
+        job.assigned_to = employee
+        job.save()
+
+        messages.success(
+            request,
+            f"Job {job.job_num} has been returned to {employee}."
+        )
+
+        return redirect("culet:return_job")
+
+
 @login_required
 def startWork(request):
     if request.method != "POST":
