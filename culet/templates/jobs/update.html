@@ -29,6 +29,14 @@
     <div class="stone-row">{{ f.as_p }}</div>
   {% endfor %}
 
+  <h2>Finding Requirements</h2>
+
+{{ finding_formset.management_form }}
+
+{% for f in finding_formset %}
+  {{ f.as_p }}
+{% endfor %}
+
   <button type="submit">Save Changes</button>
 </form>
 {% endblock content %}

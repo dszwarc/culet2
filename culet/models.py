@@ -395,7 +395,6 @@ class FindingType(models.Model):
     def __str__(self):
         return self.name
 
-
 class FindingStock(models.Model):
     finding_type = models.ForeignKey(FindingType, on_delete=models.PROTECT)
     name = models.CharField(max_length=80, unique=True)

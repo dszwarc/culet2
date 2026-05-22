@@ -589,6 +589,31 @@ table{
     color: #111827;
 }
 
+.green-button{
+    background-color: #e5ffde;
+}
+
+.red-button{
+    background-color: rgb(251, 204, 204)
+}
+
+.orange-button{
+    background-color: rgb(255, 233, 192);
+}
+
+.pink-button{
+    background-color: rgb(255, 215, 222);
+}
+
+.blue-button{
+    background-color:rgb(200, 225, 255);
+
+}
+
+.yellow-button{
+    background-color:rgb(251, 251, 204);
+}
+
 @media (max-width: 900px) {
     .home-grid {
         grid-template-columns: repeat(2, 1fr);
@@ -607,4 +632,14 @@ table{
     .home-tile {
         min-height: 76px;
     }
+}
+.flashing-text {
+  /* Set the animation: name, duration, timing, and loop count */
+  animation: blinker .5s linear infinite;
+}
+
+@keyframes blinker {
+  50% {
+    opacity: 0;
+  }
 }

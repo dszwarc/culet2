@@ -1,6 +1,30 @@
 <form method="post">
   {% csrf_token %}
     {{ job_form.style }}
+
+    {% if job_form.errors %}
+  <div class="alert alert-danger">
+    {{ job_form.errors }}
+  </div>
+{% endif %}
+
+{% if metal_formset.non_form_errors %}
+  <div class="alert alert-danger">
+    {{ metal_formset.non_form_errors }}
+  </div>
+{% endif %}
+
+{% if stone_formset.non_form_errors %}
+  <div class="alert alert-danger">
+    {{ stone_formset.non_form_errors }}
+  </div>
+{% endif %}
+
+{% if finding_formset.non_form_errors %}
+  <div class="alert alert-danger">
+    {{ finding_formset.non_form_errors }}
+  </div>
+{% endif %}
   <div class="job-section-card">
     <h2 class="job-section-title">Job Information</h2>
 
@@ -158,6 +182,37 @@
       <p>No stone requirements found for this style.</p>
     {% endif %}
   </div>
+
+<h2>Finding Requirements</h2>
+
+{{ finding_formset.management_form }}
+
+{% if finding_formset.forms %}
+  {% for f in finding_formset %}
+    {{ f.id }}
+
+    <p>
+      {{ f.finding.label }} {{ f.finding }}
+      {{ f.finding.errors }}
+    </p>
+
+    <p>
+      {{ f.qty_req.label }} {{ f.qty_req }}
+      {{ f.qty_req.errors }}
+    </p>
+
+    <p>
+      {{ f.qty_used.label }} {{ f.qty_used }}
+      {{ f.qty_used.errors }}
+    </p>
+
+    {% if f.DELETE %}
+      <p>Delete {{ f.DELETE }}</p>
+    {% endif %}
+  {% endfor %}
+{% else %}
+  <p>No finding requirements found for this style.</p>
+{% endif %}
 
   <div class="job-actions">
     <button type="submit" class="job-submit-btn">Create Job</button>

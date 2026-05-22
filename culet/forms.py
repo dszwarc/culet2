@@ -546,10 +546,20 @@ StyleFindingFormSet = inlineformset_factory(
     can_delete=True,
 )
 
+class JobFindingForm(forms.ModelForm):
+    class Meta:
+        model = JobFinding
+        fields = ["finding", "qty_req", "qty_used"]
+        widgets = {
+            "finding": table_select_widget(),
+            "qty_req": table_number_widget(min_value="0", placeholder="Qty required"),
+            "qty_used": table_number_widget(min_value="0", placeholder="Qty used"),
+        }
+
 JobFindingFormSet = inlineformset_factory(
     Job,
     JobFinding,
-    fields=("finding", "qty_req", "qty_used"),
+    form=JobFindingForm,
     extra=1,
     can_delete=True,
 )
@@ -558,7 +568,7 @@ def get_job_finding_formset(extra=0):
     return inlineformset_factory(
         Job,
         JobFinding,
-        fields=("finding", "qty_req", "qty_used"),
+        form=JobFindingForm,
         extra=extra,
         can_delete=True,
     )

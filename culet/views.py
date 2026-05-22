@@ -195,6 +195,18 @@ class JobCreateView(LoginRequiredMixin, generic.CreateView):
         stone_formset = context["stone_formset"]
         finding_formset = context["finding_formset"]
 
+        if not metal_formset.is_valid():
+            messages.error(self.request, f"Metal form errors: {metal_formset.errors}")
+            messages.error(self.request, f"Metal non-form errors: {metal_formset.non_form_errors()}")
+
+        if not stone_formset.is_valid():
+            messages.error(self.request, f"Stone form errors: {stone_formset.errors}")
+            messages.error(self.request, f"Stone non-form errors: {stone_formset.non_form_errors()}")
+
+        if not finding_formset.is_valid():
+            messages.error(self.request, f"Finding form errors: {finding_formset.errors}")
+            messages.error(self.request, f"Finding non-form errors: {finding_formset.non_form_errors()}")
+
         if not (
             metal_formset.is_valid()
             and stone_formset.is_valid()
@@ -283,7 +295,7 @@ class JobStyleDefaultsHTMXView(LoginRequiredMixin, generic.View):
                 "qty_req": sf.qty_req,
                 "qty_used": 0,
             }
-            for sf in style.stylefinding_set.all()
+            for sf in style.style_findings.all()
         ]
 
         JobMetalCreateFormSet = get_job_metal_formset(
