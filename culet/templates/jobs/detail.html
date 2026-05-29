@@ -5,10 +5,10 @@
 
 <div class="card" style="width:60%;">
     <div class="card-featured">
-        <h1 class="barcode">*{{ job.job_num}}*</h1>
+        <h1 class="barcode">*{{ job.barcode}}*</h1>
     </div>
     <div class="card-body">
-      <h5 class="card-title">{{job.job_num}}</h5>
+      <h5 class="card-title">{{job.barcode}}</h5>
       <p class="card-text">Due: {{job.due}}</p>
       <p class="card-text">Customer: {{job.customer}}</p>
       <p class="card-text">Style: {{job.style}}</p>
@@ -155,12 +155,12 @@
 
 <h2>Weights</h2>
 
-<p><strong>Initial Total Weight:</strong> {{ job.initial_job_weight }}</p>
-<p><strong>Latest Total Weight:</strong> {{ job.latest_job_weight }}</p>
+<p><strong>Initial Total Weight:</strong> {{ job.initial_job_weight }} dwt</p>
+<p><strong>Latest Total Weight:</strong> {{ job.latest_job_weight }} dwt</p>
 <p>
   <strong>% Weight Loss:</strong>
   {% if job.weight_loss_percent is not None %}
-    {{ job.weight_loss_percent|floatformat:2 }}%
+    {{ job.weight_loss_percent|floatformat:2 }}% dwt
   {% else %}
     N/A
   {% endif %}
@@ -173,7 +173,7 @@
 <table border="1" cellpadding="8">
   <tr>
     <th>Recorded At</th>
-    <th>Weight</th>
+    <th>Piece</th>
     <th>Sprue</th>
     <th>Dust</th>
     <th>Total</th>
@@ -183,11 +183,11 @@
   {% for jw in job_weights %}
     <tr>
       <td>{{ jw.created_at }}</td>
-      <td>{{ jw.weight }}</td>
-      <td>{{ jw.sprue_weight }}</td>
-      <td>{{ jw.dust_weight }}</td>
-      <td>{{ jw.total_weight }}</td>
-      <td>{{ jw.recorded_by }}</td>
+      <td>{{ jw.weight }} dwt</td>
+      <td>{{ jw.sprue_weight }} dwt</td>
+      <td>{{ jw.dust_weight }} dwt</td>
+      <td>{{ jw.total_weight }} dwt</td>
+      <td>{{ jw.recorded_by }} dwt</td>
     </tr>
   {% empty %}
     <tr>

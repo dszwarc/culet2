@@ -145,6 +145,11 @@ class JobWeightForm(forms.ModelForm):
             "sprue_weight": forms.NumberInput(attrs={"step": "0.001", "min": "0"}),
             "dust_weight": forms.NumberInput(attrs={"step": "0.001", "min": "0"}),
         }
+        labels = {
+            "weight": "Piece Weight",
+            "sprue_weight": "Sprue Weight",
+            "dust_weight": "Dust Weight",
+        }
 
     def clean(self):
         cleaned_data = super().clean()
@@ -167,16 +172,16 @@ class JobWeightForm(forms.ModelForm):
         return cleaned_data
 
 class JobWeightLookupForm(forms.Form):
-    job_num = forms.IntegerField(required=False, label="Job Number")
-    customer_ref_num = forms.IntegerField(required=False, label="Customer Reference Number")
+    barcode = forms.IntegerField(required=False, label="Barcode")
+    stock_num = forms.IntegerField(required=False, label="Stock Number")
 
     def clean(self):
         cleaned_data = super().clean()
-        job_num = cleaned_data.get("job_num")
-        customer_ref_num = cleaned_data.get("customer_ref_num")
+        barcode = cleaned_data.get("barcode")
+        stock_num = cleaned_data.get("stock_num")
 
-        if not job_num and not customer_ref_num:
-            raise ValidationError("Enter either a job number or a customer reference number.")
+        if not barcode and not stock_num:
+            raise ValidationError("Enter either a barcode number or a stock number.")
 
         return cleaned_data
 
@@ -186,7 +191,7 @@ class JobForm(forms.ModelForm):
         fields = [
             "name",
             "customer",
-            "customer_ref_num",
+            "stock_num",
             "style",
             "size",
             "stamp",
@@ -196,7 +201,7 @@ class JobForm(forms.ModelForm):
         widgets = {
             "name": text_widget("Job name", "form-control-lg"),
             "customer": select_widget(),
-            "customer_ref_num": number_widget("Customer reference #", min_value="0"),
+            "stock_num": number_widget("Stock #", min_value="0"),
             "style": forms.HiddenInput(),
             "size": text_widget("Size"),
             "stamp": text_widget("Stamp / hallmark"),
@@ -204,7 +209,7 @@ class JobForm(forms.ModelForm):
             "notes": textarea_widget("Add notes for the shop...", rows=4),
         }
         labels = {
-            "customer_ref_num": "Customer Ref #",
+            "stock_num": "Stock #",
             "assigned_to": "Assigned To",
         }
 
@@ -213,7 +218,7 @@ class JobForm(forms.ModelForm):
 
         self.fields["name"].required = False
         self.fields["customer"].required = False
-        self.fields["customer_ref_num"].required = False
+        self.fields["stock_num"].required = False
         self.fields["notes"].required = False
         self.fields["size"].required = False
         self.fields["stamp"].required = False
@@ -629,7 +634,7 @@ class EmployeeActivityReportForm(forms.Form):
     
 class TimeClockReportForm(forms.Form):
     employee = forms.ModelChoiceField(
-        queryset=Employee.objects.select_related("user").order_by(
+        queryset=Employee.objects.select_related("user").filter(role_fk__requires_clock_in=True).order_by(
             "user__last_name",
             "user__first_name",
         ),

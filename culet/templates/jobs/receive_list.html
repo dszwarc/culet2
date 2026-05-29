@@ -1,61 +1,55 @@
 {% extends 'base.html' %}
 
 {% block content %}
-    
 {% if user.is_authenticated %}
 
-    {% if receive_list %}
-
-        <table class="index_table job_index">
-            <tr>
-                <td>Number</td>
-                <td>Name</td>
-                <td>Style</td>
-                <td>Customer</td>
-                <td>Due Date</td>
-                <td>Active</td>
-                <td>Receive</td>
-            </tr>
-            {% for job in receive_list %}
-                    <tr class="{% if forloop.counter|divisibleby:2 %}even_row{% else %}odd_row{% endif %}">
-                        <td><a href="{% url 'culet:job_detail' job.id %}">{{ job.job_num }}</a></td>
-                        <td>{{ job.name }}</td>
-                        <td>{{ job.style }}</td>
-                        <td>{{ job.customer }}</td>
-                        <td {% if job.is_past_due%}class="past_due"{% else %}{% endif %}>{{ job.due }}</td>
-                        <td>{{ job.active }}</td>
-                        <td>
-                            <form action="{% url 'culet:receive' %}" method="POST">
-                                {% csrf_token %}
-                                <input name="job" type="hidden" value="{{ job.job_num }}">
-                                <button class="btn btn-success" type="submit" onclick="return confirm('Receive job number {{job.job_num}}?');">Receive Job</button>
-                            </form>
-                        </td>
-                    </tr>
-                
-            {% endfor %}
-        </table>
-    
-    {% else %}
-        <p>No jobs are available.</p>
-    {% endif %}
-
-{% endif %}
-
-
-{% if user.employee.clocked_in == True %}    
-    <form action="/culet/activities/start" method="POST">
+  {% if receive_list %}
+    <form method="POST"
+        action="{% url 'culet:receive_all' %}"
+        onsubmit="return confirm('Receive all jobs currently in your queue?');">
         {% csrf_token %}
-        <input name="job" type="text">
-        <select name="name" id="">
-            <option value="cleaning">Cleaning</option>
-            <option value="polishing">Polishing</option>
-            <option value="setting">Setting</option>
-        </select>
-        <button type="submit">Start Job</button>
+        <button class="primary-btn" type="submit">
+            Receive All Jobs
+        </button>
     </form>
-{% else %}
-    Plese Clock In to Start Work
-{% endif %}
 
+    <table class="index_table job_index">
+      <tr>
+        <th>Number</th>
+        <th>Stock Number</th>
+        <th>Style</th>
+        <th>Customer</th>
+        <th>Due Date</th>
+        <th>Active</th>
+        <th>Receive</th>
+      </tr>
+
+      {% for job in receive_list %}
+        <tr>
+          <td><a href="{{ job.get_absolute_url }}">{{ job.barcode }}</a></td>
+          <td>{{ job.stock_num }}</td>
+          <td>{{ job.style }}</td>
+          <td>{{ job.customer }}</td>
+          <td>{{ job.due }}</td>
+          <td>{{ job.active }}</td>
+          <td>
+            <form method="POST"
+                action="{% url 'culet:receive' %}"
+                onsubmit="return confirm('Receive job {{ job.job_num }}?');">
+                {% csrf_token %}
+                <input type="hidden" name="job_id" value="{{ job.id }}">
+                <button class="primary-btn" type="submit">
+                    Receive Job
+                </button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+    </table>
+
+  {% else %}
+    <p>No jobs are available.</p>
+  {% endif %}
+
+{% endif %}
 {% endblock content %}

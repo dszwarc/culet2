@@ -66,6 +66,44 @@ from .forms import (
     StyleFindingFormSet,
     )
 
+from django.contrib import messages
+from django.shortcuts import redirect
+from django.urls import reverse
+
+
+class ClockedInRequiredMixin:
+    """
+    Require an employee to be clocked in before accessing a view.
+
+    Users whose role does not require clock-in are allowed through.
+    """
+
+    clocked_in_message = "You must be clocked in to do that."
+
+    def dispatch(self, request, *args, **kwargs):
+        employee = getattr(request.user, "employee", None)
+
+        if employee is None:
+            messages.error(request, "Your user account is not linked to an employee.")
+            return redirect("culet:home")
+
+        role = employee.role_fk
+        requires_clock_in = True
+
+        if role is not None:
+            requires_clock_in = role.requires_clock_in
+
+        if requires_clock_in and not employee.clocked_in:
+            messages.error(request, self.clocked_in_message)
+
+            return redirect(
+                request.META.get(
+                    "HTTP_REFERER",
+                    reverse("culet:home")
+                )
+            )
+
+        return super().dispatch(request, *args, **kwargs)
 
 class HomeView(LoginRequiredMixin, generic.TemplateView):
     template_name = "home.html"
@@ -73,18 +111,24 @@ class HomeView(LoginRequiredMixin, generic.TemplateView):
 def index(request):
     return render(request, 'authentication/login.html')
 
-class JobListView(LoginRequiredMixin,generic.ListView):
+class JobListView(LoginRequiredMixin, generic.ListView):
     model = Job
     template_name = "jobs/index.html"
+    context_object_name = "latest_job_list"
+    paginate_by = 25
 
-    # context_object_name = "latest_job_list"
-    # def get_queryset(self):
-    #     return Job.objects.order_by("-name")
-    def get_context_data(self,**kwargs):
-        jobs = Job.objects.all()
-        myFilter = JobFilter(self.request.GET,queryset=jobs)
-        filt_jobs = myFilter.qs
-        context = {'latest_job_list':filt_jobs, 'filter':myFilter}
+    def get_queryset(self):
+        jobs = Job.objects.all().order_by("due")
+        self.filter = JobFilter(self.request.GET, queryset=jobs)
+        return self.filter.qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["filter"] = self.filter
+
+        query_params = self.request.GET.copy()
+        query_params.pop("page", None)
+        context["query_params"] = query_params.urlencode()
 
         return context
 
@@ -107,14 +151,56 @@ class MyJobListView(LoginRequiredMixin, generic.ListView):
         context["activity_start_form"] = ActivityStartForm(employee=employee)
         return context
 
+def get_receivable_jobs_for_employee(employee):
+    return (
+        Job.objects
+        .filter(assigned_to=employee)
+        .exclude(holder=employee)
+    )
+
+
 class ReceiveListView(LoginRequiredMixin, generic.ListView):
     model = Job
     template_name = "jobs/receive_list.html"
     context_object_name = "receive_list"
+
     def get_queryset(self):
-        employee = Employee.objects.get(user=self.request.user)
-        job_query = Job.objects.filter(assigned_to=employee).exclude(holder=employee)
-        return job_query
+        employee = self.request.user.employee
+
+        return (
+            get_receivable_jobs_for_employee(employee)
+            .select_related("style", "customer", "assigned_to", "holder")
+            .order_by("due", "barcode")
+        )
+
+
+class ReceiveJobView(LoginRequiredMixin, generic.View):
+    @transaction.atomic
+    def post(self, request, *args, **kwargs):
+        employee = request.user.employee
+
+        job = get_object_or_404(
+            get_receivable_jobs_for_employee(employee),
+            pk=request.POST.get("job_id"),
+        )
+
+        job.holder = employee
+        job.save()
+
+        messages.success(request, f"Job {job.barcode} received.")
+        return redirect("culet:my_jobs")
+
+
+class ReceiveAllJobsView(LoginRequiredMixin, generic.View):
+    @transaction.atomic
+    def post(self, request, *args, **kwargs):
+        employee = request.user.employee
+
+        jobs = get_receivable_jobs_for_employee(employee)
+        count = jobs.update(holder=employee)
+
+        messages.success(request, f"{count} job(s) received.")
+        return redirect("culet:my_jobs")
     
 class ReportingListView(LoginRequiredMixin, generic.ListView):
     model = Activity
@@ -590,7 +676,7 @@ class StyleCreateView(LoginRequiredMixin, generic.CreateView):
         # If formset invalid, re-render page with errors
         return self.render_to_response(self.get_context_data(form=form))
 
-class AssignJobView(LoginRequiredMixin, generic.TemplateView):
+class AssignJobView(LoginRequiredMixin, ClockedInRequiredMixin, generic.TemplateView):
     template_name = "jobs/assign.html"
 
     def get_assignable_employees(self):
@@ -604,6 +690,8 @@ class AssignJobView(LoginRequiredMixin, generic.TemplateView):
             "role_fk__name",
             "user__last_name",
             "user__first_name",
+        ).exclude(
+            id=current_employee.id
         )
 
         role_name = current_employee.role_fk.name if current_employee.role_fk else ""
@@ -632,7 +720,7 @@ class AssignJobView(LoginRequiredMixin, generic.TemplateView):
     def post(self, request, *args, **kwargs):
         employees = self.get_assignable_employees()
 
-        job = get_object_or_404(Job, job_num=request.POST.get("job"))
+        job = get_object_or_404(Job, barcode=request.POST.get("job"))
 
         employee = get_object_or_404(
             employees,
@@ -644,7 +732,7 @@ class AssignJobView(LoginRequiredMixin, generic.TemplateView):
 
         messages.success(
             request,
-            f"Job {job.job_num} has been assigned to {employee}."
+            f"Job {job.barcode} has been assigned to {employee}."
         )
 
         return redirect("culet:assign_job")
@@ -662,12 +750,10 @@ class ReturnJobView(LoginRequiredMixin, generic.TemplateView):
         return render(request, self.template_name, context)
 
     def post(self, request, *args, **kwargs):
-        employees = self.get_assignable_employees()
-
-        job = get_object_or_404(Job, job_num=request.POST.get("job"))
+        job = get_object_or_404(Job, barcode=request.POST.get("job"))
 
         employee = get_object_or_404(
-            employees,
+            Employee,
             id=request.POST.get("employee")
         )
 
@@ -676,7 +762,7 @@ class ReturnJobView(LoginRequiredMixin, generic.TemplateView):
 
         messages.success(
             request,
-            f"Job {job.job_num} has been returned to {employee}."
+            f"Job {job.stock_num} (Barcode {job.barcode}) has been returned to {employee}."
         )
 
         return redirect("culet:return_job")
@@ -701,7 +787,7 @@ def startWork(request):
     )
 
     if job.in_work:
-        messages.error(request, f"Job {job.job_num} could not be started. Activity already started.")
+        messages.error(request, f"Job {job.barcode} could not be started. Activity already started.")
         return redirect("culet:my_jobs")
 
     form = ActivityStartForm(request.POST, employee=employee)
@@ -722,13 +808,13 @@ def startWork(request):
     job.holder = employee
     job.save()
 
-    messages.success(request, f"Job {job.job_num} has been started. ({activity.step.name})")
+    messages.success(request, f"Job {job.barcode} has been started. ({activity.step.name})")
     return redirect("culet:my_jobs")
 
 # def startWork(request):
 #     #NEED LOGIC TO PREVENT EMP FROM STARTING WORK THAT IS NOT ASSIGNED TO THEM OR IF THEY ARE NOT LOGGED IN
 #     if request.user:
-#         job_query = Job.objects.get(job_num=request.POST["job"])
+#         job_query = Job.objects.get(barcode=request.POST["job"])
 
 #         #check to see if job that is being queried is assigned to the user before allowing user to start work.
 #         if job_query.assigned_to == Employee.objects.get(user=request.user):
@@ -748,12 +834,12 @@ def startWork(request):
 #                 job_query.assigned_to = Employee.objects.get(user=request.user)
                 
 #                 job_query.save()
-#                 messages.success(request,f"Job {job_query.job_num} has been started. ({activity.name})")
+#                 messages.success(request,f"Job {job_query.barcode} has been started. ({activity.name})")
 #             else:
-#                 messages.error(request,f"Job {job_query.job_num} could not be started. Activity already started.")
+#                 messages.error(request,f"Job {job_query.barcode} could not be started. Activity already started.")
 #             return HttpResponseRedirect(reverse('culet:my_jobs'))
 #     else:
-#         messages.error(request,f"Job {job_query.job_num} could not be started. User not logged in.")
+#         messages.error(request,f"Job {job_query.barcode} could not be started. User not logged in.")
 
 #helper function for stop_work and clock_out
 def stop_activity(activity):
@@ -791,7 +877,7 @@ def stopWork(request, pk, job_id):
 
     stop_activity(act)
 
-    messages.success(request, f"Job {job.job_num} has been stopped. ({act.name})")
+    messages.success(request, f"Job {job.barcode} has been stopped. ({act.name})")
     return redirect("culet:my_jobs")
 
 # def stopWork(request, pk, job_id):
@@ -807,7 +893,7 @@ def stopWork(request, pk, job_id):
 #     job.in_work = False
 #     job.save()
 #     # return HttpResponseRedirect(reverse('culet:index_job'))
-#     messages.success(request,f"Job {job.job_num} has been stopped. ({act.name})")
+#     messages.success(request,f"Job {job.barcode} has been stopped. ({act.name})")
 #     return HttpResponseRedirect(reverse('culet:my_jobs'))
 
 def createStyle(request):
@@ -853,13 +939,13 @@ def clock_out(request):
 
     return redirect("culet:home")
 
-def receive(request):
-    #NOT TESTED. NEEDS UPDATING FOR LIMITING WHEN THIS IS ALLOWED
-    job = Job.objects.get(job_num=request.POST["job"])
-    job.holder = request.user.employee
-    job.save()
-    messages.success(request, f"Job {job.job_num} Received")
-    return HttpResponseRedirect(reverse('culet:my_jobs'))
+# def receive(request):
+#     #NOT TESTED. NEEDS UPDATING FOR LIMITING WHEN THIS IS ALLOWED
+#     job = Job.objects.get(barcode=request.POST["job"])
+#     job.holder = request.user.employee
+#     job.save()
+#     messages.success(request, f"Job {job.barcode} Received")
+#     return HttpResponseRedirect(reverse('culet:my_jobs'))
 
 class MetalVendorLotListView(LoginRequiredMixin, generic.ListView):
     model = MetalVendorLot
@@ -1112,7 +1198,7 @@ class JobWeightCreateView(LoginRequiredMixin, generic.CreateView):
         form.instance.job = self.job
         form.instance.recorded_by = self.request.user
         self.object = form.save()
-        messages.success(self.request, f"Weight recorded for job {self.job.job_num}.")
+        messages.success(self.request, f"Weight recorded for job {self.job.barcode}.")
         return redirect(self.job.get_absolute_url())
     
 class JobWeightLookupView(LoginRequiredMixin, generic.FormView):
@@ -1120,16 +1206,16 @@ class JobWeightLookupView(LoginRequiredMixin, generic.FormView):
     form_class = JobWeightLookupForm
 
     def form_valid(self, form):
-        job_num = form.cleaned_data.get("job_num")
-        customer_ref_num = form.cleaned_data.get("customer_ref_num")
+        barcode = form.cleaned_data.get("barcode")
+        stock_num = form.cleaned_data.get("stock_num")
 
         job = None
 
-        if job_num:
-            job = Job.objects.filter(job_num=job_num).first()
+        if barcode:
+            job = Job.objects.filter(barcode=barcode).first()
 
-        if not job and customer_ref_num:
-            job = Job.objects.filter(customer_ref_num=customer_ref_num).first()
+        if not job and stock_num:
+            job = Job.objects.filter(stock_num=stock_num).first()
 
         if not job:
             form.add_error(None, "No job found with the provided number.")
@@ -1191,7 +1277,7 @@ class WeightLossByStyleReportView(LoginRequiredMixin, generic.TemplateView):
             .select_related("style", "customer")
             .prefetch_related("weights__step")
             .distinct()
-            .order_by("style__name", "job_num")
+            .order_by("style__name", "barcode")
         )
 
         if form.is_valid():
@@ -1343,6 +1429,7 @@ class TimeClockReportView(LoginRequiredMixin, generic.TemplateView):
                 Employee.objects
                 .select_related("user", "department_fk", "role_fk")
                 .order_by("user__last_name", "user__first_name")
+                .filter(role_fk__requires_clock_in=True)
             )
 
             if selected_employee:
@@ -1448,7 +1535,7 @@ class LateJobsReportView(LoginRequiredMixin, generic.TemplateView):
                 "status",
                 "location",
             )
-            .order_by("due", "job_num")
+            .order_by("due", "barcode")
         )
 
         job_rows = []

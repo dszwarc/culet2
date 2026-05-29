@@ -17,7 +17,7 @@
             </tr>
             {% for job in latest_job_list %}
                     <tr class="{% if forloop.counter|divisibleby:2 %}even_row{% else %}odd_row{% endif %}">
-                        <td><a href="{% url 'culet:job_detail' job.id %}">{{ job.job_num }}</a></td>
+                        <td><a href="{% url 'culet:job_detail' job.id %}">{{ job.barcode }}</a></td>
                         <td>{{ job.name }}</td>
                         <td>{{ job.style }}</td>
                         <td>{{ job.customer }}</td>
@@ -34,7 +34,7 @@
                                 <button
                                     type="submit"
                                     class="btn btn-danger"
-                                    onclick="return confirm('Stop work on Job {{ job.job_num }}?');"
+                                    onclick="return confirm('Stop work on Job {{ job.barcode }}?');"
                                 >
                                     Stop Work
                                 </button>
@@ -54,7 +54,7 @@
                                 <button
                                     type="submit"
                                     class="btn btn-success"
-                                    onclick="return confirm('Start work on Job {{ job.job_num }}?');"
+                                    onclick="return confirm('Start work on Job {{ job.barcode }}?');"
                                 >
                                     Start Work
                                 </button>

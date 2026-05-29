@@ -82,7 +82,9 @@ class Role(models.Model):
     name = models.CharField(max_length=80, unique=True, blank=True, null=True)
     requires_clock_in = models.BooleanField(default=True)
     can_start_activities = models.BooleanField(default=True)
+    can_receive_all_jobs = models.BooleanField(default=False)
     active = models.BooleanField(default=True)
+    level = models.PositiveIntegerField(default=0)
 
     def __str__(self):
         return self.name
@@ -122,6 +124,14 @@ class Employee(models.Model):
     @property
     def active_activities(self):
         return self.activity_set.filter(active=True,end__isnull=True)
+    
+    @property
+    def role_level(self):
+        return self.role_fk.level if self.role_fk else 0
+    
+    @property
+    def can_receive_all_jobs(self):
+        return bool(self.role_fk and (self.role_fk.can_receive_all_jobs or self.role_fk.level >= 30))
 
     def __str__(self):
         return f"{self.user.first_name} {self.user.last_name}"
@@ -140,8 +150,8 @@ class Job(models.Model):
 
     name = models.CharField(max_length=80,default="N/A")
     customer = models.ForeignKey(Customer, on_delete=models.PROTECT, null=True)
-    job_num = models.IntegerField(blank=True,null=True, unique=True)
-    customer_ref_num = models.IntegerField(null=True, blank=True)
+    barcode = models.IntegerField(blank=True,null=True, unique=True)
+    stock_num = models.IntegerField(null=True, blank=True)
 
     size = models.CharField(default="",blank=True,max_length=80)
     stamp = models.CharField(default="", blank=True, max_length=80)
@@ -152,7 +162,7 @@ class Job(models.Model):
     in_work = models.BooleanField(default=False)
     style = models.ForeignKey(Style, on_delete=models.PROTECT)
     created = models.DateTimeField(default=timezone.now, editable = False)
-    due = models.DateField(default=timezone.now)
+    due = models.DateField()
     last_updated = models.DateTimeField(auto_now=True)
     assigned_to = models.ForeignKey(
         Employee,
@@ -187,10 +197,10 @@ class Job(models.Model):
     )    
 
     def save(self,*args, **kwargs):
-        if self.job_num is None:
+        if self.barcode is None:
             with transaction.atomic():
-                latest_job_num = Job.objects.aggregate(Max("job_num"))["job_num__max"] or 0
-                self.job_num = latest_job_num + 1
+                latest_barcode = Job.objects.aggregate(Max("barcode"))["barcode__max"] or 0
+                self.barcode = latest_barcode + 1
         super().save(*args,**kwargs)
 
     @property
@@ -226,14 +236,14 @@ class Job(models.Model):
         return ((initial - latest)/initial) * Decimal("100")
 
     def __str__(self):
-        return str(self.job_num).zfill(5)
+        return str(self.barcode).zfill(5)
     
     def get_absolute_url(self):
         return reverse('culet:job_detail', kwargs={'pk': self.pk})
     
 class JobWeight(models.Model):
     job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="weights")
-    weight = models.DecimalField(max_digits=10, decimal_places=3, default=0)
+    weight = models.DecimalField(max_digits=10, decimal_places=3, default=0, verbose_name="Piece Weight")
     sprue_weight = models.DecimalField(max_digits=10, decimal_places=3, default=0)
     dust_weight = models.DecimalField(max_digits=10, decimal_places=3, default=0)
     created_at = models.DateTimeField(default=timezone.now, editable=False)
@@ -469,7 +479,7 @@ class Activity(models.Model):
 
     def __str__(self):
         step_name = self.step.name if self.step else self.name
-        return f"{self.job.job_num} {step_name}"
+        return f"{self.job.barcode} {step_name}"
     
 class TimeClock(models.Model):
     clock_in = models.DateTimeField(null=True)

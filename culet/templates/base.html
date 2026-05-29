@@ -14,7 +14,7 @@
     <link rel="stylesheet" href="{% static 'js/jquery-ui-1.14.1/jquery-ui.theme.min.css' %}">
 </head>
 <body>
-    {% include 'navigation.html' %} 
+    {% include 'navigation.html' %}
             {% if user.employee.role_fk.requires_clock_in %}    
                 {% if user.employee.clocked_in == True %}
                     <span class="clock_status" style='background-color:green;'>YOU ARE CLOCKED IN</span>
@@ -22,10 +22,10 @@
                     <span class="clock_status flashing-text" style='background-color:red;'>PLEASE CLOCK IN</span>
                 {% endif %}
                 
-            {% endif %}   
-          <div class="top-home-link">
-    </div> 
-
+            {% endif %} 
+    <div id="nav_spacer">
+        
+    </div>
       {% if messages %}
         <div class="messages-container">
       {% for message in messages %}

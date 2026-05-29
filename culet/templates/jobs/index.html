@@ -12,22 +12,25 @@
 
     {% if latest_job_list %}
     <div class="container">
-        <table class="index_table job_index">
-            <tr>
-                <td>Job Num</td>
-                <td>Customer Ref Num</td>
-                <td>Name</td>
-                <td>Style</td>
-                <td>Assigned To</td>
-                <td>Holder</td>
-                <td>Location</td>
-                <td>Customer</td>
-                <td>Due Date</td>
-            </tr>
+        <table class="index_table job_index freeze-row">
+            <thead>
+                <tr>
+                    <th>Barcode</th>
+                    <th>Stock Num</th>
+                    <th>Name</th>
+                    <th>Style</th>
+                    <th>Assigned To</th>
+                    <th>Holder</th>
+                    <th>Location</th>
+                    <th>Customer</th>
+                    <th>Due Date</th>
+                </tr>
+            </thead>
+            <tbody>
             {% for job in latest_job_list %}
                     <tr class="{% if forloop.counter|divisibleby:2 %}even_row{% else %}odd_row{% endif %}">
-                        <td><a href="{% url 'culet:job_detail' job.id %}">{{ job.job_num }}</a></td>
-                        <td>{{ job.customer_ref_num }}</td>
+                        <td><a href="{% url 'culet:job_detail' job.id %}">{{ job.barcode }}</a></td>
+                        <td>{{ job.stock_num }}</td>
                         <td>{{ job.name }}</td>
                         <td>{{ job.style }}</td>
                         <td>
@@ -41,7 +44,7 @@
                         <td {% if job.is_past_due%}class="past_due"{% elif job.is_near_due %}class="near_due"{% endif %}>{{ job.due }}</td>
                         
                     </tr>
-                
+            </tbody>    
             {% endfor %}
         </table>
     </div>
@@ -49,23 +52,27 @@
         <p>No jobs found matching set search parameters.</p>
     {% endif %}
 
+    {% if is_paginated %}
     <div class="pagination">
         <span class="step-links">
+
             {% if page_obj.has_previous %}
-                <a href="?page=1">&laquo; first</a>
-                <a href="?page={{ page_obj.previous_page_number }}">previous</a>
+                <a href="?{% if query_params %}{{ query_params }}&{% endif %}page=1">&laquo; first</a>
+                <a href="?{% if query_params %}{{ query_params }}&{% endif %}page={{ page_obj.previous_page_number }}">previous</a>
             {% endif %}
-    
+
             <span class="current">
-                Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
+                Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
             </span>
-    
+
             {% if page_obj.has_next %}
-                <a href="?page={{ page_obj.next_page_number }}">next</a>
-                <a href="?page={{ page_obj.paginator.num_pages }}">last &raquo;</a>
+                <a href="?{% if query_params %}{{ query_params }}&{% endif %}page={{ page_obj.next_page_number }}">next</a>
+                <a href="?{% if query_params %}{{ query_params }}&{% endif %}page={{ page_obj.paginator.num_pages }}">last &raquo;</a>
             {% endif %}
+
         </span>
     </div>
+    {% endif %}
 
 {% endif %}
     
