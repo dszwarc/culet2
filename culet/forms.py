@@ -449,7 +449,7 @@ class MetalReceiptForm(forms.ModelForm):
 class MetalReceiptLineForm(forms.ModelForm):
     class Meta:
         model = MetalReceiptLine
-        fields = ["part", "qty_received"]
+        fields = ["part", "qty_received","weight_received"]
         widgets = {
             "part": table_select_widget(),
             "qty_received": table_number_widget(
@@ -457,9 +457,15 @@ class MetalReceiptLineForm(forms.ModelForm):
                 min_value="0",
                 placeholder="Qty received",
             ),
+            "weight_received": table_number_widget(
+                step="0.001",
+                min_value="0",
+                placeholder="Weight received",
+            ),
         }
         labels = {
             "qty_received": "Qty Received",
+            "weight_received":"Weight Received",
         }
 
 

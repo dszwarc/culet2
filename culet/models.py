@@ -300,6 +300,7 @@ class MetalLot(models.Model):
     part = models.ForeignKey(MetalPart, on_delete=models.PROTECT)
     qty_on_hand = models.DecimalField(max_digits=15, decimal_places=3, default=0)
     weight_on_hand = models.DecimalField(max_digits=15, decimal_places=3, default=0)
+    cost = models.DecimalField(max_digits=15, decimal_places=2,default=0)
     class Meta:
         constraints = [
             models.UniqueConstraint(
