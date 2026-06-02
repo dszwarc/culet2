@@ -108,6 +108,18 @@ class ClockedInRequiredMixin:
 class HomeView(LoginRequiredMixin, generic.TemplateView):
     template_name = "home.html"
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        employee = self.request.user.employee
+        role = employee.role_fk
+
+        context["employee_level"] = role.level if role else 0
+        context["is_manager_level"] = context["employee_level"] >= 30
+
+        return context
+
+
 def index(request):
     return render(request, 'authentication/login.html')
 
@@ -117,18 +129,75 @@ class JobListView(LoginRequiredMixin, generic.ListView):
     context_object_name = "latest_job_list"
     paginate_by = 25
 
+    SORT_FIELDS = {
+        "barcode": "barcode",
+        "stock_num": "stock_num",
+        "name": "name",
+        "style": "style__name",
+        "assigned_to": "assigned_to__user__last_name",
+        "holder": "holder__user__last_name",
+        "location": "location__name",
+        "customer": "customer__name",
+        "due": "due",
+    }
+
+    DEFAULT_SORT = "due"
+
     def get_queryset(self):
-        jobs = Job.objects.all().order_by("due")
+        jobs = Job.objects.select_related(
+            "style",
+            "assigned_to__user",
+            "holder__user",
+            "location",
+            "customer",
+        )
+
         self.filter = JobFilter(self.request.GET, queryset=jobs)
-        return self.filter.qs
+
+        sort = self.request.GET.get("sort", self.DEFAULT_SORT)
+        direction = self.request.GET.get("direction", "asc")
+
+        if sort not in self.SORT_FIELDS:
+            sort = self.DEFAULT_SORT
+
+        if direction not in ["asc", "desc"]:
+            direction = "asc"
+
+        self.current_sort = sort
+        self.current_direction = direction
+
+        order_field = self.SORT_FIELDS[sort]
+
+        if direction == "desc":
+            order_field = f"-{order_field}"
+
+        return self.filter.qs.order_by(order_field, "barcode")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["filter"] = self.filter
+        context["current_sort"] = self.current_sort
+        context["current_direction"] = self.current_direction
 
         query_params = self.request.GET.copy()
         query_params.pop("page", None)
         context["query_params"] = query_params.urlencode()
+
+        sort_links = {}
+        for key in self.SORT_FIELDS.keys():
+            params = self.request.GET.copy()
+            params.pop("page", None)
+
+            next_direction = "asc"
+            if self.current_sort == key and self.current_direction == "asc":
+                next_direction = "desc"
+
+            params["sort"] = key
+            params["direction"] = next_direction
+
+            sort_links[key] = params.urlencode()
+
+        context["sort_links"] = sort_links
 
         return context
 
@@ -717,23 +786,48 @@ class AssignJobView(LoginRequiredMixin, ClockedInRequiredMixin, generic.Template
 
         return render(request, self.template_name, context)
 
+    @transaction.atomic
     def post(self, request, *args, **kwargs):
         employees = self.get_assignable_employees()
-
-        job = get_object_or_404(Job, barcode=request.POST.get("job"))
 
         employee = get_object_or_404(
             employees,
             id=request.POST.get("employee")
         )
 
-        job.assigned_to = employee
-        job.save()
+        scanned_jobs = [
+            barcode.strip()
+            for barcode in request.POST.getlist("job")
+            if barcode.strip()
+        ]
 
-        messages.success(
-            request,
-            f"Job {job.barcode} has been assigned to {employee}."
-        )
+        if not scanned_jobs:
+            messages.error(request, "Please scan at least one job.")
+            return redirect("culet:assign_job")
+
+        assigned_count = 0
+        missing_jobs = []
+
+        for barcode in scanned_jobs:
+            try:
+                job = Job.objects.get(barcode=barcode)
+                job.assigned_to = employee
+                job.save()
+                assigned_count += 1
+            except Job.DoesNotExist:
+                missing_jobs.append(barcode)
+
+        if assigned_count:
+            messages.success(
+                request,
+                f"{assigned_count} job(s) assigned to {employee}."
+            )
+
+        if missing_jobs:
+            messages.error(
+                request,
+                f"These jobs were not found: {', '.join(missing_jobs)}"
+            )
 
         return redirect("culet:assign_job")
 

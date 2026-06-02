@@ -7,17 +7,18 @@
     <h2>Jobs</h2>
     <div class="home-grid">
       <a class="home-tile blue-button" href="{% url 'culet:my_jobs' %}">My Jobs</a>
+      {% if is_manager_level %}
       <a class="home-tile blue-button" href="{% url 'culet:index_job' %}">All Jobs</a>
       <a class="home-tile green-button" href="{% url 'culet:job_create' %}">Create Job</a>
       <a class="home-tile red-button" href="{% url 'culet:job_weight_lookup' %}">Update Weights</a>
-
-      {% if user.employee.role_fk.name != "PD" %}
-        <a class="home-tile blue-button" href="{% url 'culet:assign_job' %}">Assign Jobs</a>
+      <a class="home-tile blue-button" href="{% url 'culet:assign_job' %}">Assign Jobs</a>
       {% endif %}
 
       <a class="home-tile green-button" href="{% url 'culet:receive_list' %}">Receive Jobs</a>
     </div>
   </section>
+
+{% if is_manager_level %}
 
   <section class="home-section">
     <h2>Styles</h2>
@@ -49,6 +50,8 @@
       <a class="home-tile red-button" href="{% url 'culet:report_late_jobs' %}">Late Jobs</a>
     </div>
   </section>
+
+{% endif %}
 
 </div>
 

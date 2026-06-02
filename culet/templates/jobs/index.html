@@ -15,15 +15,78 @@
         <table class="index_table job_index freeze-row">
             <thead>
                 <tr>
-                    <th>Barcode</th>
-                    <th>Stock Num</th>
-                    <th>Name</th>
-                    <th>Style</th>
-                    <th>Assigned To</th>
-                    <th>Holder</th>
-                    <th>Location</th>
-                    <th>Customer</th>
-                    <th>Due Date</th>
+                <th class="{% if current_sort == 'barcode' %}sorted-column{% endif %}">
+                    <a href="?{{ sort_links.barcode }}">
+                        Barcode
+                        {% with field="barcode" %}
+                            {% include "includes/sort_arrow.html" %}
+                        {% endwith %}
+                    </a>
+                </th>
+                <th class="{% if current_sort == 'stock_num' %}sorted-column{% endif %}">
+                    <a href="?{{ sort_links.stock_num }}">
+                        Stock Num
+                        {% with field="stock_num" %}
+                            {% include "includes/sort_arrow.html" %}
+                        {% endwith %}
+                    </a>
+                </th>
+                <th class="{% if current_sort == 'name' %}sorted-column{% endif %}">
+                    <a href="?{{ sort_links.name }}">
+                        Name
+                        {% with field="name" %}
+                            {% include "includes/sort_arrow.html" %}
+                        {% endwith %}
+                    </a>
+                </th>
+                <th class="{% if current_sort == 'style' %}sorted-column{% endif %}">
+                    <a href="?{{ sort_links.style }}">
+                        Style
+                        {% with field="style" %}
+                            {% include "includes/sort_arrow.html" %}
+                        {% endwith %}
+                    </a>
+                </th>
+                <th class="{% if current_sort == 'assigned_to' %}sorted-column{% endif %}">
+                    <a href="?{{ sort_links.assigned_to }}">
+                        Assigned To
+                        {% with field="assigned_to" %}
+                            {% include "includes/sort_arrow.html" %}
+                        {% endwith %}
+                    </a>
+                </th>
+                <th class="{% if current_sort == 'holder' %}sorted-column{% endif %}">
+                    <a href="?{{ sort_links.holder }}">
+                        Holder
+                        {% with field="holder" %}
+                            {% include "includes/sort_arrow.html" %}
+                        {% endwith %}
+                    </a>
+                </th>
+                <th class="{% if current_sort == 'location' %}sorted-column{% endif %}">
+                    <a href="?{{ sort_links.location }}">
+                        Location
+                        {% with field="location" %}
+                            {% include "includes/sort_arrow.html" %}
+                        {% endwith %}
+                    </a>
+                </th>
+                <th class="{% if current_sort == 'customer' %}sorted-column{% endif %}">
+                    <a href="?{{ sort_links.customer }}">
+                        Customer
+                        {% with field="customer" %}
+                            {% include "includes/sort_arrow.html" %}
+                        {% endwith %}
+                    </a>
+                </th>
+                <th class="{% if current_sort == 'due' %}sorted-column{% endif %}">
+                    <a href="?{{ sort_links.due }}">
+                        Due Date
+                        {% with field="due" %}
+                            {% include "includes/sort_arrow.html" %}
+                        {% endwith %}
+                    </a>
+                </th>
                 </tr>
             </thead>
             <tbody>

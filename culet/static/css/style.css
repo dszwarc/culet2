@@ -674,3 +674,12 @@ table{
     opacity: 0;
   }
 }
+
+.sort-indicator {
+    margin-left: 4px;
+    font-size: 0.8em;
+}
+
+.sorted-column a {
+    font-weight: 700;
+}

@@ -1,0 +1,7 @@
+{% if current_sort == field %}
+    {% if current_direction == "asc" %}
+        <span class="sort-indicator">▲</span>
+    {% else %}
+        <span class="sort-indicator">▼</span>
+    {% endif %}
+{% endif %}
