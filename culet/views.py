@@ -3,7 +3,7 @@ from django.http import HttpResponse, HttpResponseRedirect, HttpResponseBadReque
 from django.template.loader import render_to_string
 import copy
 from django.db import transaction
-from django.db.models import F, Q, Max
+from django.db.models import F, Q, Max, OuterRef, Subquery
 from django.views import generic
 from django.urls import reverse_lazy, reverse
 from django.utils import timezone
@@ -64,6 +64,7 @@ from .forms import (
     get_job_finding_formset,
     JobFindingFormSet,
     StyleFindingFormSet,
+    JobsByHolderReportForm,
     )
 
 from django.contrib import messages
@@ -270,7 +271,94 @@ class ReceiveAllJobsView(LoginRequiredMixin, generic.View):
 
         messages.success(request, f"{count} job(s) received.")
         return redirect("culet:my_jobs")
-    
+
+class ReceiveAndAssignJobsView(LoginRequiredMixin, generic.TemplateView):
+    template_name = "jobs/receive_and_assign.html"
+
+    def get_assignable_employees(self):
+        current_employee = self.request.user.employee
+
+        employees = (
+            Employee.objects
+            .select_related("user", "department_fk", "role_fk")
+            .order_by(
+                "role_fk__name",
+                "user__last_name",
+                "user__first_name",
+            )
+            .exclude(id=current_employee.id)
+        )
+
+        role_name = current_employee.role_fk.name if current_employee.role_fk else ""
+
+        if role_name == "Super":
+            return employees
+
+        if role_name == "Manager":
+            return employees.filter(
+                department_fk=current_employee.department_fk
+            )
+
+        return Employee.objects.none()
+
+    def get(self, request, *args, **kwargs):
+        employees = self.get_assignable_employees()
+
+        return render(request, self.template_name, {
+            "managers": employees.filter(role_fk__name="Manager") | employees.filter(role_fk__name="Super"),
+            "employees": employees.exclude(role_fk__name="Manager").exclude(role_fk__name="Super"),
+        })
+
+    @transaction.atomic
+    def post(self, request, *args, **kwargs):
+        current_employee = request.user.employee
+        employees = self.get_assignable_employees()
+
+        receiving_employee = get_object_or_404(
+            employees,
+            id=request.POST.get("employee")
+        )
+
+        scanned_jobs = [
+            barcode.strip()
+            for barcode in request.POST.getlist("job")
+            if barcode.strip()
+        ]
+
+        if not scanned_jobs:
+            messages.error(request, "Please scan at least one job.")
+            return redirect("culet:receive_and_assign_jobs")
+
+        assigned_count = 0
+        missing_jobs = []
+
+        for barcode in scanned_jobs:
+            try:
+                job = Job.objects.get(barcode=barcode)
+
+                job.holder = receiving_employee
+                job.assigned_to = receiving_employee
+                job.save()
+
+                assigned_count += 1
+
+            except Job.DoesNotExist:
+                missing_jobs.append(barcode)
+
+        if assigned_count:
+            messages.success(
+                request,
+                f"{assigned_count} job(s) received and assigned to {receiving_employee}."
+            )
+
+        if missing_jobs:
+            messages.error(
+                request,
+                f"These jobs were not found: {', '.join(missing_jobs)}"
+            )
+
+        return redirect("culet:receive_and_assign_jobs")
+
 class ReportingListView(LoginRequiredMixin, generic.ListView):
     model = Activity
     template_name = "reporting/index.html"
@@ -298,16 +386,6 @@ class ActivityListView(LoginRequiredMixin,generic.ListView):
     context_object_name = "activities"
     def get_queryset(self):
         return Activity.objects.order_by("-start")
-
-# class JobDetailView(LoginRequiredMixin,generic.DetailView):
-#     model = Job
-#     template_name = "jobs/detail.html"
-    
-#     def get_context_data(self, **kwargs):
-#         data = super().get_context_data(**kwargs)
-#         related_activities = Activity.objects.filter(job=data['job'])
-#         data['activity'] = related_activities
-#         return data
     
 class JobDetailView(LoginRequiredMixin, generic.DetailView):
     model = Job
@@ -586,6 +664,7 @@ class JobMetalLotAssignmentHTMXView(LoginRequiredMixin, generic.View):
     @transaction.atomic
     def post(self, request, pk, *args, **kwargs):
         job_metal = get_object_or_404(JobMetal, pk=pk)
+
         formset = JobMetalLotFormSet(
             request.POST,
             instance=job_metal,
@@ -598,22 +677,65 @@ class JobMetalLotAssignmentHTMXView(LoginRequiredMixin, generic.View):
                 "lot_formset": formset,
             })
 
-        # Roll back existing assignments to inventory before resaving
-        for existing in job_metal.lot_assignments.all():
+        # Restore existing assignments before checking availability
+        existing_assignments = list(
+            job_metal.lot_assignments.select_related("metal_lot")
+        )
+
+        for existing in existing_assignments:
             MetalLot.objects.filter(pk=existing.metal_lot_id).update(
                 qty_on_hand=F("qty_on_hand") + existing.qty_used,
                 weight_on_hand=F("weight_on_hand") + existing.weight_used,
             )
 
-        existing_ids = list(job_metal.lot_assignments.values_list("id", flat=True))
-        formset.save()
+        # Delete old assignments so the submitted formset becomes the source of truth
+        job_metal.lot_assignments.all().delete()
 
-        # Re-fetch current assignments and decrement inventory
-        for assignment in job_metal.lot_assignments.all():
-            MetalLot.objects.filter(pk=assignment.metal_lot_id).update(
+        assignments = formset.save(commit=False)
+
+        # Validate availability before saving/decrementing inventory
+        for assignment in assignments:
+            lot = MetalLot.objects.get(pk=assignment.metal_lot_id)
+
+            if assignment.qty_used > lot.qty_on_hand:
+                messages.error(
+                    request,
+                    f"Assigned quantity exceeds available quantity for {lot}."
+                )
+
+                return render(request, self.template_name, {
+                    "job_metal": job_metal,
+                    "lot_formset": JobMetalLotFormSet(
+                        instance=job_metal,
+                        prefix=f"lots-{job_metal.pk}",
+                    ),
+                })
+
+            if assignment.weight_used > lot.weight_on_hand:
+                messages.error(
+                    request,
+                    f"Assigned weight exceeds available weight for {lot}."
+                )
+
+                return render(request, self.template_name, {
+                    "job_metal": job_metal,
+                    "lot_formset": JobMetalLotFormSet(
+                        instance=job_metal,
+                        prefix=f"lots-{job_metal.pk}",
+                    ),
+                })
+
+        # Save new assignments and decrement inventory
+        for assignment in assignments:
+            lot = assignment.metal_lot
+
+            MetalLot.objects.filter(pk=lot.pk).update(
                 qty_on_hand=F("qty_on_hand") - assignment.qty_used,
                 weight_on_hand=F("weight_on_hand") - assignment.weight_used,
             )
+
+            assignment.job_metal = job_metal
+            assignment.save()
 
         return render(request, self.template_name, {
             "job_metal": job_metal,
@@ -1041,12 +1163,6 @@ def clock_out(request):
 #     messages.success(request, f"Job {job.barcode} Received")
 #     return HttpResponseRedirect(reverse('culet:my_jobs'))
 
-class MetalVendorLotListView(LoginRequiredMixin, generic.ListView):
-    model = MetalVendorLot
-    template_name = "inventory/vendor_lot_list.html"
-    context_object_name = "lots"
-    ordering = ["-received_at"]
-
 class MetalVendorLotDetailView(LoginRequiredMixin, generic.DetailView):
     model = MetalVendorLot
     template_name = "inventory/vendor_lot_detail.html"
@@ -1174,13 +1290,22 @@ class MetalReceiptCreateView(LoginRequiredMixin, generic.CreateView):
             metal_lot, _created = MetalLot.objects.get_or_create(
                 vendor_lot=vendor_lot,
                 part=line.part,
-                defaults={"qty_on_hand": 0},
+                defaults={
+                    "qty_on_hand": Decimal("0"),
+                    "weight_on_hand": Decimal("0"),
+                    "cost": Decimal("0"),
+                },
             )
 
-            MetalLot.objects.filter(pk=metal_lot.pk).update(
-                qty_on_hand=F("qty_on_hand") + line.qty_received,
-                weight_on_hand = F("weight_on_hand") + line.weight_received,
-            )
+            update_kwargs = {
+                "qty_on_hand": F("qty_on_hand") + (line.qty_received or Decimal("0")),
+                "weight_on_hand": F("weight_on_hand") + (line.weight_received or Decimal("0")),
+            }
+
+            if line.cost is not None:
+                update_kwargs["cost"] = line.cost
+
+            MetalLot.objects.filter(pk=metal_lot.pk).update(**update_kwargs)
 
             line.metal_lot = metal_lot
             line.save()
@@ -1357,6 +1482,39 @@ class InactiveJobsReportView(LoginRequiredMixin, generic.TemplateView):
         context["cutoff"] = cutoff
         return context
     
+class ClockedInIdleEmployeesReportView(LoginRequiredMixin, generic.TemplateView):
+    template_name = "reports/clocked_in_idle_employees.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        last_activity = (
+            Activity.objects
+            .filter(employee=OuterRef("pk"))
+            .order_by("-start", "-id")
+        )
+
+        employees = (
+            Employee.objects
+            .filter(clocked_in=True)
+            .exclude(
+                activity__active=True,
+                activity__end__isnull=True,
+            )
+            .select_related("user", "department_fk", "role_fk")
+            .annotate(
+                last_activity_name=Subquery(last_activity.values("name")[:1]),
+                last_activity_start=Subquery(last_activity.values("start")[:1]),
+                last_activity_end=Subquery(last_activity.values("end")[:1]),
+                last_activity_job_barcode=Subquery(last_activity.values("job__barcode")[:1]),
+            )
+            .order_by("user__last_name", "user__first_name")
+            .distinct()
+        )
+
+        context["employees"] = employees
+        return context
+
 class WeightLossByStyleReportView(LoginRequiredMixin, generic.TemplateView):
     template_name = "reports/weight_loss_by_style.html"
 
@@ -1642,4 +1800,90 @@ class LateJobsReportView(LoginRequiredMixin, generic.TemplateView):
 
         context["today"] = today
         context["job_rows"] = job_rows
+        return context
+    
+class JobsByHolderReportView(LoginRequiredMixin, generic.TemplateView):
+    template_name = "reports/jobs_by_holder.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        form = JobsByHolderReportForm(self.request.GET or None)
+
+        employees = (
+            Employee.objects
+            .filter(
+                held_jobs__active=True,
+                held_jobs__shipped=False,
+            )
+            .select_related(
+                "user",
+                "department_fk",
+                "role_fk",
+            )
+            .distinct()
+            .order_by(
+                "department_fk__name",
+                "user__last_name",
+                "user__first_name",
+            )
+        )
+
+        selected_employee = None
+
+        if form.is_valid():
+            selected_department = form.cleaned_data.get("department")
+            selected_employee = form.cleaned_data.get("employee")
+
+            if selected_department:
+                employees = employees.filter(
+                    department_fk=selected_department
+                )
+
+            if selected_employee:
+                employees = employees.filter(
+                    pk=selected_employee.pk
+                )
+
+        department_rows = []
+
+        departments = {}
+
+        for employee in employees:
+            jobs = (
+                Job.objects
+                .filter(
+                    holder=employee,
+                    active=True,
+                    shipped=False,
+                )
+                .select_related(
+                    "customer",
+                    "style",
+                    "status",
+                    "location",
+                )
+                .order_by("due", "barcode")
+            )
+
+            dept = employee.department_fk
+
+            if dept not in departments:
+                departments[dept] = {
+                    "department": dept,
+                    "employee_rows": [],
+                }
+
+            departments[dept]["employee_rows"].append({
+                "employee": employee,
+                "jobs": jobs,
+                "job_count": jobs.count(),
+            })
+
+        department_rows = list(departments.values())
+
+        context["form"] = form
+        context["department_rows"] = department_rows
+        context["selected_employee"] = selected_employee
+        context["total_jobs"] = Job.objects.filter(holder__isnull=False,active=True,shipped=False,).count()
         return context

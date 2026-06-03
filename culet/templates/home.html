@@ -12,6 +12,7 @@
       <a class="home-tile green-button" href="{% url 'culet:job_create' %}">Create Job</a>
       <a class="home-tile red-button" href="{% url 'culet:job_weight_lookup' %}">Update Weights</a>
       <a class="home-tile blue-button" href="{% url 'culet:assign_job' %}">Assign Jobs</a>
+      <a class="home-tile blue-button" href="{% url 'culet:receive_and_assign_jobs' %}">Receive and Assign Jobs</a>
       {% endif %}
 
       <a class="home-tile green-button" href="{% url 'culet:receive_list' %}">Receive Jobs</a>
@@ -44,10 +45,12 @@
     <div class="home-grid">
       <a class="home-tile orange-button" href="{% url 'culet:reporting' %}">Activity Reporting</a>
       <a class="home-tile red-button" href="{% url 'culet:report_inactive_jobs' %}">Inactive Jobs</a>
+      <a class="home-tile red-button" href="{% url 'culet:report_clocked_in_idle' %}">Idle Employees</a>
       <a class="home-tile red-button" href="{% url 'culet:report_weight_loss_by_style' %}">Weight Loss by Style</a>
       <a class="home-tile green-button" href="{% url 'culet:report_employee_activity' %}">Employee Activity</a>
       <a class="home-tile yellow-button" href="{% url 'culet:report_time_clock' %}">Time Clock Report</a>
       <a class="home-tile red-button" href="{% url 'culet:report_late_jobs' %}">Late Jobs</a>
+      <a class="home-tile red-button" href="{% url 'culet:report_jobs_by_holder' %}">Jobs Held By Employee</a>
     </div>
   </section>
 

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-card">
+    <div class="page-header">
+        <h1>Receive and Assign Jobs</h1>
+        <p>Scan multiple jobs, receive them, and immediately assign them to one employee.</p>
+    </div>
+
+    <form method="post" class="form-card">
+        {% csrf_token %}
+
+        <div class="form-section">
+            <label for="id_employee">Assign To</label>
+            <select name="employee" id="id_employee" required>
+                <option value="">Select employee</option>
+
+                {% if managers %}
+                    <optgroup label="Managers">
+                        {% for employee in managers %}
+                            <option value="{{ employee.id }}">
+                                {{ employee.user.get_full_name|default:employee.user.username }}
+                            </option>
+                        {% endfor %}
+                    </optgroup>
+                {% endif %}
+
+                {% if employees %}
+                    <optgroup label="Employees">
+                        {% for employee in employees %}
+                            <option value="{{ employee.id }}">
+                                {{ employee.user.get_full_name|default:employee.user.username }}
+                            </option>
+                        {% endfor %}
+                    </optgroup>
+                {% endif %}
+            </select>
+        </div>
+
+        <div class="form-section">
+            <label>Jobs</label>
+
+            <div id="job-fields">
+                <input type="text" name="job" class="form-control" placeholder="Scan job barcode" autofocus>
+                <input type="text" name="job" class="form-control" placeholder="Scan job barcode">
+                <input type="text" name="job" class="form-control" placeholder="Scan job barcode">
+            </div>
+
+            <button type="button" class="btn btn-secondary" onclick="addJobField()">
+                Add Job Field
+            </button>
+        </div>
+
+        <button
+            type="submit"
+            class="btn btn-primary"
+            onclick="return confirm('Receive and assign these jobs?');"
+        >
+            Receive and Assign
+        </button>
+    </form>
+</div>
+
+<script>
+function addJobField() {
+    const wrapper = document.getElementById("job-fields");
+    const input = document.createElement("input");
+
+    input.type = "text";
+    input.name = "job";
+    input.className = "form-control";
+    input.placeholder = "Scan job barcode";
+
+    wrapper.appendChild(input);
+    input.focus();
+}
+</script>
+{% endblock %}

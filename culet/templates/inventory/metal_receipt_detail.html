@@ -19,6 +19,8 @@
       <th>Vendor Lot</th>
       <th>Part</th>
       <th>Qty Received</th>
+      <th>Weight Received</th>
+      <th>Cost</th>
       <th>Inventory Line</th>
     </tr>
   </thead>
@@ -32,6 +34,8 @@
         </td>
         <td>{{ line.part }}</td>
         <td>{{ line.qty_received }}</td>
+        <td>{{ line.weight_received }}</td>
+        <td>{{ line.cost }}</td>
         <td>
           {% if line.metal_lot %}
             <a href="{% url 'culet:metal_lot_detail' line.metal_lot.pk %}">

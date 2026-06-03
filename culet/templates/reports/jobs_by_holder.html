@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-card">
+    <div class="page-header">
+        <h1>Jobs Held By Employee</h1>
+        <p>Shows active, unshipped jobs currently held by employees.</p>
+        <h2>{{ total_jobs }} active job(s) currently held</h2>
+    </div>
+
+    <form method="get" class="filter-form">
+        {{ form.as_p }}
+
+        <button type="submit" class="btn btn-primary">Filter</button>
+        <a href="{% url 'culet:report_jobs_by_holder' %}" class="btn btn-secondary">Clear</a>
+    </form>
+
+    {% if department_rows %}
+        {% for dept_row in department_rows %}
+            <div class="report-section">
+                <h2>{{ dept_row.department|default:"No Department" }}</h2>
+
+                {% for employee_row in dept_row.employee_rows %}
+                    <div class="report-section">
+                        <h3>
+                            {{ employee_row.employee.user.get_full_name|default:employee_row.employee.user.username }}
+                            — {{ employee_row.job_count }} job(s)
+                        </h3>
+
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Barcode</th>
+                                    <th>Stock #</th>
+                                    <th>Customer</th>
+                                    <th>Style</th>
+                                    <th>Status</th>
+                                    <th>Location</th>
+                                    <th>Due</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for job in employee_row.jobs %}
+                                    <tr>
+                                        <td>
+                                            <a href="{{ job.get_absolute_url }}">
+                                                {{ job.barcode }}
+                                            </a>
+                                        </td>
+                                        <td>{{ job.stock_num|default:"-" }}</td>
+                                        <td>{{ job.customer|default:"-" }}</td>
+                                        <td>{{ job.style|default:"-" }}</td>
+                                        <td>{{ job.status|default:"-" }}</td>
+                                        <td>{{ job.location|default:"-" }}</td>
+                                        <td>{{ job.due|date:"m/d/Y"|default:"-" }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endfor %}
+    {% else %}
+        <p>No held jobs found.</p>
+    {% endif %}
+</div>
+{% endblock %}

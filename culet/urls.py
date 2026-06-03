@@ -22,6 +22,7 @@ urlpatterns = [
     path("activities/<int:pk>/stop/<int:job_id>",views.stopWork,name="stop_work"),
     path("jobs/my_jobs/", views.MyJobListView.as_view(), name="my_jobs"),
     path("jobs/assign",views.AssignJobView.as_view(), name="assign_job"),
+    path("jobs/receive-and-assign/",views.ReceiveAndAssignJobsView.as_view(),name="receive_and_assign_jobs",),
     path("jobs/return",views.ReturnJobView.as_view(),name="return_job"),
     path("reporting", views.ReportingListView.as_view(), name="reporting"),
     path("clock_in",views.clock_in,name="clock_in"),
@@ -45,4 +46,6 @@ urlpatterns = [
     path("reports/employee-activity/",views.EmployeeActivityReportView.as_view(),name="report_employee_activity"),
     path("reports/time-clock/",views.TimeClockReportView.as_view(),name="report_time_clock"),
     path("reports/late-jobs/",views.LateJobsReportView.as_view(),name="report_late_jobs"),
+    path("reports/clocked-in-idle/", views.ClockedInIdleEmployeesReportView.as_view(), name="report_clocked_in_idle",),
+    path("reports/jobs-by-holder/", views.JobsByHolderReportView.as_view(), name="report_jobs_by_holder",),
     ]

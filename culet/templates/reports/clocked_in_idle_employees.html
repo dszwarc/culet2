@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-card">
+    <div class="page-header">
+        <h1>Clocked In / Not Working</h1>
+        <p>Employees who are clocked in but do not currently have an active job activity.</p>
+    </div>
+
+    {% if employees %}
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Department</th>
+                    <th>Role</th>
+                    <th>Last Action</th>
+                    <th>Last Job</th>
+                    <th>Started</th>
+                    <th>Ended</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for employee in employees %}
+                    <tr>
+                        <td>{{ employee.user.get_full_name|default:employee.user.username }}</td>
+                        <td>{{ employee.department_fk|default:"-" }}</td>
+                        <td>{{ employee.role_fk|default:"-" }}</td>
+                        <td>{{ employee.last_activity_name|default:"No activity recorded" }}</td>
+                        <td>{{ employee.last_activity_job_barcode|default:"-" }}</td>
+                        <td>{{ employee.last_activity_start|date:"m/d/Y g:i A"|default:"-" }}</td>
+                        <td>{{ employee.last_activity_end|date:"m/d/Y g:i A"|default:"-" }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>No clocked-in idle employees.</p>
+    {% endif %}
+</div>
+{% endblock %}

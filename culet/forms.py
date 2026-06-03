@@ -6,6 +6,7 @@ from decimal import Decimal
 from django.core.exceptions import ValidationError
 
 from .models import (
+    Department,
     JobWeight,
     JobMetal,
     JobMetalLot,
@@ -447,9 +448,20 @@ class MetalReceiptForm(forms.ModelForm):
 
 
 class MetalReceiptLineForm(forms.ModelForm):
+    cost = forms.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        required=False,
+        min_value=0,
+        widget=table_number_widget(
+            step="0.01",
+            min_value="0",
+            placeholder="Cost",
+        ),
+    )
     class Meta:
         model = MetalReceiptLine
-        fields = ["part", "qty_received","weight_received"]
+        fields = ["part", "qty_received","weight_received", "cost"]
         widgets = {
             "part": table_select_widget(),
             "qty_received": table_number_widget(
@@ -466,20 +478,25 @@ class MetalReceiptLineForm(forms.ModelForm):
         labels = {
             "qty_received": "Qty Received",
             "weight_received":"Weight Received",
+            "cost":"Cost",
         }
 
 
 class MetalLotForm(forms.ModelForm):
     class Meta:
         model = MetalLot
-        fields = ["part", "vendor_lot", "qty_on_hand"]
+        fields = ["part", "vendor_lot", "qty_on_hand", "weight_on_hand", "cost"]
         widgets = {
             "part": select_widget(),
             "vendor_lot": select_widget(),
             "qty_on_hand": number_widget("Qty on hand", step="0.001", min_value="0"),
+            "weight_on_hand": number_widget("Weight on hand", step="0.001", min_value="0"),
+            "cost": number_widget("Cost", step="0.01", min_value="0"),
         }
         labels = {
             "qty_on_hand": "Qty On Hand",
+            "weight_on_hand": "Weight On Hand",
+            "cost": "Cost",
         }
 
     def __init__(self, *args, **kwargs):
@@ -691,3 +708,20 @@ class TimeClockEditForm(forms.ModelForm):
                 }
             ),
         }
+
+class JobsByHolderReportForm(forms.Form):
+    department = forms.ModelChoiceField(
+        queryset=Department.objects.order_by("name"),
+        required=False,
+        label="Department",
+        widget=select_widget(),
+    )
+
+    employee = forms.ModelChoiceField(
+        queryset=Employee.objects
+            .select_related("user")
+            .order_by("user__last_name", "user__first_name"),
+        required=False,
+        label="Employee",
+        widget=select_widget(),
+    )
