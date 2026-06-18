@@ -1,101 +1,168 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="page-container">
+<div class="container">
 
-  <h1>Time Clock Report</h1>
+    <h1>Downtime Report</h1>
 
-  <form method="get" class="job-card">
-    {{ form.as_p }}
-    <button type="submit" class="btn btn-primary">Run Report</button>
-  </form>
+    <form method="get" class="report-form">
+        {{ form.as_p }}
 
-  {% if form.is_valid %}
-    <div class="job-card">
-      <h2>Summary</h2>
+        <button type="submit" class="btn btn-primary">
+            Run Report
+        </button>
+    </form>
 
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Employee</th>
-            <th>Clocked Hours</th>
-            <th>Activity Hours</th>
-            <th>Difference</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for row in employee_rows %}
-            <tr>
-              <td>{{ row.employee }}</td>
-              <td>{{ row.clock_total_hours|floatformat:2 }}</td>
-              <td>{{ row.activity_total_hours|floatformat:2 }}</td>
-              <td>{{ row.difference_hours|floatformat:2 }}</td>
-            </tr>
-          {% empty %}
-            <tr>
-              <td colspan="4">No employees found.</td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+    {% if employee_rows %}
+        <hr>
 
-    {% for row in employee_rows %}
-      <div class="job-card">
-        <h2>{{ row.employee }}</h2>
+        <h2>Report Totals</h2>
 
-        <p>
-          <strong>Clocked Hours:</strong> {{ row.clock_total_hours|floatformat:2 }}
-          |
-          <strong>Activity Hours:</strong> {{ row.activity_total_hours|floatformat:2 }}
-          |
-          <strong>Difference:</strong> {{ row.difference_hours|floatformat:2 }}
-        </p>
-
-        <h3>Clock In / Clock Out Schedule</h3>
-
-        {% for day in row.clock_days %}
-          <div class="report-day-header">
-            <h4>{{ day.date|date:"l, F j, Y" }}</h4>
-            <p>Total clocked: {{ day.day_total_hours|floatformat:2 }} hours</p>
-          </div>
-
-          <table class="table">
+        <table class="table">
             <thead>
-              <tr>
-                <th>Clock In</th>
-                <th>Clock Out</th>
-                <th>Hours</th>
-                <th></th>
-              </tr>
+                <tr>
+                    <th>Clocked Hours</th>
+                    <th>Active Work Hours</th>
+                    <th>Job Labor Hours</th>
+                    <th>Downtime</th>
+                    <th>Utilization</th>
+                </tr>
             </thead>
             <tbody>
-              {% for entry in day.entries %}
                 <tr>
-                  <td>{{ entry.clock_in|date:"g:i A" }}</td>
-                  <td>
-                    {% if entry.clock_out %}
-                      {{ entry.clock_out|date:"g:i A" }}
-                    {% else %}
-                      Still Clocked In
-                    {% endif %}
-                  </td>
-                  <td>{{ entry.duration_hours|floatformat:2 }}</td>
-                  <td>
-                    <a href="{% url 'culet:time_clock_edit' entry.timeclock.pk %}" class="small-link">
-                      Edit
-                    </a>
-                  </td>
+                    <td>{{ report_totals.clocked_hours|floatformat:2 }}</td>
+                    <td>{{ report_totals.active_work_hours|floatformat:2 }}</td>
+                    <td>{{ report_totals.job_labor_hours|floatformat:2 }}</td>
+                    <td>{{ report_totals.downtime_hours|floatformat:2 }}</td>
+                    <td>
+                        {% if report_totals.clocked_hours %}
+                            {% widthratio report_totals.active_work_hours report_totals.clocked_hours 100 %}%
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
                 </tr>
-              {% endfor %}
             </tbody>
-          </table>
-        {% empty %}
-          <p>No time clock entries found.</p>
+        </table>
+
+        {% for row in employee_rows %}
+            <div class="report-section">
+                <h2>
+                    {{ row.employee.user.get_full_name|default:row.employee.user.username }}
+                </h2>
+
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Clocked Hours</th>
+                            <th>Active Work Hours</th>
+                            <th>Job Labor Hours</th>
+                            <th>Downtime</th>
+                            <th>Utilization</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>{{ row.clocked_hours|floatformat:2 }}</td>
+                            <td>{{ row.active_work_hours|floatformat:2 }}</td>
+                            <td>{{ row.job_labor_hours|floatformat:2 }}</td>
+                            <td>{{ row.downtime_hours|floatformat:2 }}</td>
+                            <td>
+                                {% if row.utilization_percent %}
+                                    {{ row.utilization_percent|floatformat:1 }}%
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>Daily Breakdown</h3>
+
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Clocked Hours</th>
+                            <th>Active Work Hours</th>
+                            <th>Job Labor Hours</th>
+                            <th>Downtime</th>
+                            <th>Utilization</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for day in row.days %}
+                            <tr>
+                                <td>{{ day.date|date:"D, M j" }}</td>
+                                <td>{{ day.clocked_hours|floatformat:2 }}</td>
+                                <td>{{ day.active_work_hours|floatformat:2 }}</td>
+                                <td>{{ day.job_labor_hours|floatformat:2 }}</td>
+                                <td>{{ day.downtime_hours|floatformat:2 }}</td>
+                                <td>
+                                    {% if day.utilization_percent %}
+                                        {{ day.utilization_percent|floatformat:1 }}%
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="6">No time found for this employee.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <h3>Clock Entries</h3>
+
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Clock In</th>
+                            <th>Clock Out</th>
+                            <th>Hours</th>
+                            <th>Edit</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for day in row.days %}
+                            {% for entry in day.clock_entries %}
+                                <tr>
+                                    <td>{{ day.date|date:"D, M j" }}</td>
+                                    <td>{{ entry.clock_in|date:"g:i A" }}</td>
+                                    <td>
+                                        {% if entry.clock_out %}
+                                            {{ entry.clock_out|date:"g:i A" }}
+                                        {% else %}
+                                            Still clocked in
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ entry.duration_hours|floatformat:2 }}</td>
+                                    <td>
+                                        <a href="{% url 'culet:time_clock_edit' entry.timeclock.pk %}">
+                                            Edit
+                                        </a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        {% empty %}
+                            <tr>
+                                <td colspan="5">No clock entries found.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <hr>
         {% endfor %}
-      </div>
-    {% endfor %}
-  {% endif %}
+
+    {% elif request.GET %}
+        <p>No results found for this date range.</p>
+    {% endif %}
 
 </div>
 {% endblock %}

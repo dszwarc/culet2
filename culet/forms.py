@@ -112,6 +112,7 @@ def table_number_widget(step=None, min_value=None, placeholder=""):
     return forms.NumberInput(attrs=attrs)
 
 
+
 # -------------------------------------------------
 # Forms
 # -------------------------------------------------
@@ -171,6 +172,34 @@ class JobWeightForm(forms.ModelForm):
             raise ValidationError("At least one weight value must be greater than 0.")
 
         return cleaned_data
+
+class JobShipLineForm(forms.Form):
+    barcode = forms.CharField(
+        required=False,
+        label="Barcode",
+        widget=forms.TextInput(attrs={
+            "class": BASE_INPUT_CLASS,
+            "placeholder": "Scan barcode",
+        }),
+    )
+
+
+JobShipLineFormSet = formset_factory(
+    JobShipLineForm,
+    extra=3,
+    can_delete=False,
+)
+
+
+class BulkJobShipForm(forms.Form):
+    notes = forms.CharField(
+        required=False,
+        label="Shipping Notes",
+        widget=forms.Textarea(attrs={
+            "class": BASE_INPUT_CLASS,
+            "rows": 3,
+        }),
+    )
 
 class JobWeightLookupForm(forms.Form):
     barcode = forms.IntegerField(required=False, label="Barcode")
@@ -633,6 +662,14 @@ class EmployeeActivityReportForm(forms.Form):
         widget=select_widget(),
     )
 
+    style = forms.ModelChoiceField(
+        queryset=Style.objects.order_by("name"),
+        required=False,
+        empty_label="All styles",
+        label="Style",
+        widget=select_widget(),
+    )
+
     start_date = forms.DateField(
         required=True,
         label="Start Date",
@@ -657,10 +694,9 @@ class EmployeeActivityReportForm(forms.Form):
     
 class TimeClockReportForm(forms.Form):
     employee = forms.ModelChoiceField(
-        queryset=Employee.objects.select_related("user").filter(role_fk__requires_clock_in=True).order_by(
-            "user__last_name",
-            "user__first_name",
-        ),
+        queryset=Employee.objects.select_related("user")
+        .filter(role_fk__requires_clock_in=True)
+        .order_by("user__last_name", "user__first_name"),
         required=False,
         empty_label="All employees",
         label="Employee",
@@ -669,7 +705,7 @@ class TimeClockReportForm(forms.Form):
 
     start_date = forms.DateField(
         required=True,
-        label="Start Date",
+        label="Week / Start Date",
         widget=date_widget(),
     )
 

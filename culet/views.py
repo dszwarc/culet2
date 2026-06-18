@@ -17,6 +17,7 @@ from collections import defaultdict
 from decimal import Decimal
 
 from .models import (
+    JobShip,
     JobMetal,
     MetalVendorLot, 
     MetalReceiptLine, 
@@ -39,6 +40,8 @@ from .models import (
 )
 
 from .forms import (
+    JobShipLineFormSet,
+    BulkJobShipForm,
     JobForm, 
     StyleForm, 
     JobUpdateForm, 
@@ -1155,6 +1158,46 @@ def clock_out(request):
 
     return redirect("culet:home")
 
+def hours_between(start,end):
+    if not start or not end or end <= start:
+        return 0
+    return (end - start).total_seconds() / 3600
+
+def merge_intervals(intervals):
+    intervals = sorted(intervals, key=lambda interval: interval[0])
+
+    merged = []
+
+    for start, end in intervals:
+        if not start or not end or end <= start:
+            continue
+        if not merged:
+            merged.append([start, end])
+            continue
+
+        last_start, last_end = merged[-1]
+
+        if start <= last_end:
+            merged[-1][1] = max(last_end, end)
+        else:
+            merged.append([start, end])
+
+    return merged
+
+
+def total_interval_hours(intervals):
+    return sum(hours_between(start, end) for start, end in intervals)
+
+
+def clipped_interval(start, end, range_start, range_end):
+    clipped_start = max(start, range_start)
+    clipped_end = min(end, range_end)
+
+    if clipped_end <= clipped_start:
+        return None
+
+    return clipped_start, clipped_end    
+
 # def receive(request):
 #     #NOT TESTED. NEEDS UPDATING FOR LIMITING WHEN THIS IS ALLOWED
 #     job = Job.objects.get(barcode=request.POST["job"])
@@ -1629,6 +1672,7 @@ class EmployeeActivityReportView(LoginRequiredMixin, generic.TemplateView):
 
         if form.is_valid():
             employee = form.cleaned_data["employee"]
+            style = form.cleaned_data.get("style")
             start_date = form.cleaned_data["start_date"]
             end_date = form.cleaned_data["end_date"]
 
@@ -1650,6 +1694,9 @@ class EmployeeActivityReportView(LoginRequiredMixin, generic.TemplateView):
                 .order_by("-end", "-start")
             )
 
+            if style:
+                activities = activities.filter(job__style=style)
+
             total_hours = sum(
                 activity.duration or 0
                 for activity in activities
@@ -1658,6 +1705,7 @@ class EmployeeActivityReportView(LoginRequiredMixin, generic.TemplateView):
         context["form"] = form
         context["activities"] = activities
         context["total_hours"] = total_hours
+
         return context
     
 class TimeClockReportView(LoginRequiredMixin, generic.TemplateView):
@@ -1668,6 +1716,12 @@ class TimeClockReportView(LoginRequiredMixin, generic.TemplateView):
 
         form = TimeClockReportForm(self.request.GET or None)
         employee_rows = []
+        report_totals = {
+            "clocked_hours": 0,
+            "active_work_hours": 0,
+            "job_labor_hours": 0,
+            "downtime_hours": 0,
+        }
 
         if form.is_valid():
             selected_employee = form.cleaned_data.get("employee")
@@ -1680,8 +1734,8 @@ class TimeClockReportView(LoginRequiredMixin, generic.TemplateView):
             employees = (
                 Employee.objects
                 .select_related("user", "department_fk", "role_fk")
-                .order_by("user__last_name", "user__first_name")
                 .filter(role_fk__requires_clock_in=True)
+                .order_by("user__last_name", "user__first_name")
             )
 
             if selected_employee:
@@ -1695,65 +1749,128 @@ class TimeClockReportView(LoginRequiredMixin, generic.TemplateView):
                     .order_by("clock_in")
                 )
 
-                activities = Activity.objects.filter(
-                    employee=employee,
-                    end__isnull=False,
-                    end__gte=start_dt,
-                    end__lte=end_dt,
+                activities = (
+                    Activity.objects
+                    .filter(employee=employee, start__lte=end_dt)
+                    .filter(Q(end__gte=start_dt) | Q(end__isnull=True))
+                    .select_related("job", "step")
+                    .order_by("start")
                 )
 
-                clock_total_hours = 0
-                clock_entries_by_day = {}
+                days = {}
+                current_day = start_date
 
-                for entry in clock_entries:
-                    effective_start = max(entry.clock_in, start_dt)
+                while current_day <= end_date:
+                    day_start = timezone.make_aware(datetime.combine(current_day, time.min))
+                    day_end = timezone.make_aware(datetime.combine(current_day, time.max))
 
-                    if entry.clock_out:
-                        effective_end = min(entry.clock_out, end_dt)
-                    else:
-                        effective_end = min(timezone.now(), end_dt)
+                    clock_intervals = []
+                    activity_intervals = []
+                    job_labor_hours = 0
 
-                    duration_hours = 0
-                    if effective_end > effective_start:
-                        duration_hours = (
-                            effective_end - effective_start
-                        ).total_seconds() / 3600
+                    day_clock_entries = []
 
-                    clock_total_hours += duration_hours
+                    for entry in clock_entries:
+                        clock_out = entry.clock_out or timezone.now()
+                        interval = clipped_interval(
+                            entry.clock_in,
+                            clock_out,
+                            day_start,
+                            day_end,
+                        )
 
-                    entry_day = timezone.localtime(entry.clock_in).date()
+                        if interval:
+                            clock_intervals.append(interval)
 
-                    if entry_day not in clock_entries_by_day:
-                        clock_entries_by_day[entry_day] = {
-                            "date": entry_day,
-                            "entries": [],
-                            "day_total_hours": 0,
+                            day_clock_entries.append({
+                                "timeclock": entry,
+                                "clock_in": entry.clock_in,
+                                "clock_out": entry.clock_out,
+                                "duration_hours": hours_between(interval[0], interval[1]),
+                            })
+
+                    for activity in activities:
+                        activity_end = activity.end or timezone.now()
+                        interval = clipped_interval(
+                            activity.start,
+                            activity_end,
+                            day_start,
+                            day_end,
+                        )
+
+                        if interval:
+                            activity_intervals.append(interval)
+
+                            # This is summed job labor time.
+                            # Overlapping jobs DO double-count here.
+                            job_labor_hours += hours_between(interval[0], interval[1])
+
+                    merged_clock_intervals = merge_intervals(clock_intervals)
+                    merged_activity_intervals = merge_intervals(activity_intervals)
+
+                    clocked_hours = total_interval_hours(merged_clock_intervals)
+
+                    # This is actual active-work coverage.
+                    # Overlapping jobs DO NOT double-count here.
+                    active_work_hours = total_interval_hours(merged_activity_intervals)
+
+                    downtime_hours = max(clocked_hours - active_work_hours, 0)
+
+                    utilization_percent = None
+                    if clocked_hours:
+                        utilization_percent = (active_work_hours / clocked_hours) * 100
+
+                    if clocked_hours or active_work_hours or job_labor_hours:
+                        days[current_day] = {
+                            "date": current_day,
+                            "clock_entries": day_clock_entries,
+                            "clocked_hours": clocked_hours,
+                            "active_work_hours": active_work_hours,
+                            "job_labor_hours": job_labor_hours,
+                            "downtime_hours": downtime_hours,
+                            "utilization_percent": utilization_percent,
                         }
 
-                    clock_entries_by_day[entry_day]["entries"].append({
-                        "timeclock": entry,
-                        "clock_in": entry.clock_in,
-                        "clock_out": entry.clock_out,
-                        "duration_hours": duration_hours,
-                    })
+                    report_totals["clocked_hours"] += clocked_hours
+                    report_totals["active_work_hours"] += active_work_hours
+                    report_totals["job_labor_hours"] += job_labor_hours
+                    report_totals["downtime_hours"] += downtime_hours
 
-                    clock_entries_by_day[entry_day]["day_total_hours"] += duration_hours
+                    current_day += timedelta(days=1)
 
-                activity_total_hours = sum(
-                    activity.duration or 0
-                    for activity in activities
+                employee_clocked_hours = sum(
+                    day["clocked_hours"] for day in days.values()
                 )
+                employee_active_work_hours = sum(
+                    day["active_work_hours"] for day in days.values()
+                )
+                employee_job_labor_hours = sum(
+                    day["job_labor_hours"] for day in days.values()
+                )
+                employee_downtime_hours = sum(
+                    day["downtime_hours"] for day in days.values()
+                )
+
+                employee_utilization_percent = None
+                if employee_clocked_hours:
+                    employee_utilization_percent = (
+                        employee_active_work_hours / employee_clocked_hours
+                    ) * 100
 
                 employee_rows.append({
                     "employee": employee,
-                    "clock_days": list(clock_entries_by_day.values()),
-                    "clock_total_hours": clock_total_hours,
-                    "activity_total_hours": activity_total_hours,
-                    "difference_hours": clock_total_hours - activity_total_hours,
+                    "days": list(days.values()),
+                    "clocked_hours": employee_clocked_hours,
+                    "active_work_hours": employee_active_work_hours,
+                    "job_labor_hours": employee_job_labor_hours,
+                    "downtime_hours": employee_downtime_hours,
+                    "utilization_percent": employee_utilization_percent,
                 })
 
         context["form"] = form
         context["employee_rows"] = employee_rows
+        context["report_totals"] = report_totals
+
         return context
     
 class TimeClockUpdateView(LoginRequiredMixin, generic.UpdateView):
@@ -1887,3 +2004,133 @@ class JobsByHolderReportView(LoginRequiredMixin, generic.TemplateView):
         context["selected_employee"] = selected_employee
         context["total_jobs"] = Job.objects.filter(holder__isnull=False,active=True,shipped=False,).count()
         return context
+    
+class BulkJobShipView(LoginRequiredMixin, generic.TemplateView):
+    template_name = "jobs/job_ship_bulk.html"
+    success_url = reverse_lazy("culet:job_ship_bulk")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["form"] = BulkJobShipForm()
+        context["formset"] = JobShipLineFormSet(prefix="ship_lines")
+        return context
+
+    def post(self, request, *args, **kwargs):
+        form = BulkJobShipForm(request.POST)
+        formset = JobShipLineFormSet(request.POST, prefix="ship_lines")
+
+        if not form.is_valid() or not formset.is_valid():
+            return self.render_to_response({
+                "form": form,
+                "formset": formset,
+            })
+
+        employee = get_object_or_404(Employee, user=request.user)
+        notes = form.cleaned_data.get("notes", "")
+
+        barcodes = []
+
+        for line_form in formset:
+            barcode = line_form.cleaned_data.get("barcode")
+
+            if barcode:
+                barcode = (
+                    barcode
+                    .strip()
+                    .replace("\n", "")
+                    .replace("\r", "")
+                    .replace("\t", "")
+                )
+
+            if barcode:
+                barcodes.append(barcode)
+
+        if not barcodes:
+            messages.error(request, "Scan at least one barcode.")
+            return self.render_to_response({
+                "form": form,
+                "formset": formset,
+            })
+
+        duplicate_barcodes = {
+            barcode for barcode in barcodes
+            if barcodes.count(barcode) > 1
+        }
+
+        if duplicate_barcodes:
+            messages.error(
+                request,
+                f"Duplicate barcode(s): {', '.join(duplicate_barcodes)}"
+            )
+            return self.render_to_response({
+                "form": form,
+                "formset": formset,
+            })
+
+        jobs_by_barcode = {}
+        missing_barcodes = []
+        already_shipped_barcodes = []
+
+        for barcode in barcodes:
+            job = Job.objects.filter(
+                barcode__iexact=barcode,
+            ).first()
+
+            if not job:
+                missing_barcodes.append(barcode)
+                continue
+
+            if job.shipped:
+                already_shipped_barcodes.append(barcode)
+                continue
+
+            jobs_by_barcode[barcode] = job
+
+        if missing_barcodes:
+            messages.error(
+                request,
+                f"No job found for barcode(s): {', '.join(missing_barcodes)}"
+            )
+            return self.render_to_response({
+                "form": form,
+                "formset": formset,
+            })
+
+        if already_shipped_barcodes:
+            messages.error(
+                request,
+                f"Already shipped barcode(s): {', '.join(already_shipped_barcodes)}"
+            )
+            return self.render_to_response({
+                "form": form,
+                "formset": formset,
+            })
+
+        with transaction.atomic():
+            for barcode in barcodes:
+                job = jobs_by_barcode[barcode]
+
+                job.shipped = True
+                job.active = False
+                job.in_work = False
+                job.holder = employee
+                job.save(update_fields=[
+                    "shipped",
+                    "active",
+                    "in_work",
+                    "holder",
+                    "last_updated",
+                ])
+
+                JobShip.objects.create(
+                    job=job,
+                    shipped_by=employee,
+                    notes=notes,
+                )
+
+        messages.success(
+            request,
+            f"Shipped {len(barcodes)} job(s)."
+        )
+
+        return redirect(self.success_url)

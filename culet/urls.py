@@ -24,6 +24,7 @@ urlpatterns = [
     path("jobs/assign",views.AssignJobView.as_view(), name="assign_job"),
     path("jobs/receive-and-assign/",views.ReceiveAndAssignJobsView.as_view(),name="receive_and_assign_jobs",),
     path("jobs/return",views.ReturnJobView.as_view(),name="return_job"),
+    path("jobs/ship/",views.BulkJobShipView.as_view(),name="job_ship_bulk"),
     path("reporting", views.ReportingListView.as_view(), name="reporting"),
     path("clock_in",views.clock_in,name="clock_in"),
     path("clock_out", views.clock_out,name="clock_out"),
@@ -39,6 +40,7 @@ urlpatterns = [
     path("inventory/metal/lots/", views.MetalLotListView.as_view(), name="metal_lot_list"),
     path("inventory/metal/lots/<int:pk>/", views.MetalLotDetailView.as_view(), name="metal_lot_detail"),
     path("inventory/", views.InventoryDashboardView.as_view(), name="inventory_dashboard"),
+
 
     #Reports Below This Line
     path("reports/inactive-jobs/", views.InactiveJobsReportView.as_view(), name="report_inactive_jobs"),

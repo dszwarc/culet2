@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+
+    <h1>Ship Jobs</h1>
+
+    <p>Scan one barcode per line, then submit to mark those jobs as shipped.</p>
+
+    <form method="post" class="form-card">
+        {% csrf_token %}
+
+        {{ form.non_field_errors }}
+        {{ formset.management_form }}
+
+        <div id="ship-lines">
+            {% for line_form in formset %}
+                <div class="ship-line">
+                    {{ line_form.barcode.label_tag }}
+                    {{ line_form.barcode }}
+                    {{ line_form.barcode.errors }}
+                </div>
+            {% endfor %}
+        </div>
+
+        <button type="button" class="btn btn-secondary" id="add-ship-line">
+            Add Another Barcode
+        </button>
+
+        <p>
+            {{ form.notes.label_tag }}
+            {{ form.notes }}
+            {{ form.notes.errors }}
+        </p>
+
+        <button
+            type="submit"
+            class="btn btn-primary"
+            onclick="return confirm('Ship all scanned jobs?');"
+        >
+            Ship Jobs
+        </button>
+    </form>
+
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const addButton = document.getElementById("add-ship-line");
+        const linesContainer = document.getElementById("ship-lines");
+        const totalFormsInput = document.getElementById("id_ship_lines-TOTAL_FORMS");
+
+        addButton.addEventListener("click", function () {
+            const formIndex = parseInt(totalFormsInput.value, 10);
+
+            const newLine = document.createElement("div");
+            newLine.classList.add("ship-line");
+
+            newLine.innerHTML = `
+                <label for="id_ship_lines-${formIndex}-barcode">Barcode:</label>
+                <input
+                    type="text"
+                    name="ship_lines-${formIndex}-barcode"
+                    class="{{ formset.forms.0.fields.barcode.widget.attrs.class }}"
+                    placeholder="Scan barcode"
+                    id="id_ship_lines-${formIndex}-barcode"
+                >
+            `;
+
+            linesContainer.appendChild(newLine);
+            totalFormsInput.value = formIndex + 1;
+
+            const newInput = document.getElementById(`id_ship_lines-${formIndex}-barcode`);
+            newInput.focus();
+        });
+    });
+</script>
+{% endblock %}

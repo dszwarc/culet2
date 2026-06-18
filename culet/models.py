@@ -151,7 +151,7 @@ class Job(models.Model):
     name = models.CharField(max_length=80,default="N/A")
     customer = models.ForeignKey(Customer, on_delete=models.PROTECT, null=True)
     barcode = models.IntegerField(blank=True,null=True, unique=True)
-    stock_num = models.IntegerField(null=True, blank=True)
+    stock_num = models.IntegerField(null=True, blank=True, unique=True)
 
     size = models.CharField(default="",blank=True,max_length=80)
     stamp = models.CharField(default="", blank=True, max_length=80)
@@ -240,6 +240,26 @@ class Job(models.Model):
     
     def get_absolute_url(self):
         return reverse('culet:job_detail', kwargs={'pk': self.pk})
+    
+class JobShip(models.Model):
+    job = models.OneToOneField(
+        Job,
+        on_delete=models.CASCADE,
+        related_name="shipment",
+    )
+    shipped_by = models.ForeignKey(
+        Employee,
+        on_delete=models.PROTECT,
+        related_name="job_shipments",
+    )
+    shipped_at = models.DateTimeField(default=timezone.now)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-shipped_at"]
+
+    def __str__(self):
+        return f"{self.job} shipped at {self.shipped_at}"
     
 class JobWeight(models.Model):
     job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="weights")
@@ -494,3 +514,9 @@ class TimeClock(models.Model):
             clock_out = "Not Clocked Out"
         return f"{self.employee.user.first_name} {self.employee.user.last_name} Clocked in: {self.clock_in} - Clocked out: {clock_out}"
 
+    @property
+    def duration_hours(self):
+        end = self.clock_out or timezone.now()
+        if self.clock_in and end > self.clock_in:
+            return (end - self.clock_in).total_seconds()/3600
+        return 0
