@@ -520,3 +520,66 @@ class TimeClock(models.Model):
         if self.clock_in and end > self.clock_in:
             return (end - self.clock_in).total_seconds()/3600
         return 0
+    
+class JobTransferMemo(models.Model):
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+    created_by = models.ForeignKey(
+        Employee,
+        on_delete=models.PROTECT,
+        related_name="created_transfer_memos"
+    )
+
+    from_location = models.ForeignKey(
+        Location,
+        on_delete=models.PROTECT,
+        related_name="transfer_memos_from"
+    )
+
+    to_location = models.ForeignKey(
+        Location,
+        on_delete=models.PROTECT,
+        related_name="transfer_memos_to"
+    )
+
+    memo_to = models.CharField(
+        max_length=120,
+        blank=True,
+        help_text="Optional customer, building, department, or recipient name"
+    )
+
+    notes = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"Transfer Memo #{self.pk}"
+
+
+class JobTransferMemoLine(models.Model):
+    memo = models.ForeignKey(
+        JobTransferMemo,
+        on_delete=models.CASCADE,
+        related_name="lines"
+    )
+
+    job = models.ForeignKey(
+        Job,
+        on_delete=models.PROTECT,
+        related_name="transfer_memo_lines"
+    )
+
+    from_location = models.ForeignKey(
+        Location,
+        on_delete=models.PROTECT,
+        related_name="transfer_lines_from"
+    )
+
+    to_location = models.ForeignKey(
+        Location,
+        on_delete=models.PROTECT,
+        related_name="transfer_lines_to"
+    )
+
+    class Meta:
+        unique_together = ("memo", "job")
+
+    def __str__(self):
+        return f"{self.memo} - {self.job}"

@@ -50,4 +50,11 @@ urlpatterns = [
     path("reports/late-jobs/",views.LateJobsReportView.as_view(),name="report_late_jobs"),
     path("reports/clocked-in-idle/", views.ClockedInIdleEmployeesReportView.as_view(), name="report_clocked_in_idle",),
     path("reports/jobs-by-holder/", views.JobsByHolderReportView.as_view(), name="report_jobs_by_holder",),
+
+    #Printing
+    path("jobs/envelopes/", views.JobEnvelopePrintFormView.as_view(), name="job_envelope_print_form"),
+    path("jobs/envelopes/print/", views.JobEnvelopePrintBatchView.as_view(), name="job_envelope_print_batch"),
+    path("jobs/<int:pk>/print-envelope/", views.JobEnvelopePrintView.as_view(), name="job_envelope_print"),
+    path("jobs/transfer-memo/",views.JobTransferMemoCreateView.as_view(),name="job_transfer_memo_create"),
+    path("jobs/transfer-memo/<int:pk>/print/",views.JobTransferMemoPrintView.as_view(),name="job_transfer_memo_print"),
     ]

@@ -24,6 +24,7 @@ from .models import (
     TimeClock,
     StyleFinding,
     JobFinding,
+    JobTransferMemo
 )
 
 
@@ -761,3 +762,31 @@ class JobsByHolderReportForm(forms.Form):
         label="Employee",
         widget=select_widget(),
     )
+
+
+class JobTransferMemoForm(forms.ModelForm):
+    scanned_jobs = forms.CharField(
+        label="Scan Jobs",
+        widget=forms.Textarea(attrs={
+            "class": "form-control",
+            "rows": 10,
+            "placeholder": "Scan one barcode per line"
+        }),
+        help_text="Scan or enter one job barcode per line."
+    )
+
+    class Meta:
+        model = JobTransferMemo
+        fields = ["from_location", "to_location", "memo_to", "notes"]
+        widgets = {
+            "from_location": forms.Select(attrs={"class": "form-control"}),
+            "to_location": forms.Select(attrs={"class": "form-control"}),
+            "memo_to": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": "Customer, building, department, etc."
+            }),
+            "notes": forms.Textarea(attrs={
+                "class": "form-control",
+                "rows": 3
+            }),
+        }

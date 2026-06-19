@@ -37,9 +37,12 @@ from .models import (
     JobStatus,
     StyleFinding,
     JobFinding,
+    JobTransferMemo,
+    JobTransferMemoLine,
 )
 
 from .forms import (
+    JobTransferMemoForm,
     JobShipLineFormSet,
     BulkJobShipForm,
     JobForm, 
@@ -2134,3 +2137,142 @@ class BulkJobShipView(LoginRequiredMixin, generic.TemplateView):
         )
 
         return redirect(self.success_url)
+    
+#Printing
+class JobEnvelopePrintView(LoginRequiredMixin, generic.DetailView):
+    model = Job
+    template_name = "jobs/print_envelopes.html"
+    context_object_name = "job"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["jobs"] = [self.object]
+        return context
+
+
+class JobEnvelopePrintFormView(LoginRequiredMixin, generic.TemplateView):
+    template_name = "jobs/print_envelope_form.html"
+
+
+class JobEnvelopePrintBatchView(LoginRequiredMixin, generic.TemplateView):
+    template_name = "jobs/print_envelopes.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        mode = self.request.GET.get("mode")
+        jobs = Job.objects.none()
+
+        if mode == "range":
+            start = self.request.GET.get("start")
+            end = self.request.GET.get("end")
+
+            if start and end:
+                jobs = Job.objects.filter(
+                    barcode__gte=start,
+                    barcode__lte=end,
+                ).order_by("barcode")
+
+        elif mode == "today":
+            today = timezone.localdate()
+            jobs = Job.objects.filter(
+                created__date=today
+            ).order_by("barcode")
+
+        context["jobs"] = jobs
+        return context
+    
+class JobTransferMemoCreateView(LoginRequiredMixin, generic.FormView):
+    template_name = "jobs/job_transfer_memo_form.html"
+    form_class = JobTransferMemoForm
+
+    def get_employee(self):
+        return Employee.objects.get(user=self.request.user)
+
+    def form_valid(self, form):
+        employee = self.get_employee()
+
+        from_location = form.cleaned_data["from_location"]
+        to_location = form.cleaned_data["to_location"]
+
+        scanned_values = [
+            value.strip()
+            for value in form.cleaned_data["scanned_jobs"].splitlines()
+            if value.strip()
+        ]
+
+        if not scanned_values:
+            form.add_error("scanned_jobs", "Please scan at least one job.")
+            return self.form_invalid(form)
+
+        found_jobs = []
+        missing_jobs = []
+        wrong_location_jobs = []
+
+        for scanned_value in scanned_values:
+            try:
+                job = Job.objects.get(barcode=scanned_value, shipped=False)
+            except Job.DoesNotExist:
+                missing_jobs.append(scanned_value)
+                continue
+
+            if job.location_id != from_location.id:
+                wrong_location_jobs.append(job)
+
+            found_jobs.append(job)
+
+        if missing_jobs:
+            form.add_error(
+                "scanned_jobs",
+                "These scanned jobs were not found or are already shipped: "
+                + ", ".join(missing_jobs)
+            )
+            return self.form_invalid(form)
+
+        if wrong_location_jobs:
+            job_list = ", ".join(str(job) for job in wrong_location_jobs)
+            form.add_error(
+                "scanned_jobs",
+                f"These jobs are not currently in {from_location}: {job_list}"
+            )
+            return self.form_invalid(form)
+
+        with transaction.atomic():
+            memo = form.save(commit=False)
+            memo.created_by = employee
+            memo.save()
+
+            for job in found_jobs:
+                JobTransferMemoLine.objects.create(
+                    memo=memo,
+                    job=job,
+                    from_location=from_location,
+                    to_location=to_location,
+                )
+
+                job.location = to_location
+                job.save(update_fields=["location", "last_updated"])
+
+        messages.success(
+            self.request,
+            f"Transfer Memo #{memo.pk} created. {len(found_jobs)} jobs moved to {to_location}."
+        )
+
+        return redirect("culet:job_transfer_memo_print", pk=memo.pk)
+
+
+class JobTransferMemoPrintView(LoginRequiredMixin, generic.DetailView):
+    model = JobTransferMemo
+    template_name = "jobs/job_transfer_memo_print.html"
+    context_object_name = "memo"
+
+    def get_queryset(self):
+        return (
+            JobTransferMemo.objects
+            .select_related("created_by", "from_location", "to_location")
+            .prefetch_related(
+                "lines__job",
+                "lines__job__style",
+                "lines__job__customer",
+            )
+        )

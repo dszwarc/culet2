@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Transfer Memo #{{ memo.pk }}</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 30px;
+            color: #111;
+        }
+
+        .memo-header {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 2px solid #000;
+            padding-bottom: 12px;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 26px;
+        }
+
+        .memo-info {
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        th, td {
+            border-bottom: 1px solid #ccc;
+            padding: 8px;
+            text-align: left;
+            font-size: 14px;
+        }
+
+        th {
+            border-bottom: 2px solid #000;
+        }
+
+        .signature-area {
+            margin-top: 60px;
+            display: flex;
+            justify-content: space-between;
+            gap: 40px;
+        }
+
+        .signature-box {
+            width: 45%;
+            border-top: 1px solid #000;
+            padding-top: 8px;
+            font-size: 14px;
+        }
+
+        .print-button {
+            margin-bottom: 20px;
+        }
+
+        @media print {
+            .print-button {
+                display: none;
+            }
+
+            body {
+                margin: 20px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <button class="print-button" onclick="window.print()">Print Memo</button>
+
+    <div class="memo-header">
+        <div>
+            <h1>Transfer Memo #{{ memo.pk }}</h1>
+            <div>Date: {{ memo.created_at|date:"m/d/Y g:i A" }}</div>
+        </div>
+
+        <div>
+            Created By: {{ memo.created_by }}
+        </div>
+    </div>
+
+    <div class="memo-info">
+        <div><strong>From:</strong> {{ memo.from_location }}</div>
+        <div><strong>To:</strong> {{ memo.to_location }}</div>
+
+        {% if memo.memo_to %}
+            <div><strong>Recipient / Customer:</strong> {{ memo.memo_to }}</div>
+        {% endif %}
+
+        {% if memo.notes %}
+            <div><strong>Notes:</strong> {{ memo.notes }}</div>
+        {% endif %}
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Job</th>
+                <th>Barcode</th>
+                <th>Customer</th>
+                <th>Style</th>
+                <th>Due Date</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for line in memo.lines.all %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ line.job }}</td>
+                    <td>{{ line.job.barcode }}</td>
+                    <td>{{ line.job.customer }}</td>
+                    <td>{{ line.job.style }}</td>
+                    <td>{{ line.job.due|date:"m/d/Y" }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="signature-area">
+        <div class="signature-box">
+            Released By Signature
+        </div>
+
+        <div class="signature-box">
+            Received By Signature
+        </div>
+    </div>
+</body>
+</html>

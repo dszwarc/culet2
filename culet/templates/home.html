@@ -8,12 +8,14 @@
     <div class="home-grid">
       <a class="home-tile blue-button" href="{% url 'culet:my_jobs' %}">My Jobs</a>
       {% if is_manager_level %}
+      <a href="{% url 'culet:job_transfer_memo_create' %}" class="home-tile green-button">Print / Process Transfer Memo</a>
       <a class="home-tile green-button" href="{% url 'culet:job_ship_bulk' %}">Ship Jobs</a>
       <a class="home-tile blue-button" href="{% url 'culet:index_job' %}">All Jobs</a>
       <a class="home-tile green-button" href="{% url 'culet:job_create' %}">Create Job</a>
       <a class="home-tile red-button" href="{% url 'culet:job_weight_lookup' %}">Update Weights</a>
       <a class="home-tile blue-button" href="{% url 'culet:assign_job' %}">Assign Jobs</a>
       <a class="home-tile blue-button" href="{% url 'culet:receive_and_assign_jobs' %}">Receive and Assign Jobs</a>
+      <a class="home-tile blue-button" href="{% url 'culet:job_envelope_print_form' %}">Print Job Envelopes</a>
       {% endif %}
 
       <a class="home-tile green-button" href="{% url 'culet:receive_list' %}">Receive Jobs</a>

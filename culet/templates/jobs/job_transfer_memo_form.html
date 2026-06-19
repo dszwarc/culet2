@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Create Transfer Memo</h1>
+
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="form-group">
+            <label>{{ form.from_location.label }}</label>
+            {{ form.from_location }}
+            {{ form.from_location.errors }}
+        </div>
+
+        <div class="form-group">
+            <label>{{ form.to_location.label }}</label>
+            {{ form.to_location }}
+            {{ form.to_location.errors }}
+        </div>
+
+        <div class="form-group">
+            <label>{{ form.memo_to.label }}</label>
+            {{ form.memo_to }}
+            {{ form.memo_to.errors }}
+        </div>
+
+        <div class="form-group">
+            <label>{{ form.scanned_jobs.label }}</label>
+            {{ form.scanned_jobs }}
+            <small>{{ form.scanned_jobs.help_text }}</small>
+            {{ form.scanned_jobs.errors }}
+        </div>
+
+        <div class="form-group">
+            <label>{{ form.notes.label }}</label>
+            {{ form.notes }}
+            {{ form.notes.errors }}
+        </div>
+
+        <button type="submit" class="btn btn-primary">
+            Create Memo and Move Jobs
+        </button>
+    </form>
+</div>
+{% endblock %}

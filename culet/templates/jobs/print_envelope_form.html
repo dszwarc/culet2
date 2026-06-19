@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h1>Print Job Envelopes</h1>
+
+<div class="card" style="width: 60%;">
+    <div class="card-body">
+
+        <h3>Print Job Number Range</h3>
+
+        <form method="get" action="{% url 'culet:job_envelope_print_batch' %}" target="_blank">
+            <input type="hidden" name="mode" value="range">
+
+            <p>
+                <label>Start Barcode</label><br>
+                <input type="number" name="start" required>
+            </p>
+
+            <p>
+                <label>End Barcode</label><br>
+                <input type="number" name="end" required>
+            </p>
+
+            <button class="btn btn-primary" type="submit">
+                Print Range
+            </button>
+        </form>
+
+        <hr>
+
+        <h3>Print Jobs Created Today</h3>
+
+        <form method="get" action="{% url 'culet:job_envelope_print_batch' %}" target="_blank">
+            <input type="hidden" name="mode" value="today">
+
+            <button class="btn btn-primary" type="submit">
+                Print Today's Jobs
+            </button>
+        </form>
+
+    </div>
+</div>
+
+{% endblock content %}

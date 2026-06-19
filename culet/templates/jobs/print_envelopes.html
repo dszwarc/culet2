@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Print Job Envelope</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+
+    <style>
+        @page {
+            size: 3in 5in;
+            margin: 0;
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        .label {
+            width: 3in;
+            height: 5in;
+            box-sizing: border-box;
+            padding: 0.08in;
+            position: relative;
+            page-break-after: always;
+            overflow: hidden;
+            background: white;
+        }
+
+        .top-barcode {
+            text-align: center;
+            border-bottom: 1px solid #000;
+            padding-bottom: 0.04in;
+        }
+
+        .barcode {
+            width: 2.45in;
+            height: 0.45in;
+        }
+
+        .stock-num {
+            font-size: 22px;
+            font-weight: bold;
+            line-height: 1.1;
+            margin-top: 0.02in;
+        }
+
+        .due {
+            font-size: 20px;
+            font-weight: bold;
+            margin-top: 0.02in;
+        }
+
+        .main-style {
+            font-size: 21px;
+            font-weight: bold;
+            margin-top: 0.12in;
+            border-bottom: 1px solid #000;
+            padding-bottom: 0.04in;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            column-gap: 0.08in;
+            margin-top: 0.08in;
+            font-size: 14px;
+            line-height: 1.25;
+        }
+
+        .info-label {
+            font-weight: bold;
+        }
+
+        .section-title {
+            font-weight: bold;
+            font-size: 13px;
+            margin-top: 0.1in;
+            border-bottom: 1px solid #000;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+            margin-top: 0.03in;
+        }
+
+        th,
+        td {
+            border: 1px solid #000;
+            padding: 2px;
+            text-align: center;
+        }
+
+        th {
+            font-weight: bold;
+        }
+
+        .stamp-box {
+            position: absolute;
+            left: 0.08in;
+            right: 0.08in;
+            bottom: 0.72in;
+            height: 0.34in;
+            border: 1px solid #000;
+            font-size: 20px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            padding-left: 0.06in;
+            box-sizing: border-box;
+        }
+
+        .notes {
+            position: absolute;
+            left: 0.08in;
+            right: 0.08in;
+            bottom: 0.36in;
+            height: 0.28in;
+            font-size: 10px;
+            line-height: 1.1;
+            overflow: hidden;
+        }
+
+        .bottom-barcode {
+            position: absolute;
+            left: 0.08in;
+            right: 0.08in;
+            bottom: 0.04in;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.06in;
+        }
+
+        .bottom-stock {
+            font-size: 14px;
+            font-weight: bold;
+            line-height: 1.1;
+            width: 0.75in;
+            overflow: hidden;
+        }
+
+        .bottom-barcode .barcode {
+            width: 1.8in;
+            height: 0.32in;
+        }
+
+        @media screen {
+            body {
+                background: #ddd;
+            }
+
+            .label {
+                margin: 20px auto;
+                border: 1px solid #aaa;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    {% for job in jobs %}
+        <div class="label">
+
+            <div class="top-barcode">
+                <svg class="barcode"
+                     jsbarcode-format="CODE128"
+                     jsbarcode-value="{{ job.barcode }}"
+                     jsbarcode-displayvalue="false"
+                     jsbarcode-margin="0"
+                     jsbarcode-height="45">
+                </svg>
+
+                <div class="stock-num">
+                    {{ job.stock_num }}
+                </div>
+
+                <div class="due">
+                    Due: {{ job.due|date:"m/d/y" }}
+                </div>
+            </div>
+
+            <div class="main-style">
+                {{ job.stock_num }}
+            </div>
+
+            <div class="info-grid">
+                <div>
+                    <span class="info-label">Customer:</span><br>
+                    {{ job.customer }}
+                </div>
+
+                <div>
+                    <span class="info-label">Job:</span><br>
+                    {{ job.job_num }}
+                </div>
+
+                <div>
+                    <span class="info-label">Size:</span><br>
+                    {{ job.size|default:"-" }}
+                </div>
+
+                <div>
+                    <span class="info-label">Qty:</span><br>
+                    1
+                </div>
+            </div>
+
+            {% if job.jobstone_set.all %}
+                <div class="section-title">Stones</div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Shape</th>
+                            <th>Size</th>
+                            <th>Qty</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stone in job.jobstone_set.all %}
+                            <tr>
+                                <td>{{ stone.stone_type }}</td>
+                                <td>{{ stone.stone_shape }}</td>
+                                <td>{{ stone.stone_size }}</td>
+                                <td>{{ stone.qty_req }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% endif %}
+
+            {% if job.jobmetal_set.all %}
+                <div class="section-title">Parts / Metal</div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Part</th>
+                            <th>Metal</th>
+                            <th>Wt</th>
+                            <th>Qty</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for metal in job.jobmetal_set.all %}
+                            <tr>
+                                <td>{{ metal.part }}</td>
+                                <td>{{ metal.metal_type }}</td>
+                                <td>{{ metal.weight_req }}</td>
+                                <td>{{ metal.qty_req }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% endif %}
+
+            <div class="stamp-box">
+                {{ job.stamp|default:"" }}
+            </div>
+
+            <div class="notes">
+                {{ job.notes|default:"" }}
+            </div>
+
+            <div class="bottom-barcode">
+                <div class="bottom-stock">
+                    {{ job.stock_num }}<br>
+                    {{ job.created|date:"m/d/y" }}
+                </div>
+
+                <svg class="barcode"
+                     jsbarcode-format="CODE128"
+                     jsbarcode-value="{{ job.barcode }}"
+                     jsbarcode-displayvalue="false"
+                     jsbarcode-margin="0"
+                     jsbarcode-height="32">
+                </svg>
+            </div>
+
+        </div>
+    {% empty %}
+        <p>No jobs found.</p>
+    {% endfor %}
+
+    <script>
+        JsBarcode(".barcode").init();
+        window.print();
+    </script>
+</body>
+</html>
