@@ -510,6 +510,13 @@ class Activity(models.Model):
             duration = duration//60
             return int(duration)
         
+    @property
+    def duration(self):
+        if not self.end:
+            return timedelta()
+        return self.end - self.start
+    
+
     def save(self, *args, **kwargs):
         if self.step and not self.name:
             self.name = self.step.name

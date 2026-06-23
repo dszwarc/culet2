@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h1>Jobs Shipped Report</h1>
+
+<form method="get" class="mb-3">
+    <div class="form-row">
+        {{ form.start_date.label_tag }}
+        {{ form.start_date }}
+
+        {{ form.end_date.label_tag }}
+        {{ form.end_date }}
+
+        {{ form.style.label_tag }}
+        {{ form.style }}
+
+        {{ form.customer.label_tag }}
+        {{ form.customer }}
+
+        <button type="submit" class="btn btn-primary">Filter</button>
+        <a href="{% url 'culet:job_shipped_report' %}" class="btn btn-secondary">Clear</a>
+    </div>
+</form>
+
+<div class="report-summary">
+    <p><strong>Total Jobs Shipped:</strong> {{ total_shipped }}</p>
+    <p><strong>Days Counted:</strong> {{ days_count }}</p>
+    <p><strong>Average Per Day:</strong> {{ average_per_day|floatformat:2 }}</p>
+</div>
+
+<h2>Daily Totals</h2>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>Jobs Shipped</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in daily_rows %}
+            <tr>
+                <td>{{ row.shipped_day }}</td>
+                <td>{{ row.total }}</td>
+            </tr>
+        {% empty %}
+            <tr>
+                <td colspan="2">No shipments found.</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h2>Shipment Detail</h2>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Shipped At</th>
+            <th>Barcode</th>
+            <th>Stock #</th>
+            <th>Style</th>
+            <th>Customer</th>
+            <th>Shipped By</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for shipment in shipments %}
+            <tr>
+                <td>{{ shipment.shipped_at }}</td>
+                <td>
+                    <a href="{% url 'culet:job_detail' shipment.job.pk %}">
+                        {{ shipment.job.barcode }}
+                    </a>
+                </td>
+                <td>{{ shipment.job.stock_num|default:"" }}</td>
+                <td>{{ shipment.job.style }}</td>
+                <td>{{ shipment.job.customer }}</td>
+                <td>{{ shipment.shipped_by }}</td>
+            </tr>
+        {% empty %}
+            <tr>
+                <td colspan="6">No shipped jobs found.</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% endblock content %}

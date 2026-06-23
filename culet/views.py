@@ -3,7 +3,8 @@ from django.http import HttpResponse, HttpResponseRedirect, HttpResponseBadReque
 from django.template.loader import render_to_string
 import copy
 from django.db import transaction
-from django.db.models import F, Q, Max, OuterRef, Subquery, Sum
+from django.db.models import F, Q, Max, OuterRef, Subquery, Sum, Count, Avg, ExpressionWrapper, DurationField
+from django.db.models.functions import TruncDate
 from django.views import generic
 from django.urls import reverse_lazy, reverse
 from django.utils import timezone
@@ -43,6 +44,8 @@ from .models import (
 )
 
 from .forms import (
+    StyleStepTimeReportForm,
+    JobShippedReportForm,
     MetalPartInventoryFilterForm,
     JobTransferMemoForm,
     JobShipLineFormSet,
@@ -2312,3 +2315,117 @@ class JobTransferMemoPrintView(LoginRequiredMixin, generic.DetailView):
                 "lines__job__customer",
             )
         )
+    
+class JobShippedReportView(LoginRequiredMixin, generic.TemplateView):
+    template_name = "reports/job_shipped_report.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        form = JobShippedReportForm(self.request.GET or None)
+
+        shipments = (
+            JobShip.objects
+            .select_related(
+                "job",
+                "job__style",
+                "job__customer",
+                "shipped_by",
+                "shipped_by__user",
+            )
+            .order_by("-shipped_at")
+        )
+
+        start_date = None
+        end_date = None
+
+        if form.is_valid():
+            start_date = form.cleaned_data.get("start_date")
+            end_date = form.cleaned_data.get("end_date")
+            style = form.cleaned_data.get("style")
+            customer = form.cleaned_data.get("customer")
+
+            if start_date:
+                shipments = shipments.filter(shipped_at__date__gte=start_date)
+
+            if end_date:
+                shipments = shipments.filter(shipped_at__date__lte=end_date)
+
+            if style:
+                shipments = shipments.filter(job__style=style)
+
+            if customer:
+                shipments = shipments.filter(job__customer=customer)
+
+        total_shipped = shipments.count()
+
+        if start_date and end_date:
+            days_count = (end_date - start_date).days + 1
+        else:
+            shipped_dates = (
+                shipments
+                .annotate(shipped_day=TruncDate("shipped_at"))
+                .values("shipped_day")
+                .distinct()
+                .count()
+            )
+            days_count = shipped_dates or 1
+
+        average_per_day = total_shipped / days_count if days_count else 0
+
+        daily_rows = (
+            shipments
+            .annotate(shipped_day=TruncDate("shipped_at"))
+            .values("shipped_day")
+            .annotate(total=Count("id"))
+            .order_by("-shipped_day")
+        )
+
+        context["form"] = form
+        context["shipments"] = shipments
+        context["total_shipped"] = total_shipped
+        context["days_count"] = days_count
+        context["average_per_day"] = average_per_day
+        context["daily_rows"] = daily_rows
+
+        return context
+    
+class StyleStepTimeReportView(LoginRequiredMixin, generic.TemplateView):
+    template_name = "reports/style_step_time_report.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        form = StyleStepTimeReportForm(self.request.GET or None)
+
+        activities = (
+            Activity.objects
+            .filter(end__isnull=False)
+            .select_related("job", "job__style", "step")
+            .annotate(
+                duration=ExpressionWrapper(
+                    F("end") - F("start"),
+                    output_field=DurationField(),
+                )
+            )
+        )
+
+        if form.is_valid():
+            style = form.cleaned_data.get("style")
+            if style:
+                activities = activities.filter(job__style=style)
+
+        rows = (
+            activities
+            .values("job__style__name", "step__name")
+            .annotate(
+                avg_duration=Avg("duration"),
+                total_duration=Sum("duration"),
+                activity_count=Count("id"),
+            )
+            .order_by("job__style__name", "step__name")
+        )
+
+        context["form"] = form
+        context["rows"] = rows
+        return context

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h1>Average Time Per Step by Style</h1>
+
+<form method="get" class="mb-3">
+    <div class="form-row">
+        {{ form.style.label_tag }}
+        {{ form.style }}
+
+        <button type="submit" class="btn btn-primary">Filter</button>
+        <a href="{% url 'culet:style_step_time_report' %}" class="btn btn-secondary">Clear</a>
+    </div>
+</form>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Style</th>
+            <th>Step</th>
+            <th>Average Time</th>
+            <th>Total Time</th>
+            <th>Activity Count</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in rows %}
+            <tr>
+                <td>{{ row.job__style__name }}</td>
+                <td>{{ row.step__name }}</td>
+                <td>{{ row.avg_duration }}</td>
+                <td>{{ row.total_duration }}</td>
+                <td>{{ row.activity_count }}</td>
+            </tr>
+        {% empty %}
+            <tr>
+                <td colspan="5">No activity found.</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% endblock content %}

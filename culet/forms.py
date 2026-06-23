@@ -6,6 +6,7 @@ from decimal import Decimal
 from django.core.exceptions import ValidationError
 
 from .models import (
+    Customer,
     Department,
     JobWeight,
     JobMetal,
@@ -801,12 +802,45 @@ class MetalPartInventoryFilterForm(forms.Form):
         })
     )
 
-class MetalReceiptLineForm(forms.ModelForm):
-    class Meta:
-        model = MetalReceiptLine
-        fields = [
-            "part",
-            "qty_received",
-            "weight_received",
-            "cost",
-        ]
+class JobShippedReportForm(forms.Form):
+    start_date = forms.DateField(
+        required=False,
+        widget=date_widget(),
+        label="Start Date",
+    )
+    end_date = forms.DateField(
+        required=False,
+        widget=date_widget(),
+        label="End Date",
+    )
+    style = forms.ModelChoiceField(
+        queryset=Style.objects.all().order_by("name"),
+        required=False,
+        empty_label="All Styles",
+        widget=select_widget(),
+    )
+    customer = forms.ModelChoiceField(
+        queryset=Customer.objects.all().order_by("name"),
+        required=False,
+        empty_label="All Customers",
+        widget=select_widget(),
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        start_date = cleaned_data.get("start_date")
+        end_date = cleaned_data.get("end_date")
+
+        if start_date and end_date and start_date > end_date:
+            raise forms.ValidationError("Start date cannot be after end date.")
+
+        return cleaned_data
+    
+class StyleStepTimeReportForm(forms.Form):
+    style = forms.ModelChoiceField(
+        queryset=Style.objects.all().order_by("name"),
+        required=False,
+        empty_label="All Styles",
+        widget=select_widget(),
+    )
+

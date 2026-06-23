@@ -40,7 +40,6 @@ urlpatterns = [
     path("inventory/metal/", views.MetalInventoryListView.as_view(), name="metal_inventory_list"),
     path("inventory/metal/parts/<int:pk>/", views.MetalPartInventoryDetailView.as_view(), name="metal_part_inventory_detail"),
     path("inventory/metal/lots/<int:pk>/", views.MetalLotDetailView.as_view(), name="metal_lot_detail"),
-    path("inventory/metal/lots/<int:pk>/", views.MetalLotDetailView.as_view(), name="metal_lot_detail"),
     path("inventory/", views.InventoryDashboardView.as_view(), name="inventory_dashboard"),
 
 
@@ -52,6 +51,8 @@ urlpatterns = [
     path("reports/late-jobs/",views.LateJobsReportView.as_view(),name="report_late_jobs"),
     path("reports/clocked-in-idle/", views.ClockedInIdleEmployeesReportView.as_view(), name="report_clocked_in_idle",),
     path("reports/jobs-by-holder/", views.JobsByHolderReportView.as_view(), name="report_jobs_by_holder",),
+    path("reports/jobs-shipped/",views.JobShippedReportView.as_view(),name="job_shipped_report",),
+    path("reports/style-step-time/",views.StyleStepTimeReportView.as_view(),name="style_step_time_report",),
 
     #Printing
     path("jobs/envelopes/", views.JobEnvelopePrintFormView.as_view(), name="job_envelope_print_form"),

@@ -23,9 +23,9 @@
     </thead>
     <tbody>
         {% for lot in metal_lots %}
-            <tr data-url="{% url 'culet:metal_receipt_detail' line.receipt.pk %}"
-            onclick="window.location=this.dataset.url"
-            style="cursor:pointer;">
+            <tr data-url="{% url 'culet:metal_lot_detail' lot.pk %}"
+                onclick="window.location=this.dataset.url"
+                style="cursor:pointer;">
                 <td>{{ lot.vendor_lot.lot_num }}</td>
                 <td>{{ lot.vendor_lot.vendor }}</td>
                 <td>{{ lot.vendor_lot.received_at }}</td>
