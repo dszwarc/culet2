@@ -37,7 +37,9 @@ urlpatterns = [
     path("inventory/metal/receipts/<int:pk>/", views.MetalReceiptDetailView.as_view(), name="metal_receipt_detail"),
     path("inventory/metal/vendor-lots/", views.MetalVendorLotListView.as_view(), name="metal_vendor_lot_list"),
     path("inventory/metal/vendor-lots/<int:pk>/", views.MetalVendorLotDetailView.as_view(), name="metal_vendor_lot_detail"),
-    path("inventory/metal/lots/", views.MetalLotListView.as_view(), name="metal_lot_list"),
+    path("inventory/metal/", views.MetalInventoryListView.as_view(), name="metal_inventory_list"),
+    path("inventory/metal/parts/<int:pk>/", views.MetalPartInventoryDetailView.as_view(), name="metal_part_inventory_detail"),
+    path("inventory/metal/lots/<int:pk>/", views.MetalLotDetailView.as_view(), name="metal_lot_detail"),
     path("inventory/metal/lots/<int:pk>/", views.MetalLotDetailView.as_view(), name="metal_lot_detail"),
     path("inventory/", views.InventoryDashboardView.as_view(), name="inventory_dashboard"),
 

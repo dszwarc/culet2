@@ -1,51 +1,55 @@
 {% extends 'base.html' %}
 
-{% block content %} 
+{% block content %}
 
-<h1>Inventory Line</h1>
+<h1>Metal Lot Detail</h1>
 
-<p><strong>Vendor Lot:</strong>
-  <a href="{% url 'culet:metal_vendor_lot_detail' metal_lot.vendor_lot.pk %}">
-    {{ metal_lot.vendor_lot.lot_num }}
-  </a>
+<p>
+    <a href="{% url 'culet:metal_part_inventory_detail' metal_lot.part.pk %}">
+        Back to {{ metal_lot.part }}
+    </a>
 </p>
 
-<p><strong>Vendor:</strong> {{ metal_lot.vendor_lot.vendor }}</p>
-<p><strong>Part:</strong> {{ metal_lot.part }}</p>
-<p><strong>Qty On Hand:</strong> {{ metal_lot.qty_on_hand }}</p>
+<div class="card mb-3">
+    <p><strong>Part:</strong> {{ metal_lot.part }}</p>
+    <p><strong>Vendor Lot:</strong> {{ metal_lot.vendor_lot.lot_num }}</p>
+    <p><strong>Vendor:</strong> {{ metal_lot.vendor_lot.vendor }}</p>
+    <p><strong>Qty On Hand:</strong> {{ metal_lot.qty_on_hand }}</p>
+    <p><strong>Weight On Hand:</strong> {{ metal_lot.weight_on_hand }}</p>
+    <p><strong>Cost:</strong> ${{ metal_lot.cost }}</p>
+</div>
 
-<h2>Receipt Lines for This Inventory Line</h2>
+<h2>Receipt Lines</h2>
 
-<table border="1" cellpadding="8">
-  <thead>
-    <tr>
-      <th>Receipt #</th>
-      <th>Date</th>
-      <th>Vendor Lot</th>
-      <th>Part</th>
-      <th>Qty Received</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for line in receipt_lines %}
-      <tr>
-        <td>
-          <a href="{% url 'culet:metal_receipt_detail' line.receipt.pk %}">
-            {{ line.receipt.pk }}
-          </a>
-        </td>
-        <td>{{ line.receipt.received_at }}</td>
-        <td>{{ line.vendor_lot.lot_num }}</td>
-        <td>{{ line.part }}</td>
-        <td>{{ line.qty_received }}</td>
-      </tr>
-    {% empty %}
-      <tr>
-        <td colspan="5">No receipt lines found for this inventory line.</td>
-      </tr>
-    {% endfor %}
-  </tbody>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Receipt #</th>
+            <th>Date</th>
+            <th>Qty Received</th>
+            <th>Weight Received</th>
+            <th>Cost</th>
+            <th>Reference</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for line in receipt_lines %}
+              <tr data-url="{% url 'culet:metal_receipt_detail' line.receipt.pk %}"
+                  onclick="window.location=this.dataset.url"
+                  style="cursor:pointer;">                
+                <td>{{ line.receipt.pk }}</td>
+                <td>{{ line.receipt.received_at }}</td>
+                <td>{{ line.qty_received }}</td>
+                <td>{{ line.weight_received }}</td>
+                <td>${{ line.cost }}</td>
+                <td>{{ line.receipt.reference }}</td>
+            </tr>
+        {% empty %}
+            <tr>
+                <td colspan="6">No receipt lines found for this lot.</td>
+            </tr>
+        {% endfor %}
+    </tbody>
 </table>
 
 {% endblock content %}
-    

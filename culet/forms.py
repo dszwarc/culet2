@@ -790,3 +790,23 @@ class JobTransferMemoForm(forms.ModelForm):
                 "rows": 3
             }),
         }
+
+class MetalPartInventoryFilterForm(forms.Form):
+    q = forms.CharField(
+        required=False,
+        label="Part",
+        widget=forms.TextInput(attrs={
+            "class": "form-control",
+            "placeholder": "Search part SKU or description",
+        })
+    )
+
+class MetalReceiptLineForm(forms.ModelForm):
+    class Meta:
+        model = MetalReceiptLine
+        fields = [
+            "part",
+            "qty_received",
+            "weight_received",
+            "cost",
+        ]

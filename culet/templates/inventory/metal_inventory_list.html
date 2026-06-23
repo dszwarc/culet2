@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h1>Metal Inventory</h1>
+
+<form method="get" class="mb-3">
+    <div class="form-row">
+        {{ filter_form.q.label_tag }}
+        {{ filter_form.q }}
+        <button type="submit" class="btn btn-primary">Filter</button>
+        <a href="{% url 'culet:metal_inventory_list' %}" class="btn btn-secondary">Clear</a>
+    </div>
+</form>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Part</th>
+            <th>Description</th>
+            <th>Qty On Hand</th>
+            <th>Weight On Hand</th>
+            <th>Total Cost</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for part in parts %}
+            <tr>
+                <td>{{ part.sku }}</td>
+                <td>{{ part.description }}</td>
+                <td>{{ part.total_qty_on_hand|default:"0" }}</td>
+                <td>{{ part.total_weight_on_hand|default:"0" }}</td>
+                <td>${{ part.total_cost|default:"0.00" }}</td>
+                <td>
+                    <a class="btn btn-sm btn-primary"
+                       href="{% url 'culet:metal_part_inventory_detail' part.pk %}">
+                        View Lots
+                    </a>
+                </td>
+            </tr>
+        {% empty %}
+            <tr>
+                <td colspan="6">No metal parts found.</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% endblock content %}

@@ -3,7 +3,7 @@ from django.http import HttpResponse, HttpResponseRedirect, HttpResponseBadReque
 from django.template.loader import render_to_string
 import copy
 from django.db import transaction
-from django.db.models import F, Q, Max, OuterRef, Subquery
+from django.db.models import F, Q, Max, OuterRef, Subquery, Sum
 from django.views import generic
 from django.urls import reverse_lazy, reverse
 from django.utils import timezone
@@ -17,6 +17,7 @@ from collections import defaultdict
 from decimal import Decimal
 
 from .models import (
+    MetalPart,
     JobShip,
     JobMetal,
     MetalVendorLot, 
@@ -42,6 +43,7 @@ from .models import (
 )
 
 from .forms import (
+    MetalPartInventoryFilterForm,
     JobTransferMemoForm,
     JobShipLineFormSet,
     BulkJobShipForm,
@@ -1231,17 +1233,53 @@ class MetalVendorLotDetailView(LoginRequiredMixin, generic.DetailView):
 
         return context
 
-class MetalLotListView(LoginRequiredMixin, generic.ListView):
-    model = MetalLot
-    template_name = "inventory/metal_lot_list.html"
-    context_object_name = "metal_lots"
+class MetalInventoryListView(LoginRequiredMixin, generic.ListView):
+    model = MetalPart
+    template_name = "inventory/metal_inventory_list.html"
+    context_object_name = "parts"
 
     def get_queryset(self):
-        return (
-            MetalLot.objects
-            .select_related("vendor_lot", "vendor_lot__vendor", "part")
-            .order_by("-vendor_lot__received_at", "part__sku")
+        queryset = (
+            MetalPart.objects
+            .annotate(
+                total_qty_on_hand=Sum("metallot__qty_on_hand"),
+                total_weight_on_hand=Sum("metallot__weight_on_hand"),
+                total_cost=Sum("metallot__cost"),
+            )
+            .order_by("sku")
         )
+
+        self.filter_form = MetalPartInventoryFilterForm(self.request.GET or None)
+
+        if self.filter_form.is_valid():
+            q = self.filter_form.cleaned_data.get("q")
+            if q:
+                queryset = queryset.filter(
+                    Q(sku__icontains=q) |
+                    Q(description__icontains=q)
+                )
+
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["filter_form"] = self.filter_form
+        return context
+    
+class MetalPartInventoryDetailView(LoginRequiredMixin, generic.DetailView):
+    model = MetalPart
+    template_name = "inventory/metal_part_inventory_detail.html"
+    context_object_name = "part"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["metal_lots"] = (
+            MetalLot.objects
+            .filter(part=self.object)
+            .select_related("vendor_lot", "vendor_lot__vendor")
+            .order_by("-vendor_lot__received_at", "vendor_lot__lot_num")
+        )
+        return context
 
 class MetalLotReceiveView(LoginRequiredMixin, generic.FormView):
     template_name = "inventory/lot_receive.html"
@@ -1273,14 +1311,12 @@ class MetalLotDetailView(LoginRequiredMixin, generic.DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-
         context["receipt_lines"] = (
             MetalReceiptLine.objects
             .filter(metal_lot=self.object)
             .select_related("receipt", "vendor_lot", "part")
-            .order_by("-receipt__received_at")
+            .order_by("-receipt__received_at", "-receipt__id")
         )
-
         return context
 
 class MetalReceiptCreateView(LoginRequiredMixin, generic.CreateView):

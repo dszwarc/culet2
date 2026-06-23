@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h1>Inventory for {{ part.sku }}</h1>
+
+<p>{{ part.description }}</p>
+
+<p>
+    <a href="{% url 'culet:metal_inventory_list' %}">Back to Metal Inventory</a>
+</p>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Vendor Lot</th>
+            <th>Vendor</th>
+            <th>Received At</th>
+            <th>Qty On Hand</th>
+            <th>Weight On Hand</th>
+            <th>Cost</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for lot in metal_lots %}
+            <tr data-url="{% url 'culet:metal_receipt_detail' line.receipt.pk %}"
+            onclick="window.location=this.dataset.url"
+            style="cursor:pointer;">
+                <td>{{ lot.vendor_lot.lot_num }}</td>
+                <td>{{ lot.vendor_lot.vendor }}</td>
+                <td>{{ lot.vendor_lot.received_at }}</td>
+                <td>{{ lot.qty_on_hand }}</td>
+                <td>{{ lot.weight_on_hand }}</td>
+                <td>${{ lot.cost }}</td>
+            </tr>
+        {% empty %}
+            <tr>
+                <td colspan="6">No lots found for this part.</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% endblock content %}

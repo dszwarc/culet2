@@ -373,8 +373,25 @@ class MetalReceiptLine(models.Model):
         related_name="receipt_lines"
     )
     part = models.ForeignKey(MetalPart, on_delete=models.PROTECT)
-    qty_received = models.DecimalField(max_digits=10,decimal_places=2,null=True,blank=True)
-    weight_received = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True)
+
+    qty_received = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True
+    )
+    weight_received = models.DecimalField(
+        max_digits=10,
+        decimal_places=3,
+        null=True,
+        blank=True
+    )
+    cost = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=0
+    )
+
     metal_lot = models.ForeignKey(
         MetalLot,
         on_delete=models.PROTECT,
