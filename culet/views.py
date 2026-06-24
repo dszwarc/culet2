@@ -82,6 +82,32 @@ from django.contrib import messages
 from django.shortcuts import redirect
 from django.urls import reverse
 
+def get_home_summary_context():
+    total_jobs = Job.objects.filter(active=True, shipped=False).count()
+
+    jobs_in_work = (
+        Job.objects
+        .filter(activity__active=True, activity__end__isnull=True)
+        .distinct()
+        .count()
+    )
+
+    employees_clocked_in = Employee.objects.filter(clocked_in=True).count()
+
+    idle_employees = (
+        Employee.objects
+        .filter(clocked_in=True)
+        .exclude(activity__active=True, activity__end__isnull=True)
+        .distinct()
+        .count()
+    )
+
+    return {
+        "total_jobs": total_jobs,
+        "jobs_in_work": jobs_in_work,
+        "employees_clocked_in": employees_clocked_in,
+        "idle_employees": idle_employees,
+    }
 
 class ClockedInRequiredMixin:
     """
@@ -128,9 +154,17 @@ class HomeView(LoginRequiredMixin, generic.TemplateView):
 
         context["employee_level"] = role.level if role else 0
         context["is_manager_level"] = context["employee_level"] >= 30
+        context.update(get_home_summary_context())
 
         return context
 
+class HomeSummaryPartialView(LoginRequiredMixin, generic.TemplateView):
+    template_name = "partials/home_summary_sidebar.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update(get_home_summary_context())
+        return context
 
 def index(request):
     return render(request, 'authentication/login.html')
@@ -2400,18 +2434,16 @@ class StyleStepTimeReportView(LoginRequiredMixin, generic.TemplateView):
 
         activities = (
             Activity.objects
-            .filter(end__isnull=False)
-            .select_related("job", "job__style", "step")
-            .annotate(
-                duration=ExpressionWrapper(
-                    F("end") - F("start"),
-                    output_field=DurationField(),
-                )
+            .filter(
+                end__isnull=False,
+                duration__isnull=False,
             )
+            .select_related("job", "job__style", "step")
         )
 
         if form.is_valid():
             style = form.cleaned_data.get("style")
+
             if style:
                 activities = activities.filter(job__style=style)
 
@@ -2428,4 +2460,5 @@ class StyleStepTimeReportView(LoginRequiredMixin, generic.TemplateView):
 
         context["form"] = form
         context["rows"] = rows
+
         return context

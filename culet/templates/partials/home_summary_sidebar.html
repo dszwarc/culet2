@@ -1,0 +1,21 @@
+<aside class="home-summary-sidebar">
+    <a href="{% url 'culet:index_job' %}" class="summary-card">
+        <span class="summary-label">Total Jobs</span>
+        <span class="summary-value">{{ total_jobs }}</span>
+    </a>
+
+    <a href="{% url 'culet:report_jobs_by_holder' %}" class="summary-card">
+        <span class="summary-label">Jobs In Work</span>
+        <span class="summary-value">{{ jobs_in_work }}</span>
+    </a>
+
+    <a href="{% url 'culet:report_time_clock' %}" class="summary-card">
+        <span class="summary-label">Employees Clocked In</span>
+        <span class="summary-value">{{ employees_clocked_in }}</span>
+    </a>
+
+    <a href="{% url 'culet:report_clocked_in_idle' %}" class="summary-card">
+        <span class="summary-label">Idle Employees</span>
+        <span class="summary-value">{{ idle_employees }}</span>
+    </a>
+</aside>

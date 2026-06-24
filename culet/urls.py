@@ -5,6 +5,7 @@ from django.views.generic import RedirectView
 app_name = "culet"
 urlpatterns = [
     path("", views.HomeView.as_view(), name="home"),
+    path("htmx/home-summary/",views.HomeSummaryPartialView.as_view(),name="home_summary_partial",),
     path("jobs/", views.JobListView.as_view(), name="index_job"),
     path("jobs/<int:pk>/", views.JobDetailView.as_view(), name="job_detail"),
     path("jobs/<int:pk>/edit/", views.JobUpdateView.as_view(), name="job_update"),

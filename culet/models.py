@@ -485,42 +485,42 @@ class ActivityStep(models.Model):
 
 class Activity(models.Model):
     name = models.CharField(max_length=80)
-    step = models.ForeignKey(ActivityStep, on_delete=models.PROTECT,null=True,blank=True,related_name="activities")
+    step = models.ForeignKey(ActivityStep, on_delete=models.PROTECT, null=True, blank=True, related_name="activities")
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
     start = models.DateTimeField(default=timezone.now)
     end = models.DateTimeField(blank=True, null=True)
+    duration = models.DurationField(null=True, blank=True)
     job = models.ForeignKey(Job, blank=True, null=True, on_delete=models.CASCADE)
     active = models.BooleanField(default=True)
     @property
-    def duration(self):
-        if self.end:
-            duration = (self.end - self.start).total_seconds()/3600
-            return duration
+    def duration_decimal_hours(self):
+        if self.duration:
+            return self.duration.total_seconds() / 3600
+        return 0
 
     @property
     def duration_hours(self):
-        if self.end:
-            duration = (self.end - self.start).total_seconds()//3600
-            return int(duration)
-        
-    @property 
-    def duration_min(self):
-        if self.end:
-            duration = (self.end - self.start).total_seconds()%3600
-            duration = duration//60
-            return int(duration)
-        
+        if self.duration:
+            return int(self.duration.total_seconds() // 3600)
+        return 0
+
     @property
-    def duration(self):
-        if not self.end:
-            return timedelta()
-        return self.end - self.start
+    def duration_min(self):
+        if self.duration:
+            return int((self.duration.total_seconds() % 3600) // 60)
+        return 0
     
 
     def save(self, *args, **kwargs):
         if self.step and not self.name:
             self.name = self.step.name
-        super().save(*args,**kwargs)
+
+        if self.start and self.end:
+            self.duration = self.end - self.start
+        else:
+            self.duration = None
+
+        super().save(*args, **kwargs)
 
     def __str__(self):
         step_name = self.step.name if self.step else self.name

@@ -1,65 +1,78 @@
 {% extends 'base.html' %}
 {% block content %}
 
-<div class="home-page">
+<div class="home-layout">
+    <main class="home-main">
+  <div class="home-page">
 
-  <section class="home-section">
-    <h2>Jobs</h2>
-    <div class="home-grid">
-      <a class="home-tile blue-button" href="{% url 'culet:my_jobs' %}">My Jobs</a>
-      {% if is_manager_level %}
-      <a href="{% url 'culet:job_transfer_memo_create' %}" class="home-tile green-button">Print / Process Transfer Memo</a>
-      <a class="home-tile green-button" href="{% url 'culet:job_ship_bulk' %}">Ship Jobs</a>
-      <a class="home-tile blue-button" href="{% url 'culet:index_job' %}">All Jobs</a>
-      <a class="home-tile green-button" href="{% url 'culet:job_create' %}">Create Job</a>
-      <a class="home-tile red-button" href="{% url 'culet:job_weight_lookup' %}">Update Weights</a>
-      <a class="home-tile blue-button" href="{% url 'culet:assign_job' %}">Assign Jobs</a>
-      <a class="home-tile blue-button" href="{% url 'culet:receive_and_assign_jobs' %}">Receive and Assign Jobs</a>
-      <a class="home-tile blue-button" href="{% url 'culet:job_envelope_print_form' %}">Print Job Envelopes</a>
-      {% endif %}
+    <section class="home-section">
+      <h2>Jobs</h2>
+      <div class="home-grid">
+        <a class="home-tile blue-button" href="{% url 'culet:my_jobs' %}">My Jobs</a>
+        {% if is_manager_level %}
+        <a href="{% url 'culet:job_transfer_memo_create' %}" class="home-tile green-button">Print / Process Transfer Memo</a>
+        <a class="home-tile green-button" href="{% url 'culet:job_ship_bulk' %}">Ship Jobs</a>
+        <a class="home-tile blue-button" href="{% url 'culet:index_job' %}">All Jobs</a>
+        <a class="home-tile green-button" href="{% url 'culet:job_create' %}">Create Job</a>
+        <a class="home-tile red-button" href="{% url 'culet:job_weight_lookup' %}">Update Weights</a>
+        <a class="home-tile blue-button" href="{% url 'culet:assign_job' %}">Assign Jobs</a>
+        <a class="home-tile blue-button" href="{% url 'culet:receive_and_assign_jobs' %}">Receive and Assign Jobs</a>
+        <a class="home-tile blue-button" href="{% url 'culet:job_envelope_print_form' %}">Print Job Envelopes</a>
+        {% endif %}
 
-      <a class="home-tile green-button" href="{% url 'culet:receive_list' %}">Receive Jobs</a>
+        <a class="home-tile green-button" href="{% url 'culet:receive_list' %}">Receive Jobs</a>
+      </div>
+    </section>
+
+  {% if is_manager_level %}
+
+    <section class="home-section">
+      <h2>Styles</h2>
+      <div class="home-grid">
+        <a class="home-tile blue-button" href="{% url 'culet:index_style' %}">Styles</a>
+        <a class="home-tile green-button" href="{% url 'culet:style_create' %}">Create Style</a>
+      </div>
+    </section>
+
+    <section class="home-section">
+      <h2>Inventory</h2>
+      <div class="home-grid">
+        <a class="home-tile blue-button" href="{% url 'culet:metal_receipt_create' %}">Receive Metal</a>
+        <a class="home-tile blue-button" href="{% url 'culet:metal_receipt_list' %}">Metal Receipts</a>
+        <a class="home-tile blue-button" href="{% url 'culet:metal_vendor_lot_list' %}">Vendor Lots</a>
+        <a class="home-tile blue-button" href="{% url 'culet:metal_inventory_list' %}">Metal Inventory</a>
+      </div>
+    </section>
+
+    <section class="home-section">
+      <h2>Reports</h2>
+      <div class="home-grid">
+        <a class="home-tile orange-button" href="{% url 'culet:reporting' %}">Activity Reporting</a>
+        <a class="home-tile red-button" href="{% url 'culet:report_inactive_jobs' %}">Inactive Jobs</a>
+        <a class="home-tile red-button" href="{% url 'culet:report_clocked_in_idle' %}">Idle Employees</a>
+        <a class="home-tile red-button" href="{% url 'culet:report_weight_loss_by_style' %}">Weight Loss by Style</a>
+        <a class="home-tile green-button" href="{% url 'culet:report_employee_activity' %}">Employee Activity</a>
+        <a class="home-tile yellow-button" href="{% url 'culet:report_time_clock' %}">Time Clock Report</a>
+        <a class="home-tile red-button" href="{% url 'culet:report_late_jobs' %}">Late Jobs</a>
+        <a class="home-tile red-button" href="{% url 'culet:report_jobs_by_holder' %}">Jobs Held By Employee</a>
+        <a class="home-tile red-button" href="{% url 'culet:job_shipped_report' %}">Jobs Shipped Report</a>
+        <a class="home-tile red-button" href="{% url 'culet:style_step_time_report' %}">Average Step Time by Style</a>
+      </div>
+    </section>
+
+  {% endif %}
+
+  </div>
+</main>
+
+    <div
+        id="home-summary"
+        hx-get="{% url 'culet:home_summary_partial' %}"
+        hx-trigger="load, every 5s"
+        hx-swap="innerHTML"
+    >
+        {% include "partials/home_summary_sidebar.html" %}
     </div>
-  </section>
-
-{% if is_manager_level %}
-
-  <section class="home-section">
-    <h2>Styles</h2>
-    <div class="home-grid">
-      <a class="home-tile blue-button" href="{% url 'culet:index_style' %}">Styles</a>
-      <a class="home-tile green-button" href="{% url 'culet:style_create' %}">Create Style</a>
-    </div>
-  </section>
-
-  <section class="home-section">
-    <h2>Inventory</h2>
-    <div class="home-grid">
-      <a class="home-tile blue-button" href="{% url 'culet:metal_receipt_create' %}">Receive Metal</a>
-      <a class="home-tile blue-button" href="{% url 'culet:metal_receipt_list' %}">Metal Receipts</a>
-      <a class="home-tile blue-button" href="{% url 'culet:metal_vendor_lot_list' %}">Vendor Lots</a>
-      <a class="home-tile blue-button" href="{% url 'culet:metal_inventory_list' %}">Metal Inventory</a>
-    </div>
-  </section>
-
-  <section class="home-section">
-    <h2>Reports</h2>
-    <div class="home-grid">
-      <a class="home-tile orange-button" href="{% url 'culet:reporting' %}">Activity Reporting</a>
-      <a class="home-tile red-button" href="{% url 'culet:report_inactive_jobs' %}">Inactive Jobs</a>
-      <a class="home-tile red-button" href="{% url 'culet:report_clocked_in_idle' %}">Idle Employees</a>
-      <a class="home-tile red-button" href="{% url 'culet:report_weight_loss_by_style' %}">Weight Loss by Style</a>
-      <a class="home-tile green-button" href="{% url 'culet:report_employee_activity' %}">Employee Activity</a>
-      <a class="home-tile yellow-button" href="{% url 'culet:report_time_clock' %}">Time Clock Report</a>
-      <a class="home-tile red-button" href="{% url 'culet:report_late_jobs' %}">Late Jobs</a>
-      <a class="home-tile red-button" href="{% url 'culet:report_jobs_by_holder' %}">Jobs Held By Employee</a>
-      <a class="home-tile red-button" href="{% url 'culet:job_shipped_report' %}">Jobs Shipped Report</a>
-      <a class="home-tile red-button" href="{% url 'culet:style_step_time_report' %}">Average Step Time by Style</a>
-    </div>
-  </section>
-
-{% endif %}
-
 </div>
 
 {% endblock content %}
