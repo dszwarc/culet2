@@ -20,6 +20,9 @@ from itertools import chain
 from operator import itemgetter
 
 from .models import (
+    FailureType,
+    QualityInspection,
+    QualityInspectionFailure,
     PieceworkMemoLine,
     PieceworkMemo,
     MetalPart,
@@ -49,6 +52,8 @@ from .models import (
 )
 
 from .forms import (
+    QualityInspectionForm,
+    QualityFailureReportForm,   
     MemoFilterForm,
     PieceworkScanForm,
     PieceworkMemoCreateForm,
@@ -2742,7 +2747,7 @@ class MemoListView(LoginRequiredMixin, generic.TemplateView):
         for memo in transfer_memos:
             memo_rows.append({
                 "type": "Transfer",
-                "id": memo.id,
+                "memo_num": memo.memo_num,
                 "created_at": memo.created_at,
                 "created_by": memo.created_by,
                 "from_location": memo.from_location,
@@ -2770,4 +2775,109 @@ class MemoListView(LoginRequiredMixin, generic.TemplateView):
 
         context["form"] = form
         context["memo_rows"] = memo_rows
+        return context
+    
+class QualityInspectionCreateView(LoginRequiredMixin, generic.TemplateView):
+    template_name = "jobs/quality_inspection.html"
+    success_url = reverse_lazy("culet:quality_inspection")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["form"] = QualityInspectionForm()
+        return context
+
+    def post(self, request, *args, **kwargs):
+        form = QualityInspectionForm(request.POST)
+
+        if not form.is_valid():
+            return self.render_to_response({"form": form})
+
+        employee = get_object_or_404(Employee, user=request.user)
+        barcode = form.cleaned_data["barcode"]
+
+        job = Job.objects.filter(barcode=barcode).first()
+
+        if not job:
+            messages.error(request, f"No job found with barcode {barcode}.")
+            return self.render_to_response({"form": form})
+
+        with transaction.atomic():
+            inspection = QualityInspection.objects.create(
+                job=job,
+                inspected_by=employee,
+                result=form.cleaned_data["result"],
+                notes=form.cleaned_data.get("notes", ""),
+            )
+
+            if inspection.result == QualityInspection.RESULT_FAIL:
+                for failure_type in form.cleaned_data["failure_types"]:
+                    QualityInspectionFailure.objects.create(
+                        inspection=inspection,
+                        failure_type=failure_type,
+                    )
+
+        if inspection.result == QualityInspection.RESULT_PASS:
+            messages.success(request, f"Job {job.barcode} passed QC.")
+        else:
+            messages.error(request, f"Job {job.barcode} failed QC.")
+
+        return redirect(self.success_url)
+
+
+class QualityFailureReportView(LoginRequiredMixin, generic.TemplateView):
+    template_name = "reports/quality_failures.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        form = QualityFailureReportForm(self.request.GET or None)
+
+        failures = (
+            QualityInspectionFailure.objects
+            .select_related(
+                "inspection",
+                "inspection__job",
+                "inspection__job__style",
+                "inspection__job__customer",
+                "inspection__inspected_by",
+                "inspection__inspected_by__user",
+                "failure_type",
+            )
+            .order_by("-inspection__inspected_at")
+        )
+
+        if form.is_valid():
+            start_date = form.cleaned_data.get("start_date")
+            end_date = form.cleaned_data.get("end_date")
+            failure_type = form.cleaned_data.get("failure_type")
+            style = form.cleaned_data.get("style")
+            customer = form.cleaned_data.get("customer")
+
+            if start_date:
+                failures = failures.filter(inspection__inspected_at__date__gte=start_date)
+
+            if end_date:
+                failures = failures.filter(inspection__inspected_at__date__lte=end_date)
+
+            if failure_type:
+                failures = failures.filter(failure_type=failure_type)
+
+            if style:
+                failures = failures.filter(inspection__job__style=style)
+
+            if customer:
+                failures = failures.filter(inspection__job__customer=customer)
+
+        reason_rows = (
+            failures
+            .values("failure_type__name")
+            .annotate(total=Count("id"))
+            .order_by("-total", "failure_type__name")
+        )
+
+        context["form"] = form
+        context["failures"] = failures
+        context["reason_rows"] = reason_rows
+        context["total_failures"] = failures.count()
+
         return context

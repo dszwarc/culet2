@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Quality Failures Report</h1>
+
+<form method="get" class="form-card">
+    {{ form.as_p }}
+
+    <button type="submit" class="btn btn-primary">Filter</button>
+    <a href="{% url 'culet:quality_failure_report' %}" class="btn btn-secondary">Clear</a>
+</form>
+
+<p><strong>Total Failures:</strong> {{ total_failures }}</p>
+
+<h2>Failures by Type</h2>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Failure Type</th>
+            <th>Total</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in reason_rows %}
+            <tr>
+                <td>{{ row.failure_type__name }}</td>
+                <td>{{ row.total }}</td>
+            </tr>
+        {% empty %}
+            <tr>
+                <td colspan="2">No failures found.</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h2>Failure Detail</h2>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Date Checked</th>
+            <th>Barcode</th>
+            <th>Stock #</th>
+            <th>Style</th>
+            <th>Customer</th>
+            <th>Failure Type</th>
+            <th>Inspector</th>
+            <th>Notes</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for failure in failures %}
+            <tr>
+                <td>{{ failure.inspection.inspected_at }}</td>
+                <td>
+                    <a href="{% url 'culet:job_detail' failure.inspection.job.pk %}">
+                        {{ failure.inspection.job.barcode }}
+                    </a>
+                </td>
+                <td>{{ failure.inspection.job.stock_num|default:"" }}</td>
+                <td>{{ failure.inspection.job.style }}</td>
+                <td>{{ failure.inspection.job.customer }}</td>
+                <td>{{ failure.failure_type.name }}</td>
+                <td>{{ failure.inspection.inspected_by }}</td>
+                <td>{{ failure.inspection.notes }}</td>
+            </tr>
+        {% empty %}
+            <tr>
+                <td colspan="8">No QC failures found.</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

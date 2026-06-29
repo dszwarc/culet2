@@ -198,6 +198,22 @@ class Job(models.Model):
     is_piecework = models.BooleanField(default=False)
     piecework_assigned_at = models.DateTimeField(null=True, blank=True)
 
+    @property
+    def current_piecework_memo(self):
+        line = (
+            self.pieceworkmemoline_set
+            .filter(memo__returned_at__isnull=True)
+            .select_related("memo")
+            .order_by("-memo__created_at")
+            .first()
+        )
+        return line.memo if line else None
+
+    @property
+    def piecework_due_back(self):
+        memo = self.current_piecework_memo
+        return memo.due_back if memo else None
+
     def save(self,*args, **kwargs):
         if self.barcode is None:
             with transaction.atomic():
@@ -263,6 +279,67 @@ class JobShip(models.Model):
     def __str__(self):
         return f"{self.job} shipped at {self.shipped_at}"
     
+class FailureType(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["sort_order", "name"]
+
+    def __str__(self):
+        return self.name
+
+
+class QualityInspection(models.Model):
+    RESULT_PASS = "pass"
+    RESULT_FAIL = "fail"
+
+    RESULT_CHOICES = [
+        (RESULT_PASS, "Passed"),
+        (RESULT_FAIL, "Failed"),
+    ]
+
+    job = models.ForeignKey(
+        Job,
+        on_delete=models.CASCADE,
+        related_name="quality_inspections",
+    )
+    inspected_by = models.ForeignKey(
+        Employee,
+        on_delete=models.PROTECT,
+        related_name="quality_inspections",
+    )
+    inspected_at = models.DateTimeField(default=timezone.now)
+    result = models.CharField(max_length=10, choices=RESULT_CHOICES)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-inspected_at"]
+
+    def __str__(self):
+        return f"{self.job} - {self.get_result_display()} - {self.inspected_at:%Y-%m-%d}"
+
+
+class QualityInspectionFailure(models.Model):
+    inspection = models.ForeignKey(
+        QualityInspection,
+        on_delete=models.CASCADE,
+        related_name="failures",
+    )
+    failure_type = models.ForeignKey(
+        FailureType,
+        on_delete=models.PROTECT,
+        related_name="inspection_failures",
+    )
+    notes = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        ordering = ["failure_type__sort_order", "failure_type__name"]
+
+    def __str__(self):
+        return f"{self.inspection.job} - {self.failure_type}"
+
 class JobWeight(models.Model):
     job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="weights")
     weight = models.DecimalField(max_digits=10, decimal_places=3, default=0, verbose_name="Piece Weight")

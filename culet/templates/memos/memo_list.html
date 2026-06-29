@@ -56,7 +56,7 @@
             {% for memo in memo_rows %}
                 <tr>
                     <td>{{ memo.type }}</td>
-                    <td>{{ memo.id }}</td>
+                    <td>{{ memo.memo_num }}</td>
                     <td>{{ memo.created_at }}</td>
                     <td>{{ memo.created_by }}</td>
                     <td>{{ memo.assigned_to|default:"-" }}</td>

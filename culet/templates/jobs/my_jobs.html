@@ -24,43 +24,68 @@
                         <td {% if job.is_past_due%}class="past_due"{% else %}{% endif %}>{{ job.due }}</td>
                         <td>{{ job.active }}</td>
                         <td>
-                            {% if job.in_work and job.active_activity %}
+                            {% if job.is_piecework %}
+
+                                <div class="piecework-card">
+                                    <div class="piecework-title">
+                                        Piecework
+                                    </div>
+
+                                    <div class="piecework-date">
+                                        Return by:<br>
+
+                                        {% if job.piecework_due_back %}
+                                            {{ job.piecework_due_back|date:"M j, Y" }}
+                                        {% else %}
+                                            No due date
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                            {% elif job.in_work and job.active_activity %}
+
                                 <form
-                                method="post"
-                                action="{% url 'culet:stop_work' job.active_activity.id job.id %}"
-                                style="display:inline;"
+                                    method="post"
+                                    action="{% url 'culet:stop_work' job.active_activity.id job.id %}"
+                                    style="display:inline;"
                                 >
-                                {% csrf_token %}
-                                <button
-                                    type="submit"
-                                    class="btn btn-danger"
-                                    onclick="return confirm('Stop work on Job {{ job.barcode }}?');"
-                                >
-                                    Stop Work
-                                </button>
+                                    {% csrf_token %}
+
+                                    <button
+                                        type="submit"
+                                        class="btn btn-danger"
+                                        onclick="return confirm('Stop work on Job {{ job.barcode }}?');"
+                                    >
+                                        Stop Work
+                                    </button>
                                 </form>
+
                             {% else %}
+
                                 <form method="post" action="{% url 'culet:start_work' %}" style="display:inline;">
-                                {% csrf_token %}
-                                <input type="hidden" name="job_id" value="{{ job.id }}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="job_id" value="{{ job.id }}">
 
-                                <select name="step" required>
-                                    <option value="">Choose step</option>
-                                    {% for step in activity_start_form.fields.step.queryset %}
-                                    <option value="{{ step.id }}">{{ step.name }}</option>
-                                    {% endfor %}
-                                </select>
+                                    <select name="step" required>
+                                        <option value="">Choose step</option>
 
-                                <button
-                                    type="submit"
-                                    class="btn btn-success"
-                                    onclick="return confirm('Start work on Job {{ job.barcode }}?');"
-                                >
-                                    Start Work
-                                </button>
+                                        {% for step in activity_start_form.fields.step.queryset %}
+                                            <option value="{{ step.id }}">
+                                                {{ step.name }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+
+                                    <button
+                                        type="submit"
+                                        class="btn btn-success"
+                                        onclick="return confirm('Start work on Job {{ job.barcode }}?');"
+                                    >
+                                        Start Work
+                                    </button>
                                 </form>
+
                             {% endif %}
-                        
                         </td>
                     </tr>
                 

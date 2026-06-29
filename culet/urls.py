@@ -66,4 +66,8 @@ urlpatterns = [
     path("jobs/transfer-memo/",views.JobTransferMemoCreateView.as_view(),name="job_transfer_memo_create"),
     path("jobs/transfer-memo/<int:pk>/print/",views.JobTransferMemoPrintView.as_view(),name="job_transfer_memo_print"),
     path("memos/", views.MemoListView.as_view(), name="memo_list"),
+
+    #QC
+    path("jobs/quality-inspection/", views.QualityInspectionCreateView.as_view(), name="quality_inspection"),
+    path("reports/quality-failures/", views.QualityFailureReportView.as_view(), name="quality_failure_report"),
     ]

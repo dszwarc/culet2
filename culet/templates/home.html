@@ -10,6 +10,7 @@
       <div class="home-grid">
         <a class="home-tile blue-button" href="{% url 'culet:my_jobs' %}">My Jobs</a>
         {% if is_manager_level %}
+        <a class="home-tile orange-button" href="{% url 'culet:quality_inspection' %}">Quality Inspection</a>
         <a href="{% url 'culet:job_transfer_memo_create' %}" class="home-tile green-button">Print / Process Transfer Memo</a>
         <a class="home-tile green-button" href="{% url 'culet:job_ship_bulk' %}">Ship Jobs</a>
         <a class="home-tile" href="{% url 'culet:index_job' %}">All Jobs</a>
@@ -65,6 +66,7 @@
         <a class="home-tile" href="{% url 'culet:job_shipped_report' %}">Jobs Shipped Report</a>
         <a class="home-tile" href="{% url 'culet:style_step_time_report' %}">Average Step Time by Style</a>
         <a class="home-tile" href="{% url 'culet:memo_list' %}">Memos</a>
+        <a class="home-tile red-button" href="{% url 'culet:quality_failure_report' %}">QC Failures Report</a>
       </div>
     </section>
 

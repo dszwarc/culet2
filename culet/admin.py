@@ -1,7 +1,7 @@
 from django.contrib import admin
 
 # Register your models here.
-from .models import StyleFinding,TimeClock,JobStatus, Location, Role, ActivityStep,Step, Vendor, StoneShape, FindingType, FindingStock,StyleStone,StyleMetal,MetalLot,MetalPart, Job, Style, Activity, Employee, Customer, Department, MetalType, StoneType
+from .models import FailureType,QualityInspection,QualityInspectionFailure,StyleFinding,TimeClock,JobStatus, Location, Role, ActivityStep,Step, Vendor, StoneShape, FindingType, FindingStock,StyleStone,StyleMetal,MetalLot,MetalPart, Job, Style, Activity, Employee, Customer, Department, MetalType, StoneType
 
 admin.site.register(Job)
 admin.site.register(Style)
@@ -26,3 +26,6 @@ admin.site.register(Location)
 admin.site.register(JobStatus)
 admin.site.register(TimeClock)
 admin.site.register(StyleFinding)
+admin.site.register(FailureType)
+admin.site.register(QualityInspection)
+admin.site.register(QualityInspectionFailure)

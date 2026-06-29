@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h1>Quality Inspection</h1>
+
+    <form method="post" class="form-card">
+        {% csrf_token %}
+
+        {{ form.non_field_errors }}
+
+        <p>
+            {{ form.barcode.label_tag }}
+            {{ form.barcode }}
+            {{ form.barcode.errors }}
+        </p>
+
+        <p>
+            {{ form.result.label_tag }}
+            {{ form.result }}
+            {{ form.result.errors }}
+        </p>
+
+        <div id="failure-types-row">
+            <label>Failure Type(s)</label>
+            {{ form.failure_types }}
+            {{ form.failure_types.errors }}
+        </div>
+
+        <p>
+            {{ form.notes.label_tag }}
+            {{ form.notes }}
+            {{ form.notes.errors }}
+        </p>
+
+        <button type="submit" class="btn btn-primary">
+            Submit Inspection
+        </button>
+    </form>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const resultSelect = document.getElementById("id_result");
+    const failureRow = document.getElementById("failure-types-row");
+    const barcodeInput = document.getElementById("id_barcode");
+
+    function toggleFailureTypes() {
+        if (resultSelect.value === "fail") {
+            failureRow.style.display = "block";
+        } else {
+            failureRow.style.display = "none";
+        }
+    }
+
+    resultSelect.addEventListener("change", toggleFailureTypes);
+    toggleFailureTypes();
+
+    if (barcodeInput) {
+        barcodeInput.focus();
+    }
+});
+</script>
+{% endblock %}

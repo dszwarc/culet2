@@ -6,6 +6,9 @@ from decimal import Decimal
 from django.core.exceptions import ValidationError
 
 from .models import (
+    FailureType,
+    QualityInspection,
+    QualityInspectionFailure,
     Location,
     PieceworkMemo,
     Customer,
@@ -904,4 +907,82 @@ class MemoFilterForm(forms.Form):
     created_end = forms.DateField(
         required=False,
         widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+    )
+
+class QualityInspectionForm(forms.Form):
+    barcode = forms.CharField(
+        label="Job Barcode",
+        widget=text_widget("Scan job barcode"),
+    )
+
+    result = forms.ChoiceField(
+        label="Inspection Result",
+        choices=QualityInspection.RESULT_CHOICES,
+        widget=select_widget(),
+    )
+
+    failure_types = forms.ModelMultipleChoiceField(
+        label="Failure Type(s)",
+        queryset=FailureType.objects.filter(active=True),
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+    )
+
+    notes = forms.CharField(
+        label="Notes",
+        required=False,
+        widget=textarea_widget("Optional QC notes", rows=3),
+    )
+
+    def clean_barcode(self):
+        barcode = self.cleaned_data["barcode"].strip()
+
+        try:
+            return int(barcode)
+        except ValueError:
+            raise forms.ValidationError("Barcode must be a number.")
+
+    def clean(self):
+        cleaned_data = super().clean()
+        result = cleaned_data.get("result")
+        failure_types = cleaned_data.get("failure_types")
+
+        if result == QualityInspection.RESULT_FAIL and not failure_types:
+            self.add_error(
+                "failure_types",
+                "Choose at least one failure type when a job fails QC.",
+            )
+
+        if result == QualityInspection.RESULT_PASS and failure_types:
+            self.add_error(
+                "failure_types",
+                "Passed inspections should not have failure types.",
+            )
+
+        return cleaned_data
+
+
+class QualityFailureReportForm(forms.Form):
+    start_date = forms.DateField(required=False, widget=date_widget())
+    end_date = forms.DateField(required=False, widget=date_widget())
+
+    failure_type = forms.ModelChoiceField(
+        queryset=FailureType.objects.filter(active=True),
+        required=False,
+        empty_label="All failure types",
+        widget=select_widget(),
+    )
+
+    style = forms.ModelChoiceField(
+        queryset=Style.objects.all().order_by("name"),
+        required=False,
+        empty_label="All styles",
+        widget=select_widget(),
+    )
+
+    customer = forms.ModelChoiceField(
+        queryset=Customer.objects.all().order_by("name"),
+        required=False,
+        empty_label="All customers",
+        widget=select_widget(),
     )
