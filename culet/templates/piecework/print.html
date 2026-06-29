@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container print-memo">
+    <h1>Piecework Memo #{{ memo.memo_num }}</h1>
+
+    <p><strong>Date:</strong> {{ memo.created_at }}</p>
+    <p><strong>Assigned By:</strong> {{ memo.created_by }}</p>
+    <p><strong>Assigned To:</strong> {{ memo.assigned_to }}</p>
+    <p><strong>From:</strong> {{ memo.from_location }}</p>
+    <p><strong>To:</strong> {{ memo.to_location }}</p>
+
+    {% if memo.due_back %}
+        <p><strong>Due Back:</strong> {{ memo.due_back }}</p>
+    {% endif %}
+
+    {% if memo.notes %}
+        <p><strong>Notes:</strong> {{ memo.notes }}</p>
+    {% endif %}
+
+    <hr>
+
+    <table class="index_table">
+        <tr>
+            <th>Barcode</th>
+            <th>Stock</th>
+            <th>Name</th>
+            <th>Style</th>
+            <th>Customer</th>
+            <th>Due</th>
+        </tr>
+
+        {% for line in memo.lines.all %}
+            <tr>
+                <td>{{ line.job.barcode }}</td>
+                <td>
+                    {% if line.job.stock_num %}
+                        {{ line.job.stock_num }}
+                    {% elif line.job.barcode %}
+                        {{ line.job.barcode }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td>{{ line.job.name }}</td>
+                <td>{{ line.job.style }}</td>
+                <td>{{ line.job.customer }}</td>
+                <td>{{ line.job.due }}</td>
+            </tr>
+        {% endfor %}
+    </table>
+
+    <br><br>
+
+    <p>Employee Signature: ________________________________</p>
+    <p>Supervisor Signature: ______________________________</p>
+
+    <button onclick="window.print()" class="btn btn-primary no-print">
+        Print Memo
+    </button>
+</div>
+{% endblock %}

@@ -6,6 +6,8 @@ from decimal import Decimal
 from django.core.exceptions import ValidationError
 
 from .models import (
+    Location,
+    PieceworkMemo,
     Customer,
     Department,
     JobWeight,
@@ -844,3 +846,62 @@ class StyleStepTimeReportForm(forms.Form):
         widget=select_widget(),
     )
 
+class PieceworkMemoCreateForm(forms.ModelForm):
+    class Meta:
+        model = PieceworkMemo
+        fields = ["assigned_to", "due_back", "notes"]
+
+        widgets = {
+            "due_back": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+        }
+
+
+class PieceworkScanForm(forms.Form):
+    scans = forms.CharField(
+        label="Scan jobs",
+        widget=forms.Textarea(
+            attrs={
+                "class": "form-control",
+                "rows": 10,
+                "placeholder": "Scan one barcode per line",
+                "autofocus": "autofocus",
+            }
+        ),
+        help_text="Scan or enter one job barcode per line.",
+    )
+
+class MemoFilterForm(forms.Form):
+    MEMO_TYPE_CHOICES = [
+        ("", "All Memo Types"),
+        ("transfer", "Transfer"),
+        ("piecework", "Piecework"),
+    ]
+
+    memo_type = forms.ChoiceField(
+        choices=MEMO_TYPE_CHOICES,
+        required=False,
+        widget=forms.Select(attrs={"class": "form-control"}),
+    )
+
+    from_location = forms.ModelChoiceField(
+        queryset=Location.objects.all().order_by("name"),
+        required=False,
+        widget=forms.Select(attrs={"class": "form-control"}),
+    )
+
+    to_location = forms.ModelChoiceField(
+        queryset=Location.objects.all().order_by("name"),
+        required=False,
+        widget=forms.Select(attrs={"class": "form-control"}),
+    )
+
+    created_start = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+    )
+
+    created_end = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+    )

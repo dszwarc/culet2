@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h1>Memos</h1>
+
+    <form method="get" class="form_box">
+        <div class="filter-grid">
+            <div>
+                <label>Memo Type</label>
+                {{ form.memo_type }}
+            </div>
+
+            <div>
+                <label>From</label>
+                {{ form.from_location }}
+            </div>
+
+            <div>
+                <label>To</label>
+                {{ form.to_location }}
+            </div>
+
+            <div>
+                <label>Created Start</label>
+                {{ form.created_start }}
+            </div>
+
+            <div>
+                <label>Created End</label>
+                {{ form.created_end }}
+            </div>
+        </div>
+
+        <br>
+
+        <button type="submit" class="btn btn-primary">Filter</button>
+        <a href="{% url 'culet:memo_list' %}" class="btn btn-secondary">Clear</a>
+    </form>
+
+    <br>
+
+    {% if memo_rows %}
+        <table class="index_table">
+            <tr>
+                <th>Type</th>
+                <th>Memo #</th>
+                <th>Created</th>
+                <th>Created By</th>
+                <th>Assigned To</th>
+                <th>From</th>
+                <th>To</th>
+                <th>Actions</th>
+            </tr>
+
+            {% for memo in memo_rows %}
+                <tr>
+                    <td>{{ memo.type }}</td>
+                    <td>{{ memo.id }}</td>
+                    <td>{{ memo.created_at }}</td>
+                    <td>{{ memo.created_by }}</td>
+                    <td>{{ memo.assigned_to|default:"-" }}</td>
+                    <td>{{ memo.from_location }}</td>
+                    <td>{{ memo.to_location }}</td>
+                    <td>
+                        <a href="{{ memo.detail_url }}" class="btn btn-primary">
+                            View Memo
+                        </a>
+                    </td>
+                </tr>
+            {% endfor %}
+        </table>
+    {% else %}
+        <p>No memos found.</p>
+    {% endif %}
+</div>
+{% endblock %}

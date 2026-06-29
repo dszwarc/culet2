@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h1>Assign Piecework</h1>
+
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="form_box">
+            <h3>Memo Info</h3>
+            {{ memo_form.as_p }}
+        </div>
+
+        <div class="form_box">
+            <h3>Jobs</h3>
+            {{ scan_form.as_p }}
+        </div>
+
+        <button type="submit" class="btn btn-primary">
+            Create Piecework Memo
+        </button>
+    </form>
+</div>
+{% endblock %}

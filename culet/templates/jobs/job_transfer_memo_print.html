@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Transfer Memo #{{ memo.pk }}</title>
+    <title>Transfer Memo #{{ memo.memo_num }}</title>
 
     <style>
         body {
@@ -80,7 +80,7 @@
 
     <div class="memo-header">
         <div>
-            <h1>Transfer Memo #{{ memo.pk }}</h1>
+            <h1>Transfer Memo #{{ memo.memo_num }}</h1>
             <div>Date: {{ memo.created_at|date:"m/d/Y g:i A" }}</div>
         </div>
 

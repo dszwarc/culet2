@@ -1,21 +1,39 @@
 <aside class="home-summary-sidebar">
-    <a href="{% url 'culet:index_job' %}" class="summary-card">
+
+    <a href="{% url 'culet:index_job' %}" class="summary-card summary-blue">
+        <span class="summary-stripe"></span>
         <span class="summary-label">Total Jobs</span>
         <span class="summary-value">{{ total_jobs }}</span>
     </a>
 
-    <a href="{% url 'culet:report_jobs_by_holder' %}" class="summary-card">
+    <a href="{% url 'culet:report_jobs_by_holder' %}" class="summary-card summary-green">
+        <span class="summary-stripe"></span>
         <span class="summary-label">Jobs In Work</span>
         <span class="summary-value">{{ jobs_in_work }}</span>
     </a>
 
-    <a href="{% url 'culet:report_time_clock' %}" class="summary-card">
+    <a href="{% url 'culet:report_time_clock' %}" class="summary-card summary-blue">
+        <span class="summary-stripe"></span>
         <span class="summary-label">Employees Clocked In</span>
         <span class="summary-value">{{ employees_clocked_in }}</span>
     </a>
 
-    <a href="{% url 'culet:report_clocked_in_idle' %}" class="summary-card">
+    <a href="{% url 'culet:report_clocked_in_idle' %}" class="summary-card summary-orange">
+        <span class="summary-stripe"></span>
         <span class="summary-label">Idle Employees</span>
         <span class="summary-value">{{ idle_employees }}</span>
     </a>
+
+    <a href="{% url 'culet:report_inactive_jobs' %}?days=7" class="summary-card summary-red">
+        <span class="summary-stripe"></span>
+        <span class="summary-label">Inactive &gt; 7 Days</span>
+        <span class="summary-value">{{ inactive_jobs_7_days }}</span>
+    </a>
+
+    <a href="{% url 'culet:report_late_jobs' %}" class="summary-card summary-red">
+        <span class="summary-stripe"></span>
+        <span class="summary-label">Late Jobs</span>
+        <span class="summary-value">{{ late_jobs }}</span>
+    </a>
+
 </aside>

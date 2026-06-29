@@ -195,6 +195,8 @@ class Job(models.Model):
         blank=True,
         related_name="jobs",
     )    
+    is_piecework = models.BooleanField(default=False)
+    piecework_assigned_at = models.DateTimeField(null=True, blank=True)
 
     def save(self,*args, **kwargs):
         if self.barcode is None:
@@ -546,6 +548,7 @@ class TimeClock(models.Model):
         return 0
     
 class JobTransferMemo(models.Model):
+    memo_num = models.CharField(max_length=20, unique=True, blank=True, editable=False)
     created_at = models.DateTimeField(default=timezone.now, editable=False)
     created_by = models.ForeignKey(
         Employee,
@@ -572,6 +575,13 @@ class JobTransferMemo(models.Model):
     )
 
     notes = models.TextField(blank=True)
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+
+        if not self.memo_num:
+            self.memo_num = f"TM-{self.pk:06d}"
+            super().save(update_fields=["memo_num"])
 
     def __str__(self):
         return f"Transfer Memo #{self.pk}"
@@ -607,3 +617,34 @@ class JobTransferMemoLine(models.Model):
 
     def __str__(self):
         return f"{self.memo} - {self.job}"
+    
+class PieceworkMemo(models.Model):
+    memo_num = models.CharField(max_length=20, unique=True, blank=True, editable=False)
+    created_by = models.ForeignKey(Employee, on_delete=models.PROTECT, related_name="piecework_memos_created")
+    assigned_to = models.ForeignKey(Employee, on_delete=models.PROTECT, related_name="piecework_memos_assigned")
+    created_at = models.DateTimeField(default=timezone.now)
+
+    from_location = models.ForeignKey(Location, on_delete=models.PROTECT, related_name="+")
+    to_location = models.ForeignKey(Location, on_delete=models.PROTECT, related_name="+")
+
+    due_back = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+
+    returned_at = models.DateTimeField(null=True, blank=True)
+    returned_by = models.ForeignKey(Employee, on_delete=models.PROTECT, null=True, blank=True, related_name="piecework_memos_returned")
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+
+        if not self.memo_num:
+            self.memo_num = f"PW-{self.pk:06d}"
+            super().save(update_fields=["memo_num"])
+
+    def __str__(self):
+        return self.memo_num or f"Piecework Memo {self.pk}"
+
+class PieceworkMemoLine(models.Model):
+    memo = models.ForeignKey(PieceworkMemo, on_delete=models.CASCADE, related_name="lines")
+    job = models.ForeignKey(Job, on_delete=models.PROTECT)
+    notes = models.CharField(max_length=255, blank=True)
+

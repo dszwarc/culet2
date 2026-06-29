@@ -43,6 +43,10 @@ urlpatterns = [
     path("inventory/metal/lots/<int:pk>/", views.MetalLotDetailView.as_view(), name="metal_lot_detail"),
     path("inventory/", views.InventoryDashboardView.as_view(), name="inventory_dashboard"),
 
+    path("piecework/create/", views.PieceworkCreateView.as_view(), name="piecework_create"),
+    path("piecework/open/", views.PieceworkOpenListView.as_view(), name="piecework_open"),
+    path("piecework/<int:pk>/print/", views.PieceworkPrintView.as_view(), name="piecework_print"),
+    path("piecework/<int:pk>/return/", views.PieceworkReturnView.as_view(), name="piecework_return"),
 
     #Reports Below This Line
     path("reports/inactive-jobs/", views.InactiveJobsReportView.as_view(), name="report_inactive_jobs"),
@@ -61,4 +65,5 @@ urlpatterns = [
     path("jobs/<int:pk>/print-envelope/", views.JobEnvelopePrintView.as_view(), name="job_envelope_print"),
     path("jobs/transfer-memo/",views.JobTransferMemoCreateView.as_view(),name="job_transfer_memo_create"),
     path("jobs/transfer-memo/<int:pk>/print/",views.JobTransferMemoPrintView.as_view(),name="job_transfer_memo_print"),
+    path("memos/", views.MemoListView.as_view(), name="memo_list"),
     ]

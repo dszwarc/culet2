@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h1>Return Piecework Memo #{{ memo.id }}</h1>
+
+    <p><strong>Assigned To:</strong> {{ memo.assigned_to }}</p>
+    <p><strong>Created:</strong> {{ memo.created_at }}</p>
+
+    <table class="index_table">
+        <tr>
+            <th>Barcode</th>
+            <th>Name</th>
+            <th>Style</th>
+            <th>Customer</th>
+        </tr>
+
+        {% for line in memo.lines.all %}
+            <tr>
+                <td>{{ line.job.barcode }}</td>
+                <td>{{ line.job.name }}</td>
+                <td>{{ line.job.style }}</td>
+                <td>{{ line.job.customer }}</td>
+            </tr>
+        {% endfor %}
+    </table>
+
+    <form method="post">
+        {% csrf_token %}
+
+        <label for="return_location">Return Location</label>
+        <select name="return_location" id="return_location" class="form-control" required>
+            {% for location in locations %}
+                <option value="{{ location.id }}">{{ location.name }}</option>
+            {% endfor %}
+        </select>
+
+        <br>
+
+        <button type="submit" class="btn btn-primary">
+            Mark Returned
+        </button>
+    </form>
+</div>
+{% endblock %}

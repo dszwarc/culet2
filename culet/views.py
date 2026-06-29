@@ -16,8 +16,12 @@ from .filters import JobFilter, ActivityFilter
 from datetime import timedelta, datetime, time, date
 from collections import defaultdict
 from decimal import Decimal
+from itertools import chain
+from operator import itemgetter
 
 from .models import (
+    PieceworkMemoLine,
+    PieceworkMemo,
     MetalPart,
     JobShip,
     JobMetal,
@@ -41,9 +45,13 @@ from .models import (
     JobFinding,
     JobTransferMemo,
     JobTransferMemoLine,
+    PieceworkMemo,
 )
 
 from .forms import (
+    MemoFilterForm,
+    PieceworkScanForm,
+    PieceworkMemoCreateForm,
     StyleStepTimeReportForm,
     JobShippedReportForm,
     MetalPartInventoryFilterForm,
@@ -83,6 +91,10 @@ from django.shortcuts import redirect
 from django.urls import reverse
 
 def get_home_summary_context():
+    now = timezone.now()
+    today = timezone.localdate()
+    inactive_cutoff = now - timedelta(days=7)
+
     total_jobs = Job.objects.filter(active=True, shipped=False).count()
 
     jobs_in_work = (
@@ -102,12 +114,57 @@ def get_home_summary_context():
         .count()
     )
 
+    inactive_jobs_7_days = (
+        Job.objects
+        .filter(active=True, shipped=False)
+        .annotate(last_activity_start=Max("activity__start"))
+        .filter(
+            Q(last_activity_start__lt=inactive_cutoff) |
+            Q(last_activity_start__isnull=True, created__lt=inactive_cutoff)
+        )
+        .count()
+    )
+
+    late_jobs = (
+        Job.objects
+        .filter(
+            active=True,
+            shipped=False,
+            due__lt=today,
+        )
+        .count()
+    )
+
     return {
         "total_jobs": total_jobs,
         "jobs_in_work": jobs_in_work,
         "employees_clocked_in": employees_clocked_in,
         "idle_employees": idle_employees,
+        "inactive_jobs_7_days": inactive_jobs_7_days,
+        "late_jobs": late_jobs,
     }
+
+def get_employee(user):
+    return get_object_or_404(Employee, user=user)
+
+
+def find_job_by_scan(scan):
+    scan = scan.strip()
+
+    query = Q(barcode=scan)
+
+    job_field_names = {field.name for field in Job._meta.get_fields()}
+
+    if "barcode" in job_field_names:
+        query |= Q(barcode=scan)
+
+    if "stock_num" in job_field_names:
+        query |= Q(stock_num=scan)
+
+    if "customer_ref_num" in job_field_names:
+        query |= Q(customer_ref_num=scan)
+
+    return Job.objects.filter(query).first()
 
 class ClockedInRequiredMixin:
     """
@@ -2461,4 +2518,256 @@ class StyleStepTimeReportView(LoginRequiredMixin, generic.TemplateView):
         context["form"] = form
         context["rows"] = rows
 
+        return context
+    
+class PieceworkCreateView(LoginRequiredMixin, generic.TemplateView):
+    template_name = "piecework/create.html"
+
+    def get(self, request, *args, **kwargs):
+        return render(
+            request,
+            self.template_name,
+            {
+                "memo_form": PieceworkMemoCreateForm(),
+                "scan_form": PieceworkScanForm(),
+            },
+        )
+
+    @transaction.atomic
+    def post(self, request, *args, **kwargs):
+        memo_form = PieceworkMemoCreateForm(request.POST)
+        scan_form = PieceworkScanForm(request.POST)
+
+        if not memo_form.is_valid() or not scan_form.is_valid():
+            return render(
+                request,
+                self.template_name,
+                {
+                    "memo_form": memo_form,
+                    "scan_form": scan_form,
+                },
+            )
+
+        creator = get_employee(request.user)
+
+        scans = [
+            line.strip()
+            for line in scan_form.cleaned_data["scans"].splitlines()
+            if line.strip()
+        ]
+
+        if not scans:
+            messages.error(request, "Please scan at least one job.")
+            return redirect("culet:piecework_create")
+
+        piecework_location, created = Location.objects.get_or_create(
+            name="Piecework",
+            defaults={"active": True},
+        )
+
+        from_location, created = Location.objects.get_or_create(
+            name="Office",
+            defaults={"active": True},
+        )
+
+        memo = memo_form.save(commit=False)
+        memo.created_by = creator
+        memo.from_location = from_location
+        memo.to_location = piecework_location
+        memo.save()
+
+        found_jobs = []
+        missing_scans = []
+
+        for scan in scans:
+            job = find_job_by_scan(scan)
+
+            if not job:
+                missing_scans.append(scan)
+                continue
+
+            if getattr(job, "shipped", False):
+                missing_scans.append(f"{scan} - already shipped")
+                continue
+
+            found_jobs.append(job)
+
+        if not found_jobs:
+            memo.delete()
+            messages.error(request, "No valid jobs were found.")
+            return redirect("culet:piecework_create")
+
+        for job in found_jobs:
+            PieceworkMemoLine.objects.create(
+                memo=memo,
+                job=job,
+            )
+
+            job.assigned_to = memo.assigned_to
+
+            if hasattr(job, "holder"):
+                job.holder = memo.assigned_to
+
+            job.location = piecework_location
+            job.in_work = False
+            job.is_piecework = True
+            job.piecework_assigned_at = timezone.now()
+            job.save()
+
+        if missing_scans:
+            messages.warning(
+                request,
+                "Some scans were skipped: " + ", ".join(missing_scans),
+            )
+
+        messages.success(request, "Piecework memo created.")
+        return redirect("culet:piecework_print", pk=memo.pk)
+
+
+class PieceworkPrintView(LoginRequiredMixin, generic.DetailView):
+    model = PieceworkMemo
+    template_name = "piecework/print.html"
+    context_object_name = "memo"
+
+
+class PieceworkOpenListView(LoginRequiredMixin, generic.ListView):
+    model = PieceworkMemoLine
+    template_name = "piecework/open.html"
+    context_object_name = "piecework_lines"
+
+    def get_queryset(self):
+        return (
+            PieceworkMemoLine.objects
+            .filter(job__is_piecework=True, memo__returned_at__isnull=True)
+            .select_related(
+                "memo",
+                "memo__assigned_to",
+                "memo__created_by",
+                "job",
+                "job__customer",
+                "job__style",
+                "job__location",
+            )
+            .order_by("memo__assigned_to", "memo__created_at")
+        )
+
+
+class PieceworkReturnView(LoginRequiredMixin, generic.DetailView):
+    model = PieceworkMemo
+    template_name = "piecework/return.html"
+    context_object_name = "memo"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["locations"] = Location.objects.filter(active=True).order_by("name")
+        return context
+
+    @transaction.atomic
+    def post(self, request, *args, **kwargs):
+        memo = self.get_object()
+        return_location_id = request.POST.get("return_location")
+
+        return_location = get_object_or_404(Location, pk=return_location_id)
+        returned_by = get_employee(request.user)
+
+        for line in memo.lines.select_related("job"):
+            job = line.job
+            job.location = return_location
+            job.is_piecework = False
+
+            if hasattr(job, "holder"):
+                job.holder = returned_by
+
+            job.save()
+
+        memo.returned_at = timezone.now()
+        memo.returned_by = returned_by
+        memo.save()
+
+        messages.success(request, "Piecework memo marked as returned.")
+        return redirect("culet:piecework_open")
+    
+class MemoListView(LoginRequiredMixin, generic.TemplateView):
+    template_name = "memos/memo_list.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        form = MemoFilterForm(self.request.GET or None)
+
+        transfer_memos = JobTransferMemo.objects.select_related(
+            "created_by",
+            "from_location",
+            "to_location",
+        )
+
+        piecework_memos = PieceworkMemo.objects.select_related(
+            "created_by",
+            "assigned_to",
+            "from_location",
+            "to_location",
+        )
+
+        if form.is_valid():
+            memo_type = form.cleaned_data.get("memo_type")
+            from_location = form.cleaned_data.get("from_location")
+            to_location = form.cleaned_data.get("to_location")
+            created_start = form.cleaned_data.get("created_start")
+            created_end = form.cleaned_data.get("created_end")
+
+            if from_location:
+                transfer_memos = transfer_memos.filter(from_location=from_location)
+                piecework_memos = piecework_memos.filter(from_location=from_location)
+
+            if to_location:
+                transfer_memos = transfer_memos.filter(to_location=to_location)
+                piecework_memos = piecework_memos.filter(to_location=to_location)
+
+            if created_start:
+                transfer_memos = transfer_memos.filter(created_at__date__gte=created_start)
+                piecework_memos = piecework_memos.filter(created_at__date__gte=created_start)
+
+            if created_end:
+                transfer_memos = transfer_memos.filter(created_at__date__lte=created_end)
+                piecework_memos = piecework_memos.filter(created_at__date__lte=created_end)
+
+            if memo_type == "transfer":
+                piecework_memos = PieceworkMemo.objects.none()
+
+            if memo_type == "piecework":
+                transfer_memos = JobTransferMemo.objects.none()
+
+        memo_rows = []
+
+        for memo in transfer_memos:
+            memo_rows.append({
+                "type": "Transfer",
+                "id": memo.id,
+                "created_at": memo.created_at,
+                "created_by": memo.created_by,
+                "from_location": memo.from_location,
+                "to_location": memo.to_location,
+                "detail_url": reverse("culet:job_transfer_memo_print", kwargs={"pk": memo.pk}),
+            })
+
+        for memo in piecework_memos:
+            memo_rows.append({
+                "type": "Piecework",
+                "id": memo.id,
+                "created_at": memo.created_at,
+                "created_by": memo.created_by,
+                "from_location": memo.from_location,
+                "to_location": memo.to_location,
+                "assigned_to": memo.assigned_to,
+                "detail_url": reverse("culet:piecework_print", kwargs={"pk": memo.pk}),
+            })
+
+        memo_rows = sorted(
+            memo_rows,
+            key=itemgetter("created_at"),
+            reverse=True,
+        )
+
+        context["form"] = form
+        context["memo_rows"] = memo_rows
         return context

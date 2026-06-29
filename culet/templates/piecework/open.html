@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h1>Open Piecework</h1>
+
+    {% if piecework_lines %}
+        <table class="index_table">
+            <tr>
+                <th>Memo</th>
+                <th>Assigned To</th>
+                <th>Job #</th>
+                <th>Name</th>
+                <th>Style</th>
+                <th>Customer</th>
+                <th>Due Back</th>
+                <th>Actions</th>
+            </tr>
+
+            {% for line in piecework_lines %}
+                <tr class="{% if forloop.counter|divisibleby:2 %}even_row{% else %}odd_row{% endif %}">
+                    <td>{{ line.memo.id }}</td>
+                    <td>{{ line.memo.assigned_to }}</td>
+                    <td>
+                        <a href="{% url 'culet:job_detail' line.job.id %}">
+                            {{ line.job.barcode }}
+                        </a>
+                    </td>
+                    <td>{{ line.job.name }}</td>
+                    <td>{{ line.job.style }}</td>
+                    <td>{{ line.job.customer }}</td>
+                    <td>{{ line.memo.due_back }}</td>
+                    <td>
+                        <a class="btn btn-primary" href="{% url 'culet:piecework_print' line.memo.id %}">
+                            Print
+                        </a>
+                        <a class="btn btn-primary" href="{% url 'culet:piecework_return' line.memo.id %}">
+                            Return
+                        </a>
+                    </td>
+                </tr>
+            {% endfor %}
+        </table>
+    {% else %}
+        <p>No jobs are currently out as piecework.</p>
+    {% endif %}
+</div>
+{% endblock %}
