@@ -830,3 +830,49 @@ table{
     font-size: 0.9rem;
     line-height: 1.4;
 }
+
+.report-filter-form {
+    margin-bottom: 1.5rem;
+}
+
+.filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: flex-end;
+}
+
+.filter-field {
+    display: flex;
+    flex-direction: column;
+    min-width: 180px;
+    flex: 1;
+}
+
+.filter-field label {
+    margin-bottom: .35rem;
+    font-weight: 600;
+}
+
+.filter-buttons {
+    display: flex;
+    gap: .5rem;
+    align-items: flex-end;
+    margin-left: auto;
+}
+
+@media (max-width: 900px) {
+
+    .filter-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .filter-field {
+        width: 100%;
+    }
+
+    .filter-buttons {
+        margin-left: 0;
+    }
+}

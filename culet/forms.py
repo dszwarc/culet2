@@ -226,7 +226,7 @@ class JobForm(forms.ModelForm):
     class Meta:
         model = Job
         fields = [
-            "name",
+            "repair_reasons",
             "customer",
             "stock_num",
             "style",
@@ -236,7 +236,7 @@ class JobForm(forms.ModelForm):
             "notes",
         ]
         widgets = {
-            "name": text_widget("Job name", "form-control-lg"),
+            "repair_reasons": forms.CheckboxSelectMultiple(),
             "customer": select_widget(),
             "stock_num": number_widget("Stock #", min_value="0"),
             "style": forms.HiddenInput(),
@@ -246,19 +246,21 @@ class JobForm(forms.ModelForm):
             "notes": textarea_widget("Add notes for the shop...", rows=4),
         }
         labels = {
+            "repair_reasons": "Repair Reason(s)",
             "stock_num": "Stock #",
             "assigned_to": "Assigned To",
         }
 
     def __init__(self, *args, **kwargs):
+        is_repair = kwargs.pop("is_repair", False)
         super().__init__(*args, **kwargs)
 
-        self.fields["name"].required = False
         self.fields["customer"].required = False
         self.fields["stock_num"].required = False
         self.fields["notes"].required = False
         self.fields["size"].required = False
         self.fields["stamp"].required = False
+        self.fields["due"].required = False
 
         if "style" in self.fields:
             self.fields["style"].empty_label = "Select a style"
@@ -269,6 +271,12 @@ class JobForm(forms.ModelForm):
         if "location" in self.fields:
             self.fields["location"].empty_label = "No current location"
 
+        if is_repair:
+            self.fields["repair_reasons"].required = True
+            self.fields["repair_reasons"].queryset = FailureType.objects.all().order_by("name")
+        else:
+            self.fields["repair_reasons"].required = False
+            self.fields["repair_reasons"].widget = forms.HiddenInput()
 
 class JobMetalForm(forms.ModelForm):
     class Meta:
@@ -985,4 +993,26 @@ class QualityFailureReportForm(forms.Form):
         required=False,
         empty_label="All customers",
         widget=select_widget(),
+    )
+
+class RepairCreateForm(forms.Form):
+    stock_num = forms.CharField(
+        label="Scan original job stock number",
+        max_length=100,
+        widget=forms.TextInput(attrs={
+            "class": "form-control",
+            "autofocus": "autofocus",
+            "placeholder": "Scan stock number",
+        })
+    )
+
+class RepairLookupForm(forms.Form):
+    stock_num = forms.CharField(
+        label="Scan Original Job",
+        max_length=100,
+        widget=forms.TextInput(attrs={
+            "autofocus": "autofocus",
+            "class": "form-control",
+            "placeholder": "Scan stock number or barcode",
+        })
     )

@@ -4,15 +4,45 @@
 <h1>Quality Failures Report</h1>
 
 <form method="get" class="form-card">
-    {{ form.as_p }}
+    <form method="get" class="report-filter-form">
+
+    <div class="filter-row">
+
+        <div class="filter-field">
+            {{ form.start_date.label_tag }}
+            {{ form.start_date }}
+        </div>
+
+        <div class="filter-field">
+            {{ form.end_date.label_tag }}
+            {{ form.end_date }}
+        </div>
+
+        <div class="filter-field">
+            {{ form.failure_type.label_tag }}
+            {{ form.failure_type }}
+        </div>
+
+        <div class="filter-field">
+            {{ form.style.label_tag }}
+            {{ form.style }}
+        </div>
+
+        <div class="filter-field">
+            {{ form.customer.label_tag }}
+            {{ form.customer }}
+        </div>
 
     <button type="submit" class="btn btn-primary">Filter</button>
     <a href="{% url 'culet:quality_failure_report' %}" class="btn btn-secondary">Clear</a>
 </form>
 
+<div>
 <p><strong>Total Failures:</strong> {{ total_failures }}</p>
 
 <h2>Failures by Type</h2>
+
+</div>
 
 <table class="table">
     <thead>

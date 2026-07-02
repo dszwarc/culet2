@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Create Repair</h1>
+
+<form method="post">
+    {% csrf_token %}
+
+    <div class="form-group">
+        {{ form.stock_num.label_tag }}
+        {{ form.stock_num }}
+    </div>
+
+    <button type="submit" class="btn btn-primary">
+        Create Repair
+    </button>
+</form>
+{% endblock %}

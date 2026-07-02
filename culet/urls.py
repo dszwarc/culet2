@@ -26,6 +26,7 @@ urlpatterns = [
     path("jobs/receive-and-assign/",views.ReceiveAndAssignJobsView.as_view(),name="receive_and_assign_jobs",),
     path("jobs/return",views.ReturnJobView.as_view(),name="return_job"),
     path("jobs/ship/",views.BulkJobShipView.as_view(),name="job_ship_bulk"),
+    path("jobs/create-repair/",views.RepairLookupView.as_view(),name="create_repair",),
     path("reporting", views.ReportingListView.as_view(), name="reporting"),
     path("clock_in",views.clock_in,name="clock_in"),
     path("clock_out", views.clock_out,name="clock_out"),

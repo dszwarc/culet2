@@ -161,14 +161,14 @@
 <p>
   <strong>% Weight Loss:</strong>
   {% if job.weight_loss_percent is not None %}
-    {{ job.weight_loss_percent|floatformat:2 }}% dwt
+    {{ job.weight_loss_percent|floatformat:2 }}%
   {% else %}
     N/A
   {% endif %}
 </p>
 
 <p>
-  <a href="{% url 'culet:job_weight_create' job.pk %}">Add Weight</a>
+  <a href="{% url 'culet:job_weight_lookup'%}">Add Weight</a>
 </p>
 
 <table border="1" cellpadding="8">
@@ -188,7 +188,7 @@
       <td>{{ jw.sprue_weight }} dwt</td>
       <td>{{ jw.dust_weight }} dwt</td>
       <td>{{ jw.total_weight }} dwt</td>
-      <td>{{ jw.recorded_by }} dwt</td>
+      <td>{{ jw.recorded_by }}</td>
     </tr>
   {% empty %}
     <tr>

@@ -1,7 +1,14 @@
 {% extends 'base.html' %}
 
 {% block title %}
+    
+
+{% if repair_from %}
+    Create Repair
+{% else %}
     Create Job
+{% endif %}
+
 {% endblock title %}
 
 {% block content %}
@@ -10,29 +17,62 @@
         <div class="job-create-header">
             <div>
                 <p class="job-create-eyebrow">Production</p>
-                <h1 class="job-create-title">Create Job</h1>
+                <h1 class="job-create-title">
+                    
+                {% if repair_from %}
+                    Create Repair
+                {% else %}
+                    Create Job
+                {% endif %}
+                
+                </h1>
                 <p class="job-create-subtitle">
-                    Choose a style to prefill the job, metal requirements, and stone requirements.
+                    
+                    {% if repair_from %}
+                        Choose reasons for repair
+                    {% else %}
+                        Choose a style to prefill the job, metal requirements, and stone requirements.
+                    {% endif %}
                 </p>
             </div>
         </div>
 
-        <div class="job-style-picker-wrap">
-            <label for="style-picker" class="job-label">Style</label>
-            <select
-                id="style-picker"
-                name="style_id"
-                class="form-control form-control-lg job-style-picker"
-                hx-get="{% url 'culet:job_style_defaults_htmx' %}"
-                hx-trigger="change"
-                hx-target="#job-style-content"
-                hx-swap="innerHTML">
-                <option value="">Select a style</option>
-                {% for style in form.fields.style.queryset %}
-                    <option value="{{ style.pk }}">{{ style }}</option>
-                {% endfor %}
-            </select>
-        </div>
+        {% if original_repair_job %}
+                <div class="job-style-picker-wrap">
+                    <label class="job-label">Style</label>
+                    <div class="form-control form-control-lg job-style-picker">
+                        {{ original_repair_job.style }}
+                    </div>
+                </div>
+
+                <div
+                    hx-get="{% url 'culet:job_style_defaults_htmx' %}"
+                    hx-trigger="load"
+                    hx-target="#job-style-content"
+                    hx-swap="innerHTML"
+                    hx-vals='{
+                        "style_id": "{{ original_repair_job.style_id }}",
+                        "repair_from": "{{ original_repair_job.pk }}"
+                    }'>
+                </div>
+            {% else %}
+                <div class="job-style-picker-wrap">
+                    <label for="style-picker" class="job-label">Style</label>
+                    <select
+                        id="style-picker"
+                        name="style_id"
+                        class="form-control form-control-lg job-style-picker"
+                        hx-get="{% url 'culet:job_style_defaults_htmx' %}"
+                        hx-trigger="change"
+                        hx-target="#job-style-content"
+                        hx-swap="innerHTML">
+                        <option value="">Select a style</option>
+                        {% for style in form.fields.style.queryset %}
+                            <option value="{{ style.pk }}">{{ style }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            {% endif %}
 
         <div id="job-style-content" class="job-style-content">
             <div class="job-empty-state">

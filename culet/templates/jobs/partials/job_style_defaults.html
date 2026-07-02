@@ -1,5 +1,8 @@
 <form method="post">
   {% csrf_token %}
+  {% if repair_from %}
+    <input type="hidden" name="repair_from" value="{{ repair_from }}">
+  {% endif %}
     {{ job_form.style }}
 
     {% if job_form.errors %}
@@ -25,15 +28,18 @@
     {{ finding_formset.non_form_errors }}
   </div>
 {% endif %}
+{% if job_form.repair_reasons %}
+    <div class="job-field job-field-full">
+        {{ job_form.repair_reasons.label_tag }}
+        {{ job_form.repair_reasons }}
+        {{ job_form.repair_reasons.errors }}
+    </div>
+{% endif %}
+
   <div class="job-section-card">
     <h2 class="job-section-title">Job Information</h2>
 
     <div class="job-grid">
-      <div class="job-field">
-        <label for="{{ job_form.name.id_for_label }}">{{ job_form.name.label }}</label>
-        {{ job_form.name }}
-        {{ job_form.name.errors }}
-      </div>
 
       <div class="job-field">
         <label for="{{ job_form.customer.id_for_label }}">{{ job_form.customer.label }}</label>
@@ -41,11 +47,26 @@
         {{ job_form.customer.errors }}
       </div>
 
-      <div class="job-field">
-        <label for="{{ job_form.stock_num.id_for_label }}">{{ job_form.stock_num.label }}</label>
-        {{ job_form.stock_num }}
-        {{ job_form.stock_num.errors }}
-      </div>
+      {% if repair_original_job %}
+          <div class="job-field">
+              <label class="job-label">New Repair Stock #</label>
+              <div class="form-control job-input">
+                  {{ job_form.stock_num.value }}
+              </div>
+
+              {{ job_form.stock_num.as_hidden }}
+
+              {% if job_form.stock_num.errors %}
+                  {{ job_form.stock_num.errors }}
+              {% endif %}
+          </div>
+      {% else %}
+          <div class="job-field">
+              {{ job_form.stock_num.label_tag }}
+              {{ job_form.stock_num }}
+              {{ job_form.stock_num.errors }}
+          </div>
+      {% endif %}
 
       <div class="job-field">
         <label for="{{ job_form.size.id_for_label }}">{{ job_form.size.label }}</label>
@@ -183,38 +204,64 @@
     {% endif %}
   </div>
 
-<h2>Finding Requirements</h2>
+<div class="job-section-card">
+    <h2 class="job-section-title">Finding Requirements</h2>
 
-{{ finding_formset.management_form }}
+    {{ finding_formset.management_form }}
 
-{% if finding_formset.forms %}
-  {% for f in finding_formset %}
-    {{ f.id }}
+    {% if finding_formset.forms %}
+        <div class="job-table-wrap">
+            <table class="job-table">
+                <thead>
+                    <tr>
+                        <th>Finding</th>
+                        <th>Qty Required</th>
+                        <th>Qty Used</th>
+                        <th class="delete-cell">Delete</th>
+                    </tr>
+                </thead>
 
-    <p>
-      {{ f.finding.label }} {{ f.finding }}
-      {{ f.finding.errors }}
-    </p>
+                <tbody>
+                    {% for f in finding_formset %}
+                        <tr>
+                            <td>
+                                {{ f.id }}
+                                {{ f.finding }}
+                                {{ f.finding.errors }}
+                            </td>
 
-    <p>
-      {{ f.qty_req.label }} {{ f.qty_req }}
-      {{ f.qty_req.errors }}
-    </p>
+                            <td>
+                                {{ f.qty_req }}
+                                {{ f.qty_req.errors }}
+                            </td>
 
-    <p>
-      {{ f.qty_used.label }} {{ f.qty_used }}
-      {{ f.qty_used.errors }}
-    </p>
+                            <td>
+                                {{ f.qty_used }}
+                                {{ f.qty_used.errors }}
+                            </td>
 
-    {% if f.DELETE %}
-      <p>Delete {{ f.DELETE }}</p>
+                            <td class="delete-cell">
+                                {% if f.DELETE %}
+                                    {{ f.DELETE }}
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p>No finding requirements found for this style.</p>
     {% endif %}
-  {% endfor %}
-{% else %}
-  <p>No finding requirements found for this style.</p>
-{% endif %}
+</div>
 
-  <div class="job-actions">
-    <button type="submit" class="job-submit-btn">Create Job</button>
-  </div>
+<div class="job-actions">
+    <button type="submit" class="job-submit-btn">
+        {% if original_repair_job %}
+            Create Repair
+        {% else %}
+            Create Job
+        {% endif %}
+    </button>
+</div>
 </form>

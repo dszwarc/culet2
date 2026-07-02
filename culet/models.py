@@ -146,13 +146,28 @@ class Style(models.Model):
     def __str__(self):
         return self.name
 
+class FailureType(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["sort_order", "name"]
+
+    def __str__(self):
+        return self.name
+
 class Job(models.Model):
 
     name = models.CharField(max_length=80,default="N/A")
     customer = models.ForeignKey(Customer, on_delete=models.PROTECT, null=True)
     barcode = models.IntegerField(blank=True,null=True, unique=True)
-    stock_num = models.IntegerField(null=True, blank=True, unique=True)
-
+    stock_num = models.CharField(
+        max_length=50,
+        unique=True,
+        null=True,
+        blank=True
+    )
     size = models.CharField(default="",blank=True,max_length=80)
     stamp = models.CharField(default="", blank=True, max_length=80)
     notes = models.TextField(default="", blank=True)
@@ -196,7 +211,30 @@ class Job(models.Model):
         related_name="jobs",
     )    
     is_piecework = models.BooleanField(default=False)
+    is_repair = models.BooleanField(default=False)
+    repair_reasons = models.ManyToManyField(
+        FailureType,
+        blank=True,
+        related_name="repair_jobs",
+    )
+    repair_of = models.ForeignKey(
+        "self",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="repairs",
+    )
     piecework_assigned_at = models.DateTimeField(null=True, blank=True)
+
+    def next_repair_stock_num(self):
+        base_stock_num = self.stock_num
+
+        existing_repairs = Job.objects.filter(
+            repair_of=self
+        ).count()
+
+        next_number = existing_repairs + 1
+        return f"{base_stock_num}-R{next_number}"
 
     @property
     def current_piecework_memo(self):
@@ -279,16 +317,7 @@ class JobShip(models.Model):
     def __str__(self):
         return f"{self.job} shipped at {self.shipped_at}"
     
-class FailureType(models.Model):
-    name = models.CharField(max_length=100, unique=True)
-    active = models.BooleanField(default=True)
-    sort_order = models.PositiveIntegerField(default=0)
 
-    class Meta:
-        ordering = ["sort_order", "name"]
-
-    def __str__(self):
-        return self.name
 
 
 class QualityInspection(models.Model):

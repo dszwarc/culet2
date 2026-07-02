@@ -18,8 +18,10 @@ from collections import defaultdict
 from decimal import Decimal
 from itertools import chain
 from operator import itemgetter
+import re
 
 from .models import (
+    JobMetalLot,
     FailureType,
     QualityInspection,
     QualityInspectionFailure,
@@ -52,6 +54,8 @@ from .models import (
 )
 
 from .forms import (
+    RepairLookupForm,
+    RepairCreateForm,
     QualityInspectionForm,
     QualityFailureReportForm,   
     MemoFilterForm,
@@ -514,13 +518,109 @@ class JobCreateView(LoginRequiredMixin, generic.CreateView):
     template_name = "jobs/create.html"
     success_url = reverse_lazy("culet:index_job")
 
+    def get_original_repair_job(self):
+        repair_from = self.request.GET.get("repair_from") or self.request.POST.get("repair_from")
+
+        if not repair_from:
+            return None
+
+        return get_object_or_404(Job, pk=repair_from)
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+
+        if self.get_original_repair_job():
+            kwargs["is_repair"] = True
+
+        return kwargs
+
+    def get_base_stock_num(self, stock_num):
+        import re
+        return re.sub(r"-R\d+$", "", str(stock_num))
+
+    def get_next_repair_stock_num(self, original_job):
+        base_stock_num = self.get_base_stock_num(original_job.stock_num)
+
+        repair_number = 1
+
+        while Job.objects.filter(stock_num=f"{base_stock_num}-R{repair_number}").exists():
+            repair_number += 1
+
+        return f"{base_stock_num}-R{repair_number}"
+
+    def get_initial(self):
+        initial = super().get_initial()
+        original_job = self.get_original_repair_job()
+
+        if original_job:
+            initial.update({
+                "customer": original_job.customer,
+                "customer_ref_num": None,
+                "stock_num": self.get_next_repair_stock_num(original_job),
+                "style": original_job.style,
+                "due": None,
+                "assigned_to": original_job.assigned_to,
+                "holder": original_job.holder,
+                "location": original_job.location,
+                "status": original_job.status,
+                "stamp": original_job.stamp,
+                "notes": original_job.notes,
+                "size": original_job.size,
+            })
+
+        return initial
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+
+        original_job = self.get_original_repair_job()
+        context["original_repair_job"] = original_job
+        context["repair_from"] = original_job.pk if original_job else None
 
         if self.request.POST:
             context["metal_formset"] = JobMetalFormSet(self.request.POST, prefix="metals")
             context["stone_formset"] = JobStoneFormSet(self.request.POST, prefix="stones")
             context["finding_formset"] = JobFindingFormSet(self.request.POST, prefix="findings")
+            return context
+
+        if original_job:
+            metal_initial = [
+                {
+                    "part": metal.part,
+                    "qty_req": metal.qty_req,
+                    "weight_req": metal.weight_req,
+                    "metal_type": metal.metal_type,
+                }
+                for metal in original_job.job_metals.all()
+            ]
+
+            stone_initial = [
+                {
+                    "stone_type": stone.stone_type,
+                    "stone_shape": stone.stone_shape,
+                    "stone_size": stone.stone_size,
+                    "qty_req": stone.qty_req,
+                }
+                for stone in original_job.job_stones.all()
+            ]
+
+            finding_initial = [
+                {
+                    "finding": finding.finding,
+                    "qty_req": finding.qty_req,
+                    "qty_used": finding.qty_used,
+                }
+                for finding in original_job.job_findings.all()
+            ]
+
+            JobMetalCreateFormSet = get_job_metal_formset(extra=len(metal_initial))
+            JobStoneCreateFormSet = get_job_stone_formset(extra=len(stone_initial))
+            JobFindingCreateFormSet = get_job_finding_formset(extra=len(finding_initial))
+
+            context["metal_formset"] = JobMetalCreateFormSet(prefix="metals", initial=metal_initial)
+            context["stone_formset"] = JobStoneCreateFormSet(prefix="stones", initial=stone_initial)
+            context["finding_formset"] = JobFindingCreateFormSet(prefix="findings", initial=finding_initial)
+
         else:
             context["metal_formset"] = JobMetalFormSet(prefix="metals")
             context["stone_formset"] = JobStoneFormSet(prefix="stones")
@@ -530,36 +630,44 @@ class JobCreateView(LoginRequiredMixin, generic.CreateView):
 
     @transaction.atomic
     def form_valid(self, form):
-        context = self.get_context_data()
+        context = self.get_context_data(form=form)
+
         metal_formset = context["metal_formset"]
         stone_formset = context["stone_formset"]
         finding_formset = context["finding_formset"]
 
-        if not metal_formset.is_valid():
+        metal_valid = metal_formset.is_valid()
+        stone_valid = stone_formset.is_valid()
+        finding_valid = finding_formset.is_valid()
+
+        if not metal_valid:
             messages.error(self.request, f"Metal form errors: {metal_formset.errors}")
             messages.error(self.request, f"Metal non-form errors: {metal_formset.non_form_errors()}")
 
-        if not stone_formset.is_valid():
+        if not stone_valid:
             messages.error(self.request, f"Stone form errors: {stone_formset.errors}")
             messages.error(self.request, f"Stone non-form errors: {stone_formset.non_form_errors()}")
 
-        if not finding_formset.is_valid():
+        if not finding_valid:
             messages.error(self.request, f"Finding form errors: {finding_formset.errors}")
             messages.error(self.request, f"Finding non-form errors: {finding_formset.non_form_errors()}")
 
-        if not (
-            metal_formset.is_valid()
-            and stone_formset.is_valid()
-            and finding_formset.is_valid()
-        ):
-            return self.render_to_response(self.get_context_data(form=form))
+        if not (metal_valid and stone_valid and finding_valid):
+            return self.render_to_response(context)
+
+        original_job = self.get_original_repair_job()
 
         self.object = form.save(commit=False)
 
-        self.object.assigned_to = None
-        self.object.holder = None
-        self.object.location = Location.objects.get(name="Office")
-        self.object.status = JobStatus.objects.get(name="Waiting on Metal")
+        if original_job:
+            self.object.is_repair = True
+            self.object.repair_of = original_job
+        else:
+            self.object.is_repair = False
+            self.object.assigned_to = None
+            self.object.holder = None
+            self.object.location = Location.objects.get(name="Office")
+            self.object.status = JobStatus.objects.get(name="Waiting on Metal")
 
         if self.object.style:
             if not self.object.stamp:
@@ -590,79 +698,131 @@ class JobCreateView(LoginRequiredMixin, generic.CreateView):
 class JobStyleDefaultsHTMXView(LoginRequiredMixin, generic.View):
     template_name = "jobs/partials/job_style_defaults.html"
 
+    def get_base_stock_num(self, stock_num):
+        import re
+        return re.sub(r"-R\d+$", "", str(stock_num))
+
+    def get_next_repair_stock_num(self, original_job):
+        base_stock_num = self.get_base_stock_num(original_job.stock_num)
+
+        repair_number = 1
+
+        while Job.objects.filter(stock_num=f"{base_stock_num}-R{repair_number}").exists():
+            repair_number += 1
+
+        return f"{base_stock_num}-R{repair_number}"
+
     def get(self, request, *args, **kwargs):
         style_id = request.GET.get("style_id")
+        repair_from = request.GET.get("repair_from")
 
-        if not style_id:
-            return HttpResponseBadRequest("Missing style_id")
+        repair_original_job = None
 
-        style = get_object_or_404(Style, pk=style_id)
+        if repair_from:
+            repair_original_job = get_object_or_404(Job, pk=repair_from)
 
-        job_initial = {
-            "name": style.name,
-            "customer": style.customer_id,
-            "style": style.pk,
-            "stamp": style.stamp or "",
-            "notes": style.description or "",
-        }
+        if repair_original_job:
+            style = repair_original_job.style
+        else:
+            if not style_id:
+                return HttpResponseBadRequest("Missing style_id")
 
-        job_form = JobForm(initial=job_initial)
+            style = get_object_or_404(Style, pk=style_id)
 
-        metal_initial = [
-            {
-                "part": sm.part_id,
-                "qty_req": sm.qty_req,
-                "weight_req": sm.weight,
-                "metal_type": sm.metal_type_id,
+        if repair_original_job:
+            job_initial = {
+                "customer": repair_original_job.customer_id,
+                "customer_ref_num": None,
+                "stock_num": self.get_next_repair_stock_num(repair_original_job),
+                "style": repair_original_job.style_id,
+                "due": None,
+                "assigned_to": repair_original_job.assigned_to_id,
+                "holder": repair_original_job.holder_id,
+                "location": repair_original_job.location_id,
+                "status": repair_original_job.status_id,
+                "stamp": repair_original_job.stamp,
+                "notes": repair_original_job.notes,
+                "size": repair_original_job.size,
             }
-            for sm in style.stylemetal_set.all()
-        ]
 
-        stone_initial = [
-            {
-                "stone_type": ss.stone_type_id,
-                "stone_shape": ss.stone_shape_id,
-                "stone_size": ss.stone_size,
-                "qty_req": ss.qty_req,
-                "weight_req": getattr(ss, "weight_req", None),
+            metal_initial = [
+                {
+                    "part": metal.part_id,
+                    "qty_req": metal.qty_req,
+                    "weight_req": metal.weight_req,
+                    "metal_type": metal.metal_type_id,
+                }
+                for metal in repair_original_job.job_metals.all()
+            ]
+
+            stone_initial = [
+                {
+                    "stone_type": stone.stone_type_id,
+                    "stone_shape": stone.stone_shape_id,
+                    "stone_size": stone.stone_size,
+                    "qty_req": stone.qty_req,
+                }
+                for stone in repair_original_job.job_stones.all()
+            ]
+
+            finding_initial = [
+                {
+                    "finding": finding.finding_id,
+                    "qty_req": finding.qty_req,
+                    "qty_used": finding.qty_used,
+                }
+                for finding in repair_original_job.job_findings.all()
+            ]
+
+        else:
+            job_initial = {
+                "customer": style.customer_id,
+                "style": style.pk,
+                "stamp": style.stamp or "",
+                "notes": style.description or "",
+                "due": None,
             }
-            for ss in style.stylestone_set.all()
-        ]
 
-        finding_initial = [
-            {
-                "finding": sf.finding_id,
-                "qty_req": sf.qty_req,
-                "qty_used": 0,
-            }
-            for sf in style.style_findings.all()
-        ]
+            metal_initial = [
+                {
+                    "part": sm.part_id,
+                    "qty_req": sm.qty_req,
+                    "weight_req": sm.weight,
+                    "metal_type": sm.metal_type_id,
+                }
+                for sm in style.stylemetal_set.all()
+            ]
 
-        JobMetalCreateFormSet = get_job_metal_formset(
-            extra=len(metal_initial)
-        )
-        JobStoneCreateFormSet = get_job_stone_formset(
-            extra=len(stone_initial)
+            stone_initial = [
+                {
+                    "stone_type": ss.stone_type_id,
+                    "stone_shape": ss.stone_shape_id,
+                    "stone_size": ss.stone_size,
+                    "qty_req": ss.qty_req,
+                }
+                for ss in style.stylestone_set.all()
+            ]
+
+            finding_initial = [
+                {
+                    "finding": sf.finding_id,
+                    "qty_req": sf.qty_req,
+                }
+                for sf in style.style_findings.all()
+            ]
+
+        job_form = JobForm(
+            initial=job_initial,
+            is_repair=bool(repair_original_job),
         )
 
-        JobFindingCreateFormSet = get_job_finding_formset(
-            extra=len(finding_initial)
-        )
+        JobMetalCreateFormSet = get_job_metal_formset(extra=len(metal_initial))
+        JobStoneCreateFormSet = get_job_stone_formset(extra=len(stone_initial))
+        JobFindingCreateFormSet = get_job_finding_formset(extra=len(finding_initial))
 
-        metal_formset = JobMetalCreateFormSet(
-            prefix="metals",
-            initial=metal_initial,
-        )
-        stone_formset = JobStoneCreateFormSet(
-            prefix="stones",
-            initial=stone_initial,
-        )
-
-
-        finding_formset = JobFindingCreateFormSet(
-            prefix="findings",
-            initial=finding_initial,
-        )
+        metal_formset = JobMetalCreateFormSet(prefix="metals", initial=metal_initial)
+        stone_formset = JobStoneCreateFormSet(prefix="stones", initial=stone_initial)
+        finding_formset = JobFindingCreateFormSet(prefix="findings", initial=finding_initial)
 
         return render(
             request,
@@ -673,6 +833,8 @@ class JobStyleDefaultsHTMXView(LoginRequiredMixin, generic.View):
                 "stone_formset": stone_formset,
                 "finding_formset": finding_formset,
                 "style": style,
+                "repair_from": repair_from,
+                "repair_original_job": repair_original_job,
             },
         )
 
@@ -1599,7 +1761,8 @@ class JobWeightCreateView(LoginRequiredMixin, generic.CreateView):
         form.instance.recorded_by = self.request.user
         self.object = form.save()
         messages.success(self.request, f"Weight recorded for job {self.job.barcode}.")
-        return redirect(self.job.get_absolute_url())
+        #return redirect(self.job.get_absolute_url())
+        return redirect("culet:job_weight_lookup")
     
 class JobWeightLookupView(LoginRequiredMixin, generic.FormView):
     template_name = "jobs/weight_lookup.html"
@@ -2881,3 +3044,114 @@ class QualityFailureReportView(LoginRequiredMixin, generic.TemplateView):
         context["total_failures"] = failures.count()
 
         return context
+    
+class RepairCreateView(LoginRequiredMixin, generic.TemplateView):
+    template_name = "jobs/create_repair.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["form"] = RepairCreateForm()
+        return context
+
+    def get_next_job_num(self):
+        max_job_num = Job.objects.aggregate(Max("job_num"))["job_num__max"] or 0
+        return max_job_num + 1
+
+    def get_base_stock_num(self, stock_num):
+        return re.sub(r"-R\d+$", "", stock_num)
+
+    def get_next_repair_stock_num(self, original_job):
+        base_stock_num = self.get_base_stock_num(original_job.stock_num)
+
+        repair_number = 1
+
+        while Job.objects.filter(stock_num=f"{base_stock_num}-R{repair_number}").exists():
+            repair_number += 1
+
+        return f"{base_stock_num}-R{repair_number}"
+
+    @transaction.atomic
+    def post(self, request, *args, **kwargs):
+        form = RepairCreateForm(request.POST)
+
+        if not form.is_valid():
+            return render(request, self.template_name, {"form": form})
+
+        scanned_stock_num = form.cleaned_data["stock_num"].strip()
+
+        original_job = Job.objects.filter(stock_num=scanned_stock_num).first()
+
+        if not original_job:
+            messages.error(request, f"No job found with stock number {scanned_stock_num}.")
+            return redirect("culet:create_repair")
+
+        repair_stock_num = self.get_next_repair_stock_num(original_job)
+
+        repair_job = Job.objects.create(
+            customer=original_job.customer,
+            job_num=self.get_next_job_num(),
+            customer_ref_num=None,
+            active=True,
+            shipped=False,
+            in_work=False,
+            style=original_job.style,
+            due=original_job.due,
+            assigned_to=original_job.assigned_to,
+            location=original_job.location,
+            notes=original_job.notes,
+            stock_num=repair_stock_num,
+            is_repair=True,
+        )
+
+        for metal in original_job.job_metals.all():
+            new_metal = JobMetal.objects.create(
+                job=repair_job,
+                part=metal.part,
+                qty_req=metal.qty_req,
+                weight_req=metal.weight_req,
+                metal_type=metal.metal_type,
+            )
+
+            for lot_assignment in metal.lot_assignments.all():
+                JobMetalLot.objects.create(
+                    job_metal=new_metal,
+                    metal_lot=lot_assignment.metal_lot,
+                    qty_used=lot_assignment.qty_used,
+                    weight_used=lot_assignment.weight_used,
+                )
+
+        for stone in original_job.job_stones.all():
+            JobStone.objects.create(
+                job=repair_job,
+                stone_type=stone.stone_type,
+                stone_shape=stone.stone_shape,
+                stone_size=stone.stone_size,
+                qty_req=stone.qty_req,
+            )
+
+        messages.success(
+            request,
+            f"Repair {repair_job.stock_num} was created from {original_job.stock_num}."
+        )
+
+        return redirect("culet:job_detail", pk=repair_job.pk)
+    
+class RepairLookupView(LoginRequiredMixin, generic.FormView):
+    template_name = "jobs/create_repair_lookup.html"
+    form_class = RepairLookupForm
+
+    def form_valid(self, form):
+        scanned_value = form.cleaned_data["stock_num"].strip()
+
+        original_job = (
+            Job.objects.filter(stock_num=scanned_value).first()
+            or Job.objects.filter(barcode=scanned_value).first()
+        )
+
+        if not original_job:
+            messages.error(self.request, f"No job found for {scanned_value}.")
+            return redirect("culet:create_repair_lookup")
+
+        return redirect(
+            f"{reverse('culet:job_create')}?repair_from={original_job.pk}"
+        )
