@@ -20,36 +20,37 @@
 </div>
 
 <h2>Receipt Lines</h2>
-
-<table class="table">
-    <thead>
-        <tr>
-            <th>Receipt #</th>
-            <th>Date</th>
-            <th>Qty Received</th>
-            <th>Weight Received</th>
-            <th>Cost</th>
-            <th>Reference</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for line in receipt_lines %}
-              <tr data-url="{% url 'culet:metal_receipt_detail' line.receipt.pk %}"
-                  onclick="window.location=this.dataset.url"
-                  style="cursor:pointer;">                
-                <td>{{ line.receipt.pk }}</td>
-                <td>{{ line.receipt.received_at }}</td>
-                <td>{{ line.qty_received }}</td>
-                <td>{{ line.weight_received }}</td>
-                <td>${{ line.cost }}</td>
-                <td>{{ line.receipt.reference }}</td>
-            </tr>
-        {% empty %}
+<div class="table-wrap">
+    <table class="index_table job_index">
+        <thead>
             <tr>
-                <td colspan="6">No receipt lines found for this lot.</td>
+                <th>Receipt #</th>
+                <th>Date</th>
+                <th>Qty Received</th>
+                <th>Weight Received</th>
+                <th>Cost</th>
+                <th>Reference</th>
             </tr>
-        {% endfor %}
-    </tbody>
-</table>
+        </thead>
+        <tbody>
+            {% for line in receipt_lines %}
+                <tr data-url="{% url 'culet:metal_receipt_detail' line.receipt.pk %}"
+                    onclick="window.location=this.dataset.url"
+                    style="cursor:pointer;">                
+                    <td>{{ line.receipt.pk }}</td>
+                    <td>{{ line.receipt.received_at }}</td>
+                    <td>{{ line.qty_received }}</td>
+                    <td>{{ line.weight_received }}</td>
+                    <td>${{ line.cost }}</td>
+                    <td>{{ line.receipt.reference }}</td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="6">No receipt lines found for this lot.</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 
 {% endblock content %}

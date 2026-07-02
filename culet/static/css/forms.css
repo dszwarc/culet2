@@ -1,0 +1,141 @@
+form:not(td form) {
+    padding: 18px;
+}
+
+.form-group {
+    width: 100%;
+    margin: 0 0 16px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+label {
+    font-weight: 700;
+    color: var(--text);
+}
+
+input,
+select,
+textarea {
+    width: 100%;
+    min-height: 44px;
+    padding: 9px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    background: white;
+}
+
+textarea {
+    min-height: 110px;
+}
+
+button,
+.btn,
+input[type="submit"] {
+    min-height: 44px;
+    border-radius: 10px;
+    font-weight: 700;
+}
+
+.filter_box {
+    width: 100%;
+    margin: 0;
+    padding: 18px;
+}
+
+.filter_box form {
+    box-shadow: none;
+    border: 0;
+    padding: 0;
+    background: transparent;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 14px;
+}
+
+.filter_box p,
+.filter_box .form-group {
+    margin: 0;
+    flex: 1 1 220px;
+}
+
+.radio_employee_select {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.radio_employee_select input[type="radio"] {
+    display: none;
+}
+
+.radio_employee_select label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 42px;
+    background: #e5e7eb;
+    padding: 8px 14px;
+    cursor: pointer;
+    border-radius: 999px;
+    font-weight: 700;
+}
+
+.radio_employee_select input[type="radio"]:checked + label {
+    background: var(--primary);
+    color: white;
+}
+
+.signin .form-group {
+    margin: 0;
+}
+
+@media (max-width: 950px) {
+    .filter_box form {
+        align-items: stretch;
+    }
+}
+
+@media (max-width: 650px) {
+    form:not(td form),
+    .filter_box {
+        padding: 14px;
+    }
+
+    input,
+    select,
+    textarea,
+    button,
+    .btn {
+        font-size: 16px;
+        width: 100%;
+    }
+
+    .filter_box form {
+        flex-direction: column;
+    }
+
+    .filter_box p,
+    .filter_box .form-group {
+        width: 100%;
+        flex: 1 1 auto;
+    }
+
+    .container > form:not(td form) {
+        width: 100%;
+        max-width: var(--mobile-action-width);
+        align-self: center;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .container > form:not(td form) input,
+    .container > form:not(td form) select,
+    .container > form:not(td form) button {
+        min-height: 52px;
+        font-size: 18px;
+    }
+}

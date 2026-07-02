@@ -1,0 +1,99 @@
+.table-wrap,
+.job-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+}
+
+table,
+.index_table,
+.job-table {
+    width: 100%;
+    margin: 0;
+    border-collapse: collapse;
+    background: var(--surface);
+}
+
+.index_table {
+    align-self: stretch;
+    text-align: left;
+}
+
+th,
+td {
+    padding: 13px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+}
+
+th,
+.index_table tr:first-child td,
+.job-table thead th {
+    background: var(--surface-soft);
+    color: #374151;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    font-weight: 800;
+}
+
+.job_index th,
+.job_index td {
+    font-size: 14px;
+}
+
+.job_index td {
+    border-color: var(--border);
+}
+
+tr:hover td {
+    background: #f8fafc;
+}
+
+.past_due {
+    background: #fee2e2 !important;
+    color: #991b1b;
+    font-weight: 800;
+}
+
+.near_due {
+    background: #ffedd5 !important;
+    color: #9a3412;
+    font-weight: 800;
+}
+
+td form {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+}
+
+td form button,
+td form .btn {
+    white-space: nowrap;
+}
+
+@media (max-width: 650px) {
+    .table-wrap,
+    .job-table-wrap {
+        border-radius: 12px;
+    }
+
+    table,
+    .index_table,
+    .job-table {
+        min-width: 720px;
+    }
+
+    th,
+    td {
+        padding: 11px 12px;
+        font-size: 13px;
+    }
+}

@@ -29,6 +29,8 @@ class Step(models.Model):
     name = models.CharField(max_length=100,unique=True)
     order = models.PositiveIntegerField(default=0)
     active = models.BooleanField(default=True)
+    code = models.SlugField(max_length=80, unique=True, blank=True, null=True)
+
 
     class Meta:
         ordering = ["order", "name"]
@@ -587,6 +589,7 @@ class ActivityStep(models.Model):
         blank=True,
         related_name="activity_steps"
     )
+    code = models.SlugField(max_length=80, unique=True, blank=True, null=True)
 
     def __str__(self):
         return f"{self.name}"
@@ -597,6 +600,7 @@ class Activity(models.Model):
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
     start = models.DateTimeField(default=timezone.now)
     end = models.DateTimeField(blank=True, null=True)
+    is_piecework = models.BooleanField(default=False)
     duration = models.DurationField(null=True, blank=True)
     job = models.ForeignKey(Job, blank=True, null=True, on_delete=models.CASCADE)
     active = models.BooleanField(default=True)

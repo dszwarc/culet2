@@ -1,0 +1,128 @@
+.home-hero {
+    width: 100%;
+    padding: 28px;
+    border-radius: var(--radius);
+    background:
+        radial-gradient(circle at top right, rgba(37, 99, 235, .18), transparent 36%),
+        linear-gradient(135deg, #ffffff, #f8fafc);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+}
+
+.eyebrow {
+    margin: 0 0 6px 0;
+    color: var(--primary);
+    font-size: 13px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+}
+
+.home-hero h1 {
+    margin: 0;
+    font-size: clamp(2rem, 4vw, 3.4rem);
+    line-height: 1.05;
+}
+
+.home-subtitle {
+    margin: 12px 0 0 0;
+    max-width: 680px;
+    color: var(--muted);
+    font-size: 1.05rem;
+}
+
+.home-section {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.home-section h2 {
+    margin: 0;
+    font-size: 1.25rem;
+}
+
+.home-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.home-tile {
+    flex: 1 1 240px;
+    min-height: 150px;
+    padding: 22px;
+    border-radius: var(--radius);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    color: var(--text);
+    text-decoration: none;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px;
+
+    transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+}
+
+.home-tile:hover {
+    transform: translateY(-3px);
+    color: var(--text);
+    text-decoration: none;
+    border-color: rgba(37, 99, 235, .35);
+    box-shadow: 0 14px 34px rgba(15, 23, 42, .12);
+}
+
+.home-icon {
+    width: 34px;
+    height: 34px;
+    color: var(--primary);
+    margin-bottom: 8px;
+}
+
+.home-tile span {
+    font-size: 1.15rem;
+    font-weight: 900;
+}
+
+.home-tile small {
+    color: var(--muted);
+    font-size: .95rem;
+}
+
+.home-tile.primary {
+    background: linear-gradient(135deg, #eff6ff, #ffffff);
+    border-color: #bfdbfe;
+}
+
+.home-tile.success {
+    background: linear-gradient(135deg, #ecfdf5, #ffffff);
+    border-color: #bbf7d0;
+}
+
+.home-tile.success .home-icon {
+    color: var(--success);
+}
+
+@media (max-width: 650px) {
+    .home-hero {
+        padding: 20px;
+    }
+
+    .home-grid {
+        gap: 12px;
+    }
+
+    .home-tile {
+        flex: 1 1 100%;
+        min-height: 118px;
+        padding: 18px;
+    }
+
+    .home-icon {
+        width: 30px;
+        height: 30px;
+    }
+}

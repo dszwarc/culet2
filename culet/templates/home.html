@@ -1,89 +1,121 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
+
 {% block content %}
+<div class="container">
 
-<div class="home-layout">
-    <main class="home-main">
-  <div class="home-page">
-
-    <section class="home-section">
-      <h2>Jobs</h2>
-      <div class="home-grid">
-        <a class="home-tile blue-button" href="{% url 'culet:my_jobs' %}">My Jobs</a>
-        {% if is_manager_level %}
-        <a class="home-tile orange-button" href="{% url 'culet:quality_inspection' %}">Quality Inspection</a>
-        <a href="{% url 'culet:job_transfer_memo_create' %}" class="home-tile green-button">Print / Process Transfer Memo</a>
-        <a class="home-tile green-button" href="{% url 'culet:job_ship_bulk' %}">Ship Jobs</a>
-        <a class="home-tile" href="{% url 'culet:index_job' %}">All Jobs</a>
-        <a class="home-tile green-button" href="{% url 'culet:job_create' %}">Create Job</a>
-        <a class="home-tile" href="{% url 'culet:job_weight_lookup' %}">Update Weights</a>
-        <a class="home-tile" href="{% url 'culet:assign_job' %}">Assign Jobs</a>
-        <a class="home-tile" href="{% url 'culet:receive_and_assign_jobs' %}">Receive and Assign Jobs</a>
-        <a class="home-tile blue-button" href="{% url 'culet:job_envelope_print_form' %}">Print Job Envelopes</a>
-        <a class="home-tile" href="{% url 'culet:create_repair' %}">Create Repair</a>
-        {% endif %}
-        <a href="{% url 'culet:piecework_create' %}" class="home-tile">
-          Assign Piecework
-        </a>
-
-        <a href="{% url 'culet:piecework_open' %}" class="home-tile">
-            Open Piecework
-        </a>
-
-        <a class="home-tile green-button" href="{% url 'culet:receive_list' %}">Receive Jobs</a>
-      </div>
-    </section>
-
-  {% if is_manager_level %}
-
-    <section class="home-section">
-      <h2>Styles</h2>
-      <div class="home-grid">
-        <a class="home-tile" href="{% url 'culet:index_style' %}">Styles</a>
-        <a class="home-tile green-button" href="{% url 'culet:style_create' %}">Create Style</a>
-      </div>
-    </section>
-
-    <section class="home-section">
-      <h2>Inventory</h2>
-      <div class="home-grid">
-        <a class="home-tile blue-button" href="{% url 'culet:metal_receipt_create' %}">Receive Metal</a>
-        <a class="home-tile" href="{% url 'culet:metal_receipt_list' %}">Metal Receipts</a>
-        <a class="home-tile" href="{% url 'culet:metal_vendor_lot_list' %}">Vendor Lots</a>
-        <a class="home-tile" href="{% url 'culet:metal_inventory_list' %}">Metal Inventory</a>
-      </div>
-    </section>
-
-    <section class="home-section">
-      <h2>Reports</h2>
-      <div class="home-grid">
-        <a class="home-tile orange-button" href="{% url 'culet:reporting' %}">Activity Reporting</a>
-        <a class="home-tile red-button" href="{% url 'culet:report_inactive_jobs' %}">Inactive Jobs</a>
-        <a class="home-tile red-button" href="{% url 'culet:report_clocked_in_idle' %}">Idle Employees</a>
-        <a class="home-tile red-button" href="{% url 'culet:report_weight_loss_by_style' %}">Weight Loss by Style</a>
-        <a class="home-tile" href="{% url 'culet:report_employee_activity' %}">Employee Activity</a>
-        <a class="home-tile" href="{% url 'culet:report_time_clock' %}">Time Clock Report</a>
-        <a class="home-tile red-button" href="{% url 'culet:report_late_jobs' %}">Late Jobs</a>
-        <a class="home-tile" href="{% url 'culet:report_jobs_by_holder' %}">Jobs Held By Employee</a>
-        <a class="home-tile" href="{% url 'culet:job_shipped_report' %}">Jobs Shipped Report</a>
-        <a class="home-tile" href="{% url 'culet:style_step_time_report' %}">Average Step Time by Style</a>
-        <a class="home-tile" href="{% url 'culet:memo_list' %}">Memos</a>
-        <a class="home-tile red-button" href="{% url 'culet:quality_failure_report' %}">QC Failures Report</a>
-      </div>
-    </section>
-
-  {% endif %}
-
-  </div>
-</main>
-
-    <div
-        id="home-summary"
-        hx-get="{% url 'culet:home_summary_partial' %}"
-        hx-trigger="load, every 5s"
-        hx-swap="innerHTML"
-    >
-        {% include "partials/home_summary_sidebar.html" %}
+  <section class="home-hero">
+    <div>
+      <p class="eyebrow">Culet Dashboard</p>
+      <h1>What would you like to do?</h1>
+      <p class="home-subtitle">Quick access to jobs, receiving, inventory, styles, and reports.</p>
     </div>
-</div>
+  </section>
 
+  <section class="home-section">
+    <h2>Production</h2>
+
+    <div class="home-grid">
+      <a class="home-tile primary" href="{% url 'culet:my_jobs' %}">
+        <svg class="home-icon" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M6.5 1A1.5 1.5 0 0 0 5 2.5V3H1.5A1.5 1.5 0 0 0 0 4.5v8A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-8A1.5 1.5 0 0 0 14.5 3H11v-.5A1.5 1.5 0 0 0 9.5 1h-3zm0 1h3a.5.5 0 0 1 .5.5V3H6v-.5a.5.5 0 0 1 .5-.5z"/>
+        </svg>
+        <span>My Jobs</span>
+        <small>View and start assigned work</small>
+      </a>
+
+      <a class="home-tile success" href="{% url 'culet:receive_list' %}">
+        <svg class="home-icon" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M8.5 1.5a.5.5 0 0 0-1 0v7.793L4.354 6.146a.5.5 0 1 0-.708.708l4 4a.5.5 0 0 0 .708 0l4-4a.5.5 0 0 0-.708-.708L8.5 9.293V1.5z"/>
+          <path d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-4a.5.5 0 0 0-1 0v4a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-4a.5.5 0 0 0-1 0v4z"/>
+        </svg>
+        <span>Receive Jobs</span>
+        <small>Receive transferred work</small>
+      </a>
+
+      <a class="home-tile" href="{% url 'culet:index_job' %}">
+        <svg class="home-icon" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M2 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v12.5a.5.5 0 0 1-.777.416L8 11.101l-5.223 3.815A.5.5 0 0 1 2 14.5V2z"/>
+        </svg>
+        <span>All Jobs</span>
+        <small>Search and review jobs</small>
+      </a>
+
+      <a class="home-tile" href="{% url 'culet:assign_job' %}">
+        <svg class="home-icon" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M15 14s1 0 1-1-1-4-5-4-5 3-5 4 1 1 1 1h8z"/>
+          <path d="M11 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/>
+          <path d="M6.5 5.5a.5.5 0 0 0-1 0V7H4a.5.5 0 0 0 0 1h1.5v1.5a.5.5 0 0 0 1 0V8H8a.5.5 0 0 0 0-1H6.5V5.5z"/>
+        </svg>
+        <span>Assign Job</span>
+        <small>Assign work to employees</small>
+      </a>
+    </div>
+  </section>
+
+  <section class="home-section">
+    <h2>Create</h2>
+
+    <div class="home-grid">
+      <a class="home-tile" href="{% url 'culet:job_create' %}">
+        <svg class="home-icon" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M8 4a.5.5 0 0 1 .5.5V7.5h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+        </svg>
+        <span>Create Job</span>
+        <small>Add a new production job</small>
+      </a>
+
+      <a class="home-tile" href="{% url 'culet:style_create' %}">
+        <svg class="home-icon" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M15.825.12a.5.5 0 0 1 .132.584c-1.53 3.43-4.743 8.17-7.095 10.64-1.724 1.812-3.837 2.976-6.107 3.267a.5.5 0 0 1-.557-.558c.292-2.269 1.455-4.383 3.267-6.106C7.934 5.594 12.674 2.382 16.104.852a.5.5 0 0 1-.279-.732z"/>
+        </svg>
+        <span>Create Style</span>
+        <small>Add a style recipe</small>
+      </a>
+
+      <a class="home-tile" href="{% url 'culet:index_style' %}">
+        <svg class="home-icon" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M2 2h12v12H2V2zm1 1v10h10V3H3z"/>
+          <path d="M4 5h8v1H4V5zm0 3h8v1H4V8zm0 3h5v1H4v-1z"/>
+        </svg>
+        <span>Styles</span>
+        <small>View style library</small>
+      </a>
+    </div>
+  </section>
+
+  <section class="home-section">
+    <h2>Inventory & Reports</h2>
+
+    <div class="home-grid">
+      <a class="home-tile" href="{% url 'culet:inventory_dashboard' %}">
+        <svg class="home-icon" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113z"/>
+          <path d="M15 4.239 8.5 6.839v7.922l6.5-2.6V4.24z"/>
+          <path d="M7.5 14.762V6.838L1 4.239v7.923l6.5 2.6z"/>
+        </svg>
+        <span>Inventory</span>
+        <small>Receive and review materials</small>
+      </a>
+
+      <a class="home-tile" href="{% url 'culet:reporting' %}">
+        <svg class="home-icon" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M0 0h1v15h15v1H0V0z"/>
+          <path d="M10 10h2V5h-2v5zm-3 0h2V2H7v8zm-3 0h2V7H4v3z"/>
+        </svg>
+        <span>Reporting</span>
+        <small>Activity and production data</small>
+      </a>
+
+      <a class="home-tile" href="{% url 'culet:activities_index' %}">
+        <svg class="home-icon" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M8 3.5a.5.5 0 0 1 .5.5v4l2.5 1.5a.5.5 0 0 1-.5.866l-2.75-1.65A.5.5 0 0 1 7.5 8V4a.5.5 0 0 1 .5-.5z"/>
+          <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+        </svg>
+        <span>Activities</span>
+        <small>Review active job activity</small>
+      </a>
+    </div>
+  </section>
+
+</div>
 {% endblock content %}

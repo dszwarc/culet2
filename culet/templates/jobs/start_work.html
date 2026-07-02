@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="job-section-card">
+    <h2 class="job-section-title">Start Work</h2>
+
+    <div class="job-detail-summary">
+        <p><strong>Job:</strong> {{ job.job_num }}</p>
+        <p><strong>Name:</strong> {{ job.name }}</p>
+        <p><strong>Style:</strong> {{ job.style }}</p>
+        <p><strong>Customer:</strong> {{ job.customer }}</p>
+        <p><strong>Due:</strong> {{ job.due }}</p>
+    </div>
+
+    <form method="post" onsubmit="return confirm('Start this job with the selected operation?');">
+        {% csrf_token %}
+
+        <div class="form-group">
+            {{ form.step.label_tag }}
+            {{ form.step }}
+            {{ form.step.errors }}
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-success">
+                Start Job
+            </button>
+
+            <a href="{% url 'culet:my_jobs' %}" class="btn btn-secondary">
+                Cancel
+            </a>
+        </div>
+    </form>
+</div>
+
+{% endblock content %}

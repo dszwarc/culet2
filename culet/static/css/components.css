@@ -1,0 +1,149 @@
+#my_nav {
+    width: 100%;
+    background: var(--nav);
+    display: flex;
+    justify-content: space-between;
+    align-items: stretch;
+    gap: 8px;
+    padding: 8px 14px;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+.links_left,
+.links_right {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.nav_link {
+    min-height: 42px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    color: #f9fafb;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+}
+
+.nav_link:hover,
+.active_link {
+    background: #ffffff;
+    color: var(--nav) !important;
+    text-decoration: none;
+}
+
+.clock_status {
+    width: 100%;
+    padding: 10px 16px;
+    text-align: center;
+    color: white;
+    font-weight: 800;
+    letter-spacing: .03em;
+}
+
+.messages {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.messages li,
+.success,
+.error {
+    width: 100%;
+    padding: 14px 18px;
+    border-radius: var(--radius);
+    margin-bottom: 12px;
+    font-weight: 700;
+}
+
+.success {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.error {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.card,
+.job-section-card,
+.dashboard-card,
+.filter_box,
+form:not(td form) {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+}
+
+.signin {
+    width: min(100% - 32px, 440px);
+    margin: 48px auto;
+    padding: 24px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.login_form_title {
+    padding: 0;
+    margin: 0 0 12px 0;
+    text-align: center;
+}
+
+.barcode {
+    font-feature-settings: "calt" 1;
+    font-family: "Libre Barcode 39 Extended Text", system-ui;
+    font-weight: 400;
+}
+
+#eantest {
+    font-family: "Libre Barcode EAN13 Text", system-ui;
+    font-size: clamp(4rem, 12vw, 10rem);
+    margin: 0;
+}
+
+@media (max-width: 950px) {
+    #my_nav {
+        flex-direction: column;
+    }
+
+    .links_left,
+    .links_right {
+        justify-content: center;
+    }
+
+    .nav_link {
+        flex: 1 1 auto;
+    }
+}
+
+@media (max-width: 650px) {
+    #my_nav {
+        padding: 8px;
+    }
+
+    .nav_link {
+        flex: 1 1 calc(50% - 6px);
+        padding: 10px 8px;
+        font-size: 14px;
+    }
+
+    .card,
+    .job-section-card,
+    .dashboard-card {
+        padding: 14px;
+    }
+}

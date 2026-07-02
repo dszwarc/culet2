@@ -21,6 +21,8 @@ from operator import itemgetter
 import re
 
 from .models import (
+    ActivityStep,
+    Step,
     JobMetalLot,
     FailureType,
     QualityInspection,
@@ -54,6 +56,7 @@ from .models import (
 )
 
 from .forms import (
+    StartWorkForm,
     RepairLookupForm,
     RepairCreateForm,
     QualityInspectionForm,
@@ -470,25 +473,35 @@ class ReceiveAndAssignJobsView(LoginRequiredMixin, generic.TemplateView):
 
         return redirect("culet:receive_and_assign_jobs")
 
+from datetime import timedelta
+
 class ReportingListView(LoginRequiredMixin, generic.ListView):
     model = Activity
     template_name = "reporting/index.html"
     context_object_name = "activities"
-    # def get_queryset(self):
-    #     return Activity.objects.order_by("-start")
+
     def get_context_data(self, **kwargs):
         activities = Activity.objects.all()
-        myFilter = ActivityFilter(self.request.GET,queryset=activities)
+        myFilter = ActivityFilter(self.request.GET, queryset=activities)
         filt_activities = myFilter.qs
-        total_time=0
+
+        total_time = timedelta()
+
         for act in filt_activities:
             if act.duration:
                 total_time += act.duration
-        if total_time > 0:
-            avg_time = total_time/len(filt_activities)
+
+        if total_time > timedelta() and filt_activities.exists():
+            avg_time = total_time / filt_activities.count()
         else:
-            avg_time = 0
-        context = {'activities':filt_activities, 'filter':myFilter, 'total_time':total_time, 'avg_time':avg_time}
+            avg_time = timedelta()
+
+        context = {
+            'activities': filt_activities,
+            'filter': myFilter,
+            'total_time': total_time,
+            'avg_time': avg_time,
+        }
         return context
 
 class ActivityListView(LoginRequiredMixin,generic.ListView):
@@ -838,6 +851,35 @@ class JobStyleDefaultsHTMXView(LoginRequiredMixin, generic.View):
             },
         )
 
+def create_allocation_weight(job, allocated_weight_delta, user=None):
+    allocated_weight_delta = Decimal(allocated_weight_delta or 0)
+
+    if allocated_weight_delta == 0:
+        return
+
+    allocation_step = Step.objects.get(code="metal_allocated")
+
+    latest_weight = (
+        JobWeight.objects
+        .filter(job=job)
+        .order_by("-created_at", "-id")
+        .first()
+    )
+
+    if latest_weight:
+        new_piece_weight = Decimal(latest_weight.weight or 0) + allocated_weight_delta
+    else:
+        new_piece_weight = allocated_weight_delta
+
+    JobWeight.objects.create(
+        job=job,
+        step=allocation_step,
+        weight=new_piece_weight,
+        sprue_weight=Decimal("0"),
+        dust_weight=Decimal("0"),
+        recorded_by=user,
+    )
+
 class JobMetalLotAssignView(LoginRequiredMixin, generic.View):
     template_name = "jobs/metal_lot_assignment.html"
 
@@ -860,8 +902,16 @@ class JobMetalLotAssignView(LoginRequiredMixin, generic.View):
     def post(self, request, pk):
         job_metal = get_object_or_404(JobMetal, pk=pk)
 
+        existing_allocations = list(
+            job_metal.lot_assignments.select_related("metal_lot")
+        )
+
+        old_allocated_weight = sum(
+            Decimal(alloc.weight_used or 0)
+            for alloc in existing_allocations
+        )
+
         # restore previous allocations before recalculating
-        existing_allocations = list(job_metal.lot_assignments.select_related("metal_lot"))
         for alloc in existing_allocations:
             MetalLot.objects.filter(pk=alloc.metal_lot_id).update(
                 qty_on_hand=F("qty_on_hand") + alloc.qty_used,
@@ -871,6 +921,7 @@ class JobMetalLotAssignView(LoginRequiredMixin, generic.View):
         job_metal.lot_assignments.all().delete()
 
         formset = JobMetalLotFormSet(request.POST, instance=job_metal, prefix="lots")
+
         for form in formset.forms:
             form.fields["metal_lot"].queryset = MetalLot.objects.filter(
                 part=job_metal.part,
@@ -884,6 +935,11 @@ class JobMetalLotAssignView(LoginRequiredMixin, generic.View):
             })
 
         assignments = formset.save(commit=False)
+
+        new_allocated_weight = sum(
+            Decimal(alloc.weight_used or 0)
+            for alloc in assignments
+        )
 
         # Validate availability before saving
         for alloc in assignments:
@@ -914,6 +970,14 @@ class JobMetalLotAssignView(LoginRequiredMixin, generic.View):
 
             alloc.job_metal = job_metal
             alloc.save()
+
+        allocated_weight_delta = new_allocated_weight - old_allocated_weight
+
+        create_allocation_weight(
+            job=job_metal.job,
+            allocated_weight_delta=allocated_weight_delta,
+            user=request.user,
+        )
 
         return redirect(job_metal.job.get_absolute_url())
 
@@ -946,21 +1010,30 @@ class JobMetalLotAssignmentHTMXView(LoginRequiredMixin, generic.View):
                 "lot_formset": formset,
             })
 
-        # Restore existing assignments before checking availability
         existing_assignments = list(
             job_metal.lot_assignments.select_related("metal_lot")
         )
 
+        old_allocated_weight = sum(
+            Decimal(existing.weight_used or 0)
+            for existing in existing_assignments
+        )
+
+        # Restore existing assignments before checking availability
         for existing in existing_assignments:
             MetalLot.objects.filter(pk=existing.metal_lot_id).update(
                 qty_on_hand=F("qty_on_hand") + existing.qty_used,
                 weight_on_hand=F("weight_on_hand") + existing.weight_used,
             )
 
-        # Delete old assignments so the submitted formset becomes the source of truth
         job_metal.lot_assignments.all().delete()
 
         assignments = formset.save(commit=False)
+
+        new_allocated_weight = sum(
+            Decimal(assignment.weight_used or 0)
+            for assignment in assignments
+        )
 
         # Validate availability before saving/decrementing inventory
         for assignment in assignments:
@@ -1005,6 +1078,14 @@ class JobMetalLotAssignmentHTMXView(LoginRequiredMixin, generic.View):
 
             assignment.job_metal = job_metal
             assignment.save()
+
+        allocated_weight_delta = new_allocated_weight - old_allocated_weight
+
+        create_allocation_weight(
+            job=job_metal.job,
+            allocated_weight_delta=allocated_weight_delta,
+            user=request.user,
+        )
 
         return render(request, self.template_name, {
             "job_metal": job_metal,
@@ -1296,6 +1377,68 @@ def startWork(request):
     messages.success(request, f"Job {job.barcode} has been started. ({activity.step.name})")
     return redirect("culet:my_jobs")
 
+class StartWorkView(LoginRequiredMixin, generic.View):
+    template_name = "jobs/start_work.html"
+
+    def get(self, request, pk):
+        employee = request.user.employee
+        job = get_object_or_404(Job, pk=pk)
+
+        if job.assigned_to != employee:
+            messages.error(request, "You can only start jobs assigned to you.")
+            return redirect("culet:my_jobs")
+
+        if not employee.clocked_in:
+            messages.error(request, "Please clock in before starting work.")
+            return redirect("culet:my_jobs")
+
+        form = StartWorkForm(employee=employee)
+
+        return render(request, self.template_name, {
+            "job": job,
+            "form": form,
+        })
+
+    def post(self, request, pk):
+        employee = request.user.employee
+        job = get_object_or_404(Job, pk=pk)
+
+        if job.assigned_to != employee:
+            messages.error(request, "You can only start jobs assigned to you.")
+            return redirect("culet:my_jobs")
+
+        if not employee.clocked_in:
+            messages.error(request, "Please clock in before starting work.")
+            return redirect("culet:my_jobs")
+
+        if job.in_work:
+            messages.error(request, f"Job {job.barcode} is already in work.")
+            return redirect("culet:my_jobs")
+
+        form = StartWorkForm(employee=employee, data=request.POST)
+
+        if form.is_valid():
+            step = form.cleaned_data["step"]
+
+            Activity.objects.create(
+                job=job,
+                employee=employee,
+                step=step,
+                start=timezone.now(),
+            )
+
+            job.in_work = True
+            job.holder = employee
+            job.save()
+
+            messages.success(request, f"Started {step} on job {job.barcode}.")
+            return redirect("culet:my_jobs")
+
+        return render(request, self.template_name, {
+            "job": job,
+            "form": form,
+        })
+
 # def startWork(request):
 #     #NEED LOGIC TO PREVENT EMP FROM STARTING WORK THAT IS NOT ASSIGNED TO THEM OR IF THEY ARE NOT LOGGED IN
 #     if request.user:
@@ -1483,13 +1626,28 @@ class MetalVendorLotDetailView(LoginRequiredMixin, generic.DetailView):
         context["part_lots"] = (
             self.object.part_lots
             .select_related("part")
-            .all()
+            .order_by("part__sku")
         )
 
         context["receipt_lines"] = (
             self.object.receipt_lines
-            .select_related("receipt", "part")
-            .order_by("-receipt__received_at")
+            .select_related("receipt", "part", "metal_lot")
+            .order_by("-receipt__received_at", "part__sku")
+        )
+
+        context["job_lot_allocations"] = (
+            JobMetalLot.objects
+            .filter(metal_lot__vendor_lot=self.object)
+            .select_related(
+                "job_metal",
+                "job_metal__job",
+                "job_metal__job__customer",
+                "job_metal__job__style",
+                "job_metal__part",
+                "metal_lot",
+                "metal_lot__part",
+            )
+            .order_by("job_metal__job__due", "job_metal__job__barcode")
         )
 
         return context
@@ -2832,23 +2990,42 @@ class PieceworkReturnView(LoginRequiredMixin, generic.DetailView):
 
     @transaction.atomic
     def post(self, request, *args, **kwargs):
+        piecework_step = ActivityStep.objects.get(code="piecework")
         memo = self.get_object()
         return_location_id = request.POST.get("return_location")
 
         return_location = get_object_or_404(Location, pk=return_location_id)
         returned_by = get_employee(request.user)
 
+        # Capture one timestamp for the entire return operation
+        returned_at = timezone.now()
+
         for line in memo.lines.select_related("job"):
             job = line.job
+
+            piecework_start = job.piecework_assigned_at or memo.created_at
+
+            Activity.objects.create(
+                job=job,
+                employee=memo.assigned_to,
+                step=piecework_step,
+                start=piecework_start,
+                end=returned_at,
+                duration=returned_at - piecework_start,
+                is_piecework=True,
+                active=False,
+            )
+
             job.location = return_location
             job.is_piecework = False
+            job.piecework_assigned_at = None
 
             if hasattr(job, "holder"):
                 job.holder = returned_by
 
             job.save()
 
-        memo.returned_at = timezone.now()
+        memo.returned_at = returned_at
         memo.returned_by = returned_by
         memo.save()
 
@@ -2921,7 +3098,7 @@ class MemoListView(LoginRequiredMixin, generic.TemplateView):
         for memo in piecework_memos:
             memo_rows.append({
                 "type": "Piecework",
-                "id": memo.id,
+                "memo_num": memo.memo_num,
                 "created_at": memo.created_at,
                 "created_by": memo.created_by,
                 "from_location": memo.from_location,
@@ -3053,9 +3230,9 @@ class RepairCreateView(LoginRequiredMixin, generic.TemplateView):
         context["form"] = RepairCreateForm()
         return context
 
-    def get_next_job_num(self):
-        max_job_num = Job.objects.aggregate(Max("job_num"))["job_num__max"] or 0
-        return max_job_num + 1
+    def get_next_barcode(self):
+        max_barcode = Job.objects.aggregate(Max("barcode"))["barcode__max"] or 0
+        return max_barcode + 1
 
     def get_base_stock_num(self, stock_num):
         return re.sub(r"-R\d+$", "", stock_num)
@@ -3089,7 +3266,7 @@ class RepairCreateView(LoginRequiredMixin, generic.TemplateView):
 
         repair_job = Job.objects.create(
             customer=original_job.customer,
-            job_num=self.get_next_job_num(),
+            barcode=self.get_next_barcode(),
             customer_ref_num=None,
             active=True,
             shipped=False,
@@ -3155,3 +3332,4 @@ class RepairLookupView(LoginRequiredMixin, generic.FormView):
         return redirect(
             f"{reverse('culet:job_create')}?repair_from={original_job.pk}"
         )
+    

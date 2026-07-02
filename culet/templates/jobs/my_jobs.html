@@ -1,94 +1,96 @@
 {% extends 'base.html' %}
 
 {% block content %}
-    
+
 {% if user.is_authenticated %}
 
     {% if latest_job_list %}
-
+    <div class="table-wrap">
         <table class="index_table job_index">
             <tr>
                 <td>Stock #</td>
                 <td>Style</td>
                 <td>Due Date</td>
-                <td>Active</td>
+                <td>Work</td>
             </tr>
+
             {% for job in latest_job_list %}
-                    <tr class="{% if forloop.counter|divisibleby:2 %}even_row{% else %}odd_row{% endif %}">
-                        <td><a href="{% url 'culet:job_detail' job.id %}">{{ job.stock_num }}</a></td>
-                        <td>{{ job.style }}</td>
-                        <td {% if job.is_past_due%}class="past_due"{% else %}{% endif %}>{{ job.due }}</td>
-                        <td>
-                            {% if job.is_piecework %}
 
-                                <div class="piecework-card">
-                                    <div class="piecework-title">
-                                        Piecework
-                                    </div>
+                <tr class="{% if forloop.counter|divisibleby:2 %}even_row{% else %}odd_row{% endif %}">
 
-                                    <div class="piecework-date">
-                                        Return by:<br>
+                    <td>
+                        <a href="{% url 'culet:job_detail' job.id %}">
+                            {{ job.stock_num }}
+                        </a>
+                    </td>
 
-                                        {% if job.piecework_due_back %}
-                                            {{ job.piecework_due_back|date:"M j, Y" }}
-                                        {% else %}
-                                            No due date
-                                        {% endif %}
-                                    </div>
+                    <td>{{ job.style }}</td>
+
+                    <td {% if job.is_past_due %}class="past_due"{% endif %}>
+                        {{ job.due }}
+                    </td>
+
+                    <td>
+
+                        {% if job.is_piecework %}
+
+                            <div class="piecework-card">
+                                <div class="piecework-title">
+                                    Piecework
                                 </div>
 
-                            {% elif job.in_work and job.active_activity %}
+                                <div class="piecework-date">
+                                    Return by:<br>
 
-                                <form
-                                    method="post"
-                                    action="{% url 'culet:stop_work' job.active_activity.id job.id %}"
-                                    style="display:inline;"
+                                    {% if job.piecework_due_back %}
+                                        {{ job.piecework_due_back|date:"M j, Y" }}
+                                    {% else %}
+                                        No due date
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                        {% elif job.in_work and job.active_activity %}
+
+                            <form
+                                method="post"
+                                action="{% url 'culet:stop_work' job.active_activity.id job.id %}"
+                                style="display:inline;"
+                            >
+                                {% csrf_token %}
+
+                                <button
+                                    type="submit"
+                                    class="btn btn-danger"
+                                    onclick="return confirm('Stop work on Job {{ job.barcode }}?');"
                                 >
-                                    {% csrf_token %}
+                                    Stop Work
+                                </button>
+                            </form>
 
-                                    <button
-                                        type="submit"
-                                        class="btn btn-danger"
-                                        onclick="return confirm('Stop work on Job {{ job.barcode }}?');"
-                                    >
-                                        Stop Work
-                                    </button>
-                                </form>
+                        {% else %}
 
-                            {% else %}
+                            <a
+                                href="{% url 'culet:job_start' job.id %}"
+                                class="btn btn-success"
+                            >
+                                Start Work
+                            </a>
 
-                                <form method="post" action="{% url 'culet:start_work' %}" style="display:inline;">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="job_id" value="{{ job.id }}">
+                        {% endif %}
 
-                                    <select name="step" required>
-                                        <option value="">Choose step</option>
+                    </td>
 
-                                        {% for step in activity_start_form.fields.step.queryset %}
-                                            <option value="{{ step.id }}">
-                                                {{ step.name }}
-                                            </option>
-                                        {% endfor %}
-                                    </select>
+                </tr>
 
-                                    <button
-                                        type="submit"
-                                        class="btn btn-success"
-                                        onclick="return confirm('Start work on Job {{ job.barcode }}?');"
-                                    >
-                                        Start Work
-                                    </button>
-                                </form>
-
-                            {% endif %}
-                        </td>
-                    </tr>
-                
             {% endfor %}
+
         </table>
-    
+    </div>
     {% else %}
+
         <p>No jobs are available.</p>
+
     {% endif %}
 
 {% endif %}

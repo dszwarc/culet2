@@ -6,8 +6,8 @@
     
 
 {% if activities %}
-
-    <table class = "index">
+<div class="table-wrap">
+    <table class = "index-table job_index">
         <thead>Active Work</thead>
         <tr>
             <td>Job Number</td>
@@ -26,7 +26,7 @@
             
         {% endfor %}
     </table>
-   
+</div>
 {% else %}
     <p>No current active jobs.</p>
 {% endif %}

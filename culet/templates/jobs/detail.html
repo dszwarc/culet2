@@ -173,6 +173,7 @@
 
 <table border="1" cellpadding="8">
   <tr>
+    <th>Step</th>
     <th>Recorded At</th>
     <th>Piece</th>
     <th>Sprue</th>
@@ -183,12 +184,13 @@
 
   {% for jw in job_weights %}
     <tr>
+      <td>{{ jw.step }}</td>
       <td>{{ jw.created_at }}</td>
       <td>{{ jw.weight }} dwt</td>
       <td>{{ jw.sprue_weight }} dwt</td>
       <td>{{ jw.dust_weight }} dwt</td>
       <td>{{ jw.total_weight }} dwt</td>
-      <td>{{ jw.recorded_by }}</td>
+      <td>{{ jw.recorded_by.first_name }} {{jw.recorded_by.last_name}}</td>
     </tr>
   {% empty %}
     <tr>

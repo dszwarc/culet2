@@ -1016,3 +1016,17 @@ class RepairLookupForm(forms.Form):
             "placeholder": "Scan stock number or barcode",
         })
     )
+
+class StartWorkForm(forms.Form):
+    step = forms.ModelChoiceField(
+        queryset=ActivityStep.objects.none(),
+        label="Operation",
+        empty_label="Select an operation",
+    )
+
+    def __init__(self, employee, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.fields["step"].queryset = ActivityStep.objects.filter(
+            departments=employee.department_fk,
+        ).order_by("name")

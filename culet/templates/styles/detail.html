@@ -13,43 +13,45 @@
   </div>
 
 <br>
-
-<table class="index_table job_index">
-    <tr>
-        <td>Part Name</td>
-        <td>Quantity</td>
-        <td>Metal Type</td>
-        <td></td>
-    </tr>
-    {% for m in metal %}
+<div class="table-wrap">
+    <table class="index_table job_index">
         <tr>
-            <td>{{ m.part }}</td>
-            <td>{{ m.qty_req }}</td>
-            <td>{{ m.metal_type }}</td>
+            <td>Part Name</td>
+            <td>Quantity</td>
+            <td>Metal Type</td>
+            <td></td>
         </tr>
-    {% endfor %}
-        
-</table>
-
-<table class="index_table job_index">
-    <tr>
-        <td>Stone Type</td>
-        <td>Quantity</td>
-        <td>Metal Type</td>
-        <td></td>
-    </tr>
-    {% for s in stones %}
-        <tr>
-            <td>{{ s.stone_type }}</td>
-            <td>{{ s.stone_shape}}</td>
-            <td>{{ s.stone_size }}</td>
-            <td>{{ s.qty_req }}</td>
+        {% for m in metal %}
+            <tr>
+                <td>{{ m.part }}</td>
+                <td>{{ m.qty_req }}</td>
+                <td>{{ m.metal_type }}</td>
+            </tr>
+        {% endfor %}
             
-        </tr>
-    {% endfor %}
-  
-</table>
+    </table>
+</div>
 
+<div class="table-wrap">
+    <table class="index_table job_index">
+        <tr>
+            <td>Stone Type</td>
+            <td>Quantity</td>
+            <td>Metal Type</td>
+            <td></td>
+        </tr>
+        {% for s in stones %}
+            <tr>
+                <td>{{ s.stone_type }}</td>
+                <td>{{ s.stone_shape}}</td>
+                <td>{{ s.stone_size }}</td>
+                <td>{{ s.qty_req }}</td>
+                
+            </tr>
+        {% endfor %}
+    
+    </table>
+</div>
 
 <h2>Findings</h2>
 

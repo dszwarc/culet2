@@ -1,56 +1,106 @@
 {% extends 'base.html' %}
 
-
 {% block content %}
-    
+
 <h1>Vendor Lot {{ vendor_lot.lot_num }}</h1>
 
-<p><strong>Vendor:</strong> {{ vendor_lot.vendor }}</p>
-<p><strong>Received At:</strong> {{ vendor_lot.received_at }}</p>
+<div class="card" style="width:80%; margin: 0 auto 2rem auto;">
+  <div class="card-body">
+    <p class="card-text"><strong>Vendor:</strong> {{ vendor_lot.vendor }}</p>
+    <p class="card-text"><strong>Received At:</strong> {{ vendor_lot.received_at }}</p>
+  </div>
+</div>
 
 <h2>Current Inventory by Part</h2>
 
-<table border="1" cellpadding="8">
-  <thead>
+<div class="container">
+  <table class="index_table job_index">
     <tr>
       <th>Part</th>
       <th>Qty On Hand</th>
+      <th>Weight On Hand</th>
       <th>Inventory Detail</th>
     </tr>
-  </thead>
-  <tbody>
+
     {% for part_lot in part_lots %}
-      <tr>
+      <tr class="{% if forloop.counter|divisibleby:2 %}even_row{% else %}odd_row{% endif %}">
         <td>{{ part_lot.part }}</td>
         <td>{{ part_lot.qty_on_hand }}</td>
+        <td>{{ part_lot.weight_on_hand }}</td>
         <td>
-          <a href="{% url 'culet:metal_lot_detail' part_lot.pk %}">
-            View
-          </a>
+          <a href="{% url 'culet:metal_lot_detail' part_lot.pk %}">View</a>
         </td>
       </tr>
     {% empty %}
       <tr>
-        <td colspan="3">No inventory lines for this vendor lot.</td>
+        <td colspan="4">No inventory lines for this vendor lot.</td>
       </tr>
     {% endfor %}
-  </tbody>
-</table>
+  </table>
+</div>
+
+<h2>Jobs Using This Vendor Lot</h2>
+
+<div class="container">
+  <table class="index_table job_index">
+    <tr>
+      <th>Job</th>
+      <th>Customer</th>
+      <th>Style</th>
+      <th>Part</th>
+      <th>Qty Used</th>
+      <th>Weight Used</th>
+      <th>Due Date</th>
+      <th>Status</th>
+    </tr>
+
+    {% for allocation in job_lot_allocations %}
+      <tr class="{% if forloop.counter|divisibleby:2 %}even_row{% else %}odd_row{% endif %}">
+        <td>
+          <a href="{% url 'culet:job_detail' allocation.job_metal.job.pk %}">
+            {{ allocation.job_metal.job }}
+          </a>
+        </td>
+        <td>{{ allocation.job_metal.job.customer }}</td>
+        <td>{{ allocation.job_metal.job.style }}</td>
+        <td>{{ allocation.job_metal.part }}</td>
+        <td>{{ allocation.qty_used }}</td>
+        <td>{{ allocation.weight_used }}</td>
+        <td {% if allocation.job_metal.job.is_past_due %}class="past_due"{% elif allocation.job_metal.job.is_near_due %}class="near_due"{% endif %}>
+          {{ allocation.job_metal.job.due }}
+        </td>
+        <td>
+          {% if allocation.job_metal.job.shipped %}
+            Shipped
+          {% elif allocation.job_metal.job.active %}
+            Active
+          {% else %}
+            Inactive
+          {% endif %}
+        </td>
+      </tr>
+    {% empty %}
+      <tr>
+        <td colspan="8">No jobs currently have metal allocated from this vendor lot.</td>
+      </tr>
+    {% endfor %}
+  </table>
+</div>
 
 <h2>Receipt History</h2>
 
-<table border="1" cellpadding="8">
-  <thead>
+<div class="table-wrap">
+  <table class="index_table job_index">
     <tr>
       <th>Receipt #</th>
       <th>Date</th>
       <th>Part</th>
       <th>Qty Received</th>
+      <th>Weight Received</th>
     </tr>
-  </thead>
-  <tbody>
+
     {% for line in receipt_lines %}
-      <tr>
+      <tr class="{% if forloop.counter|divisibleby:2 %}even_row{% else %}odd_row{% endif %}">
         <td>
           <a href="{% url 'culet:metal_receipt_detail' line.receipt.pk %}">
             {{ line.receipt.pk }}
@@ -59,15 +109,14 @@
         <td>{{ line.receipt.received_at }}</td>
         <td>{{ line.part }}</td>
         <td>{{ line.qty_received }}</td>
+        <td>{{ line.weight_received }}</td>
       </tr>
     {% empty %}
       <tr>
-        <td colspan="4">No receipt history for this vendor lot.</td>
+        <td colspan="5">No receipt history for this vendor lot.</td>
       </tr>
     {% endfor %}
-  </tbody>
-</table>
+  </table>
+</div>
 
 {% endblock content %}
-    
-
