@@ -12,7 +12,7 @@
 .eyebrow {
     margin: 0 0 6px 0;
     color: var(--primary);
-    font-size: 13px;
+    font-size: 10px;
     font-weight: 900;
     text-transform: uppercase;
     letter-spacing: .12em;
@@ -35,6 +35,11 @@
     display: flex;
     flex-direction: column;
     gap: 14px;
+}
+
+.home-section-subtitle {
+    margin: -8px 0 0 0;
+    color: var(--muted);
 }
 
 .home-section h2 {
@@ -124,5 +129,141 @@
     .home-icon {
         width: 30px;
         height: 30px;
+    }
+}
+
+.home-layout {
+    display: flex;
+    align-items: flex-start;
+    gap: 24px;
+}
+
+.home-main {
+    flex: 1 1 auto;
+    min-width: 0;
+
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.home-sidebar {
+    flex: 0 0 340px;
+
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.sidebar-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 18px;
+}
+
+.sidebar-title {
+    margin: 0 0 14px 0;
+    font-size: 1.15rem;
+}
+
+.stat-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.stat-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 14px;
+
+    padding: 14px;
+    border-radius: 14px;
+    text-decoration: none;
+    color: var(--text);
+    border: 1px solid transparent;
+}
+
+.stat-card:hover {
+    text-decoration: none;
+    color: var(--text);
+    transform: translateY(-1px);
+}
+
+.stat-label {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.stat-title {
+    font-weight: 900;
+}
+
+.stat-subtitle {
+    color: var(--muted);
+    font-size: .85rem;
+}
+
+.stat-number {
+    font-size: 1.8rem;
+    font-weight: 900;
+}
+
+.stat-green {
+    background: #dcfce7;
+    border-color: #bbf7d0;
+}
+
+.stat-blue {
+    background: #dbeafe;
+    border-color: #bfdbfe;
+}
+
+.stat-orange {
+    background: #ffedd5;
+    border-color: #fed7aa;
+}
+
+.stat-red {
+    background: #fee2e2;
+    border-color: #fecaca;
+}
+
+.stat-purple {
+    background: #f3e8ff;
+    border-color: #e9d5ff;
+}
+
+@media (max-width: 1100px) {
+    .home-layout {
+        flex-direction: column;
+    }
+
+    .home-sidebar {
+        width: 100%;
+        flex: 1 1 auto;
+    }
+
+    .stat-grid {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+
+    .stat-card {
+        flex: 1 1 240px;
+    }
+}
+
+@media (max-width: 650px) {
+    .stat-grid {
+        flex-direction: column;
+    }
+
+    .stat-card {
+        flex: 1 1 auto;
     }
 }

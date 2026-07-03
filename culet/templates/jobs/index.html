@@ -3,11 +3,45 @@
 {% block content %}
 
 {% if user.is_authenticated %}
-<div class="filter_box">
-    <form method="get" action="">
-        {{filter.form}}
-        <button class="btn btn-primary" type="submit">Search</button>
+<div class="filter-panel">
+
+    <div class="filter-header">
+        <div>
+            <h2 class="filter-title">Filter Jobs</h2>
+            <p class="filter-subtitle">Search by job, customer, style, holder, status, or due date.</p>
+        </div>
+    </div>
+
+    <form method="get" class="filter-form">
+
+        {% for field in filter.form %}
+            <div class="filter-field">
+                <label for="{{ field.id_for_label }}">
+                    {{ field.label }}
+                </label>
+
+                {{ field }}
+
+                {% if field.errors %}
+                    <div class="field-error">
+                        {{ field.errors }}
+                    </div>
+                {% endif %}
+            </div>
+        {% endfor %}
+
+        <div class="filter-actions">
+            <button type="submit" class="btn btn-primary">
+                Apply Filters
+            </button>
+            <a href="{% url 'culet:index_job' %}" class="filter-clear">
+                Clear
+            </a>
+        </div>
+
+
     </form>
+
 </div>
 
     {% if latest_job_list %}

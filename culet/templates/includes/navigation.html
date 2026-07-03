@@ -1,0 +1,121 @@
+{% load static %}
+
+<nav class="app-nav">
+
+    <div class="app-nav-left">
+
+        <a href="{% url 'culet:home' %}" class="app-brand">
+
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-gem" viewBox="0 0 16 16">
+            <path d="M3.1.7a.5.5 0 0 1 .4-.2h9a.5.5 0 0 1 .4.2l2.976 3.974c.149.185.156.45.01.644L8.4 15.3a.5.5 0 0 1-.8 0L.1 5.3a.5.5 0 0 1 0-.6zm11.386 3.785-1.806-2.41-.776 2.413zm-3.633.004.961-2.989H4.186l.963 2.995zM5.47 5.495 8 13.366l2.532-7.876zm-1.371-.999-.78-2.422-1.818 2.425zM1.499 5.5l5.113 6.817-2.192-6.82zm7.889 6.817 5.123-6.83-2.928.002z"/>
+            </svg>
+
+            <span>CULET</span>
+
+        </a>
+
+    </div>
+
+    <div class="app-nav-right">
+
+        {% if user.is_authenticated %}
+
+            {% if nav_requires_clock_in %}
+
+                {% if nav_clocked_in %}
+
+                    <form method="post" action="{% url 'culet:clock_out' %}" class="nav-inline-form">
+                        {% csrf_token %}
+                        <button type="submit" class="nav-action nav-action-button danger">
+                            Clock Out
+                        </button>
+                    </form>
+
+                {% else %}
+
+                    <form method="post" action="{% url 'culet:clock_in' %}" class="nav-inline-form">
+                        {% csrf_token %}
+                        <button type="submit" class="nav-action nav-action-button success">
+                            Clock In
+                        </button>
+                    </form>
+
+                {% endif %}
+
+            {% endif %}
+
+            <form method="post" action="{% url 'logout' %}" class="nav-inline-form">
+                {% csrf_token %}
+                <button type="submit" class="nav-action nav-action-button">
+                    Logout
+                </button>
+            </form>
+
+        {% else %}
+
+            <a href="{% url 'login' %}" class="nav-action">
+                Login
+            </a>
+
+        {% endif %}
+
+    </div>
+
+</nav>
+
+
+{% if user.is_authenticated and nav_requires_clock_in %}
+
+    {% if nav_clocked_in %}
+
+        <div class="status-banner success">
+
+            <svg class="status-icon"
+                 xmlns="http://www.w3.org/2000/svg"
+                 width="16"
+                 height="16"
+                 fill="currentColor"
+                 viewBox="0 0 16 16">
+
+                <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM6.97 10.97l5.03-5.03a.75.75 0 0 0-1.06-1.06L6.5 9.318 5.06 7.879a.75.75 0 0 0-1.06 1.06l1.97 1.97a.75.75 0 0 0 1 0z"/>
+
+            </svg>
+
+            <span>
+
+                Clocked In
+
+                {% if nav_current_clock %}
+                    • Since {{ nav_current_clock.clock_in|date:"g:i A" }}
+                {% endif %}
+
+            </span>
+
+        </div>
+
+    {% else %}
+
+        <div class="status-banner danger">
+
+            <svg class="status-icon"
+                 xmlns="http://www.w3.org/2000/svg"
+                 width="16"
+                 height="16"
+                 fill="currentColor"
+                 viewBox="0 0 16 16">
+
+                <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zM7.25 4a.75.75 0 0 1 1.5 0v4.25a.75.75 0 0 1-1.5 0V4zm.75 8.25a.875.875 0 1 1 0-1.75.875.875 0 0 1 0 1.75z"/>
+
+            </svg>
+
+            <span>
+
+                Not Clocked In
+
+            </span>
+
+        </div>
+
+    {% endif %}
+
+{% endif %}

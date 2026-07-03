@@ -218,12 +218,48 @@ class HomeView(LoginRequiredMixin, generic.TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        employee = self.request.user.employee
-        role = employee.role_fk
+        today = timezone.localdate()
+        inactive_cutoff = timezone.now() - timedelta(days=7)
 
-        context["employee_level"] = role.level if role else 0
-        context["is_manager_level"] = context["employee_level"] >= 30
-        context.update(get_home_summary_context())
+        clocked_in_employee_ids = TimeClock.objects.filter(
+            clock_out__isnull=True,
+            employee__role_fk__requires_clock_in=True,
+        ).values_list("employee_id", flat=True)
+
+        active_work_employee_ids = Activity.objects.filter(
+            end__isnull=True,
+        ).values_list("employee_id", flat=True)
+
+        context["jobs_in_work_count"] = Job.objects.filter(
+            activity__end__isnull=True,
+        ).distinct().count()
+
+        context["clocked_in_count"] = Employee.objects.filter(
+            id__in=clocked_in_employee_ids,
+        ).distinct().count()
+
+        context["idle_employee_count"] = Employee.objects.filter(
+            id__in=clocked_in_employee_ids,
+        ).exclude(
+            id__in=active_work_employee_ids,
+        ).distinct().count()
+
+        context["late_jobs_count"] = Job.objects.filter(
+            shipped=False,
+            due__lt=today,
+        ).count()
+
+        context["inactive_jobs_count"] = Job.objects.filter(
+            shipped=False,
+        ).annotate(
+            last_activity=Max("activity__start"),
+        ).filter(
+            last_activity__lt=inactive_cutoff,
+        ).count()
+
+        context["shipped_today_count"] = JobShip.objects.filter(
+            shipped_at__date=today,
+        ).count()
 
         return context
 
@@ -1527,43 +1563,66 @@ def stopWork(request, pk, job_id):
 def createStyle(request):
     new_style = Style()
 
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import redirect
+from django.utils import timezone
+
+from .models import TimeClock, Activity
+
+
+@login_required
 def clock_in(request):
-    if request.user.employee.clocked_in == False:
-        clocking_in = TimeClock(
-            clock_in = timezone.now(),
-            employee = request.user.employee
-            )
-        clocking_in.save()
-        request.user.employee.clocked_in = True
-        request.user.employee.save()
-        return HttpResponseRedirect(reverse('culet:my_jobs'))
+    if request.method != "POST":
+        return redirect("culet:home")
+
+    employee = request.user.employee
+
+    existing_clock = TimeClock.objects.filter(
+        employee=employee,
+        clock_out__isnull=True,
+    ).first()
+
+    if existing_clock:
+        messages.info(request, "You are already clocked in.")
     else:
-        messages.success(request, "Already logged in.")
-        return HttpResponseRedirect(reverse('culet:my_job'))
+        TimeClock.objects.create(
+            employee=employee,
+            clock_in=timezone.now(),
+        )
+        messages.success(request, "Clocked in successfully.")
+
+    return redirect("culet:home")
+
 
 @login_required
 def clock_out(request):
     if request.method != "POST":
-        return redirect("culet:index")
+        return redirect("culet:home")
 
     employee = request.user.employee
+    now = timezone.now()
 
-    stopped_count = 0
+    open_clock = (
+        TimeClock.objects
+        .filter(employee=employee, clock_out__isnull=True)
+        .order_by("-clock_in")
+        .first()
+    )
 
-    for activity in employee.active_activities:
-        stop_activity(activity)
-        stopped_count += 1
+    if not open_clock:
+        messages.error(request, "You are not currently clocked in.")
+        return redirect("culet:home")
 
-    employee.clocked_in = False
-    employee.save()
+    open_clock.clock_out = now
+    open_clock.save()
 
-    if stopped_count:
-        messages.success(
-            request,
-            f"You have been clocked out. {stopped_count} active job(s) were stopped."
-        )
-    else:
-        messages.success(request, "You have been clocked out.")
+    Activity.objects.filter(
+        employee=employee,
+        end__isnull=True,
+    ).update(end=now)
+
+    messages.success(request, "Clocked out successfully.")
 
     return redirect("culet:home")
 
@@ -1998,7 +2057,8 @@ class ClockedInIdleEmployeesReportView(LoginRequiredMixin, generic.TemplateView)
 
         employees = (
             Employee.objects
-            .filter(clocked_in=True)
+            .filter(clocked_in=True,
+                    role_fk__requires_clock_in=True,)
             .exclude(
                 activity__active=True,
                 activity__end__isnull=True,

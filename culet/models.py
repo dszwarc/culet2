@@ -168,7 +168,7 @@ class Job(models.Model):
         max_length=50,
         unique=True,
         null=True,
-        blank=True
+        blank=True,
     )
     size = models.CharField(default="",blank=True,max_length=80)
     stamp = models.CharField(default="", blank=True, max_length=80)
