@@ -24,12 +24,15 @@
 
                 {% if nav_clocked_in %}
 
-                    <form method="post" action="{% url 'culet:clock_out' %}" class="nav-inline-form">
-                        {% csrf_token %}
-                        <button type="submit" class="nav-action nav-action-button danger">
-                            Clock Out
-                        </button>
-                    </form>
+                <form method="post"
+                    action="{% url 'culet:clock_out' %}"
+                    class="nav-inline-form"
+                    onsubmit="return confirm('Clock out? This will stop {{ nav_open_job_count|default:0 }} active job(s).');">
+                    {% csrf_token %}
+                    <button type="submit" class="nav-action nav-action-button danger">
+                        Clock Out
+                    </button>
+                </form>
 
                 {% else %}
 
@@ -44,12 +47,15 @@
 
             {% endif %}
 
-            <form method="post" action="{% url 'logout' %}" class="nav-inline-form">
-                {% csrf_token %}
-                <button type="submit" class="nav-action nav-action-button">
-                    Logout
-                </button>
-            </form>
+                    <form method="post"
+                        action="{% url 'culet:culet_logout' %}"
+                        class="nav-inline-form"
+                        onsubmit="return confirm('Log out? This will also clock you out and stop {{ nav_open_job_count|default:0 }} active job(s).');">
+                        {% csrf_token %}
+                        <button type="submit" class="nav-action nav-action-button">
+                            Logout
+                        </button>
+                    </form>
 
         {% else %}
 

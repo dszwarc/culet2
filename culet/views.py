@@ -19,6 +19,7 @@ from decimal import Decimal
 from itertools import chain
 from operator import itemgetter
 import re
+from .services import clock_in_employee, clock_out_employee, stop_activity
 
 from .models import (
     ActivityStep,
@@ -101,6 +102,22 @@ from .forms import (
 from django.contrib import messages
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.contrib.auth import logout as auth_logout
+
+@login_required
+def culet_logout(request):
+    if request.method != "POST":
+        return redirect("culet:home")
+
+    employee = getattr(request.user, "employee", None)
+
+    if employee and employee.role_fk and employee.role_fk.requires_clock_in:
+        result = clock_out_employee(employee)
+        messages.success(request, result.message)
+
+    auth_logout(request)
+
+    return redirect("login")
 
 def get_home_summary_context():
     now = timezone.now()
@@ -1475,47 +1492,6 @@ class StartWorkView(LoginRequiredMixin, generic.View):
             "form": form,
         })
 
-# def startWork(request):
-#     #NEED LOGIC TO PREVENT EMP FROM STARTING WORK THAT IS NOT ASSIGNED TO THEM OR IF THEY ARE NOT LOGGED IN
-#     if request.user:
-#         job_query = Job.objects.get(barcode=request.POST["job"])
-
-#         #check to see if job that is being queried is assigned to the user before allowing user to start work.
-#         if job_query.assigned_to == Employee.objects.get(user=request.user):
-#         # if job is not active, creates an acitivty for it with start time now
-#             if job_query.in_work == False:
-#                 activity = Activity(
-#                     name = request.POST["name"],
-#                     start = timezone.now(),
-#                     job = job_query,
-#                     employee = request.user.employee,
-#                 )
-#                 activity.save()
-                
-#                 #makes job object active if it was not
-#                 job_query.in_work = True
-                
-#                 job_query.assigned_to = Employee.objects.get(user=request.user)
-                
-#                 job_query.save()
-#                 messages.success(request,f"Job {job_query.barcode} has been started. ({activity.name})")
-#             else:
-#                 messages.error(request,f"Job {job_query.barcode} could not be started. Activity already started.")
-#             return HttpResponseRedirect(reverse('culet:my_jobs'))
-#     else:
-#         messages.error(request,f"Job {job_query.barcode} could not be started. User not logged in.")
-
-#helper function for stop_work and clock_out
-def stop_activity(activity):
-    activity.end = timezone.now()
-    activity.active = False
-    activity.save()
-
-    if activity.job:
-        activity.job.in_work = False
-        activity.job.save()
-
-
 @login_required
 def stopWork(request, pk, job_id):
     if request.method != "POST":
@@ -1560,9 +1536,6 @@ def stopWork(request, pk, job_id):
 #     messages.success(request,f"Job {job.barcode} has been stopped. ({act.name})")
 #     return HttpResponseRedirect(reverse('culet:my_jobs'))
 
-def createStyle(request):
-    new_style = Style()
-
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect
@@ -1576,21 +1549,8 @@ def clock_in(request):
     if request.method != "POST":
         return redirect("culet:home")
 
-    employee = request.user.employee
-
-    existing_clock = TimeClock.objects.filter(
-        employee=employee,
-        clock_out__isnull=True,
-    ).first()
-
-    if existing_clock:
-        messages.info(request, "You are already clocked in.")
-    else:
-        TimeClock.objects.create(
-            employee=employee,
-            clock_in=timezone.now(),
-        )
-        messages.success(request, "Clocked in successfully.")
+    result = clock_in_employee(request.user.employee)
+    messages.success(request, result.message)
 
     return redirect("culet:home")
 
@@ -1600,29 +1560,8 @@ def clock_out(request):
     if request.method != "POST":
         return redirect("culet:home")
 
-    employee = request.user.employee
-    now = timezone.now()
-
-    open_clock = (
-        TimeClock.objects
-        .filter(employee=employee, clock_out__isnull=True)
-        .order_by("-clock_in")
-        .first()
-    )
-
-    if not open_clock:
-        messages.error(request, "You are not currently clocked in.")
-        return redirect("culet:home")
-
-    open_clock.clock_out = now
-    open_clock.save()
-
-    Activity.objects.filter(
-        employee=employee,
-        end__isnull=True,
-    ).update(end=now)
-
-    messages.success(request, "Clocked out successfully.")
+    result = clock_out_employee(request.user.employee)
+    messages.success(request, result.message)
 
     return redirect("culet:home")
 

@@ -71,4 +71,7 @@ urlpatterns = [
     #QC
     path("jobs/quality-inspection/", views.QualityInspectionCreateView.as_view(), name="quality_inspection"),
     path("reports/quality-failures/", views.QualityFailureReportView.as_view(), name="quality_failure_report"),
+
+    #logout
+    path("logout/", views.culet_logout, name="culet_logout"),
     ]
