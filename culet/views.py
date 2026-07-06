@@ -111,7 +111,7 @@ def culet_logout(request):
 
     employee = getattr(request.user, "employee", None)
 
-    if employee and employee.role_fk and employee.role_fk.requires_clock_in:
+    if employee and employee.role and employee.role.requires_clock_in:
         result = clock_out_employee(employee)
         messages.success(request, result.message)
 
@@ -211,7 +211,7 @@ class ClockedInRequiredMixin:
             messages.error(request, "Your user account is not linked to an employee.")
             return redirect("culet:home")
 
-        role = employee.role_fk
+        role = employee.role
         requires_clock_in = True
 
         if role is not None:
@@ -240,7 +240,7 @@ class HomeView(LoginRequiredMixin, generic.TemplateView):
 
         clocked_in_employee_ids = TimeClock.objects.filter(
             clock_out__isnull=True,
-            employee__role_fk__requires_clock_in=True,
+            employee__role__requires_clock_in=True,
         ).values_list("employee_id", flat=True)
 
         active_work_employee_ids = Activity.objects.filter(
@@ -447,23 +447,23 @@ class ReceiveAndAssignJobsView(LoginRequiredMixin, generic.TemplateView):
 
         employees = (
             Employee.objects
-            .select_related("user", "department_fk", "role_fk")
+            .select_related("user", "department", "role")
             .order_by(
-                "role_fk__name",
+                "role__name",
                 "user__last_name",
                 "user__first_name",
             )
             .exclude(id=current_employee.id)
         )
 
-        role_name = current_employee.role_fk.name if current_employee.role_fk else ""
+        role_name = current_employee.role.name if current_employee.role else ""
 
         if role_name == "Super":
             return employees
 
         if role_name == "Manager":
             return employees.filter(
-                department_fk=current_employee.department_fk
+                department=current_employee.department
             )
 
         return Employee.objects.none()
@@ -472,8 +472,8 @@ class ReceiveAndAssignJobsView(LoginRequiredMixin, generic.TemplateView):
         employees = self.get_assignable_employees()
 
         return render(request, self.template_name, {
-            "managers": employees.filter(role_fk__name="Manager") | employees.filter(role_fk__name="Super"),
-            "employees": employees.exclude(role_fk__name="Manager").exclude(role_fk__name="Super"),
+            "managers": employees.filter(role__name="Manager") | employees.filter(role__name="Super"),
+            "employees": employees.exclude(role__name="Manager").exclude(role__name="Super"),
         })
 
     @transaction.atomic
@@ -1278,25 +1278,25 @@ class AssignJobView(LoginRequiredMixin, ClockedInRequiredMixin, generic.Template
 
         employees = Employee.objects.select_related(
             "user",
-            "department_fk",
-            "role_fk",
+            "department",
+            "role",
         ).order_by(
-            "role_fk__name",
+            "role__name",
             "user__last_name",
             "user__first_name",
         ).exclude(
             id=current_employee.id
         )
 
-        role_name = current_employee.role_fk.name if current_employee.role_fk else ""
-        dept_name = current_employee.department_fk.name if current_employee.department_fk else ""
+        role_name = current_employee.role.name if current_employee.role else ""
+        dept_name = current_employee.department.name if current_employee.department else ""
 
         if role_name == "Super":
             return employees
 
         if role_name == "Manager":
             return employees.filter(
-                department_fk=current_employee.department_fk
+                department=current_employee.department
             )
 
         return Employee.objects.none()
@@ -1305,8 +1305,8 @@ class AssignJobView(LoginRequiredMixin, ClockedInRequiredMixin, generic.Template
         employees = self.get_assignable_employees()
 
         context = {
-            "managers": employees.filter(role_fk__name="Manager") | employees.filter(role_fk__name="Super"),
-            "employees": employees.exclude(role_fk__name="Manager").exclude(role_fk__name="Super"),
+            "managers": employees.filter(role__name="Manager") | employees.filter(role__name="Super"),
+            "employees": employees.exclude(role__name="Manager").exclude(role__name="Super"),
         }
 
         return render(request, self.template_name, context)
@@ -1360,10 +1360,10 @@ class ReturnJobView(LoginRequiredMixin, generic.TemplateView):
     template_name = "jobs/return.html"
 
     def get(self, request, *args, **kwargs):
-        employees = Employee.objects.exclude(role_fk__name="Hourly")
+        employees = Employee.objects.exclude(role__name="Hourly")
 
         context = {
-            "managers": employees.filter(role_fk__name="Manager") | employees.filter(role_fk__name="Super"),
+            "managers": employees.filter(role__name="Manager") | employees.filter(role__name="Super"),
         }
 
         return render(request, self.template_name, context)
@@ -1997,12 +1997,12 @@ class ClockedInIdleEmployeesReportView(LoginRequiredMixin, generic.TemplateView)
         employees = (
             Employee.objects
             .filter(clocked_in=True,
-                    role_fk__requires_clock_in=True,)
+                    role__requires_clock_in=True,)
             .exclude(
                 activity__active=True,
                 activity__end__isnull=True,
             )
-            .select_related("user", "department_fk", "role_fk")
+            .select_related("user", "department", "role")
             .annotate(
                 last_activity_name=Subquery(last_activity.values("name")[:1]),
                 last_activity_start=Subquery(last_activity.values("start")[:1]),
@@ -2191,8 +2191,8 @@ class TimeClockReportView(LoginRequiredMixin, generic.TemplateView):
 
             employees = (
                 Employee.objects
-                .select_related("user", "department_fk", "role_fk")
-                .filter(role_fk__requires_clock_in=True)
+                .select_related("user", "department", "role")
+                .filter(role__requires_clock_in=True)
                 .order_by("user__last_name", "user__first_name")
             )
 
@@ -2393,12 +2393,12 @@ class JobsByHolderReportView(LoginRequiredMixin, generic.TemplateView):
             )
             .select_related(
                 "user",
-                "department_fk",
-                "role_fk",
+                "department",
+                "role",
             )
             .distinct()
             .order_by(
-                "department_fk__name",
+                "department__name",
                 "user__last_name",
                 "user__first_name",
             )
@@ -2412,7 +2412,7 @@ class JobsByHolderReportView(LoginRequiredMixin, generic.TemplateView):
 
             if selected_department:
                 employees = employees.filter(
-                    department_fk=selected_department
+                    department=selected_department
                 )
 
             if selected_employee:
@@ -2441,7 +2441,7 @@ class JobsByHolderReportView(LoginRequiredMixin, generic.TemplateView):
                 .order_by("due", "barcode")
             )
 
-            dept = employee.department_fk
+            dept = employee.department
 
             if dept not in departments:
                 departments[dept] = {

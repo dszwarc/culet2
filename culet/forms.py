@@ -137,9 +137,9 @@ class ActivityStartForm(forms.ModelForm):
 
         qs = ActivityStep.objects.all()
 
-        if employee and employee.department_fk:
+        if employee and employee.department:
             qs = qs.filter(
-                departments=employee.department_fk
+                departments=employee.department
             ).distinct()
 
         self.fields["step"].queryset = qs
@@ -710,7 +710,7 @@ class EmployeeActivityReportForm(forms.Form):
 class TimeClockReportForm(forms.Form):
     employee = forms.ModelChoiceField(
         queryset=Employee.objects.select_related("user")
-        .filter(role_fk__requires_clock_in=True)
+        .filter(role__requires_clock_in=True)
         .order_by("user__last_name", "user__first_name"),
         required=False,
         empty_label="All employees",
@@ -1028,5 +1028,5 @@ class StartWorkForm(forms.Form):
         super().__init__(*args, **kwargs)
 
         self.fields["step"].queryset = ActivityStep.objects.filter(
-            departments=employee.department_fk,
+            departments=employee.department,
         ).order_by("name")

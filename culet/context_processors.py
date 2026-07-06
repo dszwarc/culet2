@@ -11,7 +11,7 @@ def clock_status(request):
 
         if employee:
             nav_requires_clock_in = bool(
-                employee.role_fk and employee.role_fk.requires_clock_in
+                employee.role and employee.role.requires_clock_in
             )
 
             if nav_requires_clock_in:
