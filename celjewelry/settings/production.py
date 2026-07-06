@@ -23,3 +23,8 @@ X_FRAME_OPTIONS = "DENY"
 
 SECURE_CONTENT_TYPE_NOSNIFF = True
 REFERRER_POLICY = "same-origin"
+
+# Required for DigitalOcean Managed PostgreSQL
+DATABASES["default"]["OPTIONS"] = {
+    "sslmode": "require",
+}
