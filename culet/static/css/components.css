@@ -413,3 +413,81 @@ form:not(td form) {
         padding: 9px 12px;
     }
 }
+
+/* ==========================================================
+   Barcode Camera Scanner
+========================================================== */
+
+.culet-scanner-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+
+    display: none;
+    align-items: center;
+    justify-content: center;
+
+    padding: 1.5rem;
+
+    background: rgba(0, 0, 0, 0.80);
+    backdrop-filter: blur(4px);
+}
+
+.culet-scanner-overlay.is-active {
+    display: flex;
+}
+
+.culet-scanner-box {
+    width: min(100%, 440px);
+
+    background: #fff;
+    border-radius: 12px;
+
+    padding: 1.5rem;
+
+    box-shadow: 0 20px 40px rgba(0, 0, 0, .25);
+
+    text-align: center;
+}
+
+.culet-scanner-title {
+    margin: 0 0 .5rem;
+    font-size: 1.4rem;
+    font-weight: 600;
+}
+
+.culet-scanner-help {
+    margin: 1rem 0;
+    color: #666;
+    font-size: .95rem;
+}
+
+.culet-scanner-reader {
+    width: 100%;
+    max-width: 360px;
+
+    margin: 1rem auto;
+
+    overflow: hidden;
+
+    border-radius: 8px;
+    border: 2px solid #ddd;
+    background: #000;
+}
+
+.culet-scanner-reader video {
+    width: 100%;
+    display: block;
+}
+
+.culet-scanner-actions {
+    display: flex;
+    justify-content: center;
+    gap: .75rem;
+
+    margin-top: 1rem;
+}
+
+.culet-scanner-btn {
+    white-space: nowrap;
+}
