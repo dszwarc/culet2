@@ -41,7 +41,14 @@
     <label>Scan Jobs</label>
 
     <div id="job-scan-fields">
-      <input type="text" name="job" class="scan-input" placeholder="Scan job barcode" autofocus>
+      <input
+    name="job"
+    type="text"
+    value="{{ selected_job }}"
+    placeholder="Enter Job Number"
+    autocomplete="off"
+    required
+>
       <input type="text" name="job" class="scan-input" placeholder="Scan job barcode">
       <input type="text" name="job" class="scan-input" placeholder="Scan job barcode">
     </div>

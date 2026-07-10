@@ -15,23 +15,18 @@
     <div class="table-wrap">
       <table class="index_table job_index">
         <tr>
-          <th>Number</th>
           <th>Stock Number</th>
           <th>Style</th>
-          <th>Customer</th>
           <th>Due Date</th>
-          <th>Active</th>
           <th>Receive</th>
         </tr>
 
         {% for job in receive_list %}
           <tr>
-            <td><a href="{{ job.get_absolute_url }}">{{ job.barcode }}</a></td>
-            <td>{{ job.stock_num }}</td>
+            <td><a href="{{ job.get_absolute_url }}">{{ job.stock_num }}</a></td>
             <td>{{ job.style }}</td>
             <td>{{ job.customer }}</td>
             <td>{{ job.due }}</td>
-            <td>{{ job.active }}</td>
             <td>
               <form method="POST"
                   action="{% url 'culet:receive' %}"

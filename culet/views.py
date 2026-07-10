@@ -569,13 +569,51 @@ class JobDetailView(LoginRequiredMixin, generic.DetailView):
     template_name = "jobs/detail.html"
     context_object_name = "job"
 
+    def get_queryset(self):
+        return (
+            Job.objects
+            .select_related(
+                "customer",
+                "style",
+                "assigned_to",
+                "location",
+            )
+        )
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["job_metals"] = JobMetal.objects.filter(job=context['job'])
-        context["job_stones"] = JobStone.objects.filter(job=context['job'])
-        context["job_findings"] = JobFinding.objects.filter(job=context["job"])
-        context["activity"] = Activity.objects.filter(job=context['job'])
-        context["job_weights"] = context["job"].weights.order_by("-created_at","-id")
+
+        context["job_metals"] = (
+            JobMetal.objects
+            .filter(job=self.object)
+            .select_related(
+                "part",
+                "metal_type",
+            )
+            .prefetch_related(
+                "lot_assignments__metal_lot__vendor_lot",
+                "lot_assignments__metal_lot__part",
+            )
+            .order_by("pk")
+        )
+
+        context["job_stones"] = (
+            JobStone.objects
+            .filter(job=self.object)
+            .select_related(
+                "stone_type",
+                "stone_shape",
+            )
+            .order_by("pk")
+        )
+
+        context["activity"] = (
+            Activity.objects
+            .filter(job=self.object)
+            .select_related("employee")
+            .order_by("-start")
+        )
+
         return context
 
 class JobCreateView(LoginRequiredMixin, generic.CreateView):
@@ -1270,91 +1308,66 @@ class StyleCreateView(LoginRequiredMixin, generic.CreateView):
         # If formset invalid, re-render page with errors
         return self.render_to_response(self.get_context_data(form=form))
 
-class AssignJobView(LoginRequiredMixin, ClockedInRequiredMixin, generic.TemplateView):
+class AssignJobView(LoginRequiredMixin, generic.TemplateView):
     template_name = "jobs/assign.html"
 
-    def get_assignable_employees(self):
-        current_employee = self.request.user.employee
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
 
-        employees = Employee.objects.select_related(
-            "user",
-            "department",
-            "role",
-        ).order_by(
-            "role__name",
+        context["employees"] = Employee.objects.all().order_by(
             "user__last_name",
             "user__first_name",
-        ).exclude(
-            id=current_employee.id
         )
 
-        role_name = current_employee.role.name if current_employee.role else ""
-        dept_name = current_employee.department.name if current_employee.department else ""
+        context["selected_job"] = self.request.GET.get("job", "").strip()
 
-        if role_name == "Super":
-            return employees
+        return context
 
-        if role_name == "Manager":
-            return employees.filter(
-                department=current_employee.department
-            )
-
-        return Employee.objects.none()
-
-    def get(self, request, *args, **kwargs):
-        employees = self.get_assignable_employees()
-
-        context = {
-            "managers": employees.filter(role__name="Manager") | employees.filter(role__name="Super"),
-            "employees": employees.exclude(role__name="Manager").exclude(role__name="Super"),
-        }
-
-        return render(request, self.template_name, context)
-
-    @transaction.atomic
     def post(self, request, *args, **kwargs):
-        employees = self.get_assignable_employees()
+        job_number = request.POST.get("job", "").strip()
+        employee_id = request.POST.get("employee")
 
-        employee = get_object_or_404(
-            employees,
-            id=request.POST.get("employee")
-        )
-
-        scanned_jobs = [
-            barcode.strip()
-            for barcode in request.POST.getlist("job")
-            if barcode.strip()
-        ]
-
-        if not scanned_jobs:
-            messages.error(request, "Please scan at least one job.")
+        if not job_number:
+            messages.error(request, "Please enter a job number.")
             return redirect("culet:assign_job")
 
-        assigned_count = 0
-        missing_jobs = []
-
-        for barcode in scanned_jobs:
-            try:
-                job = Job.objects.get(barcode=barcode)
-                job.assigned_to = employee
-                job.save()
-                assigned_count += 1
-            except Job.DoesNotExist:
-                missing_jobs.append(barcode)
-
-        if assigned_count:
-            messages.success(
-                request,
-                f"{assigned_count} job(s) assigned to {employee}."
+        if not employee_id:
+            messages.error(request, "Please select an employee.")
+            return redirect(
+                f"{reverse('culet:assign_job')}?job={job_number}"
             )
 
-        if missing_jobs:
+        try:
+            job = Job.objects.get(job_num=job_number)
+        except Job.DoesNotExist:
             messages.error(
                 request,
-                f"These jobs were not found: {', '.join(missing_jobs)}"
+                f"No job was found with job number {job_number}.",
+            )
+            return redirect(
+                f"{reverse('culet:assign_job')}?job={job_number}"
             )
 
-        return redirect("culet:assign_job")
+        try:
+            employee = Employee.objects.get(pk=employee_id)
+        except Employee.DoesNotExist:
+            messages.error(
+                request,
+                "The selected employee could not be found.",
+            )
+            return redirect(
+                f"{reverse('culet:assign_job')}?job={job_number}"
+            )
+
+        job.assigned_to = employee
+        job.save(update_fields=["assigned_to", "last_updated"])
+
+        messages.success(
+            request,
+            f"Job {job} has been assigned to {employee}.",
+        )
+
+        return redirect("culet:job_detail", pk=job.pk)
 
 class ReturnJobView(LoginRequiredMixin, generic.TemplateView):
     template_name = "jobs/return.html"
