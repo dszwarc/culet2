@@ -5,49 +5,138 @@
 {% if user.is_authenticated %}
 
     {% if latest_job_list %}
-    <div class="table-wrap">
-        <table class="index_table job_index">
-            <tr>
-                <td>Stock #</td>
-                <td>Style</td>
-                <td>Due Date</td>
-                <td>Work</td>
-            </tr>
+
+        {# Desktop/tablet table #}
+        <div class="table-wrap job-desktop-table">
+            <table class="index_table job_index">
+                <thead>
+                    <tr>
+                        <th>Stock #</th>
+                        <th>Style</th>
+                        <th>Due Date</th>
+                        <th>Work</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for job in latest_job_list %}
+                        <tr class="{% if forloop.counter|divisibleby:2 %}even_row{% else %}odd_row{% endif %}">
+
+                            <td>
+                                <a href="{% url 'culet:job_detail' job.id %}">
+                                    {{ job.stock_num|default:"No stock #" }}
+                                </a>
+                            </td>
+
+                            <td>{{ job.style|default:"—" }}</td>
+
+                            <td {% if job.is_past_due %}class="past_due"{% endif %}>
+                                {{ job.due|date:"n/j/Y" }}
+                            </td>
+
+                            <td>
+                                {% if job.is_piecework %}
+
+                                    <div class="piecework-card">
+                                        <div class="piecework-title">
+                                            Piecework
+                                        </div>
+
+                                        <div class="piecework-date">
+                                            Return by:<br>
+
+                                            {% if job.piecework_due_back %}
+                                                {{ job.piecework_due_back|date:"n/j/Y" }}
+                                            {% else %}
+                                                No due date
+                                            {% endif %}
+                                        </div>
+                                    </div>
+
+                                {% elif job.in_work and job.active_activity %}
+
+                                    <form
+                                        method="post"
+                                        action="{% url 'culet:stop_work' job.active_activity.id job.id %}"
+                                    >
+                                        {% csrf_token %}
+
+                                        <button
+                                            type="submit"
+                                            class="btn btn-danger"
+                                            onclick="return confirm('Stop work on Job {{ job.stock_num|default:job.barcode }}?');"
+                                        >
+                                            Stop Work
+                                        </button>
+                                    </form>
+
+                                {% else %}
+
+                                    <a
+                                        href="{% url 'culet:job_start' job.id %}"
+                                        class="btn btn-success"
+                                    >
+                                        Start Work
+                                    </a>
+
+                                {% endif %}
+                            </td>
+
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+
+        {# Mobile compact cards #}
+        <div class="mobile-job-list">
 
             {% for job in latest_job_list %}
+                <article class="mobile-job-card">
 
-                <tr class="{% if forloop.counter|divisibleby:2 %}even_row{% else %}odd_row{% endif %}">
+                    <div class="mobile-job-card-header">
 
-                    <td>
-                        <a href="{% url 'culet:job_detail' job.id %}">
-                            {{ job.stock_num }}
-                        </a>
-                    </td>
+                        <div class="mobile-job-stock">
+                            <span class="mobile-job-label">Stock #</span>
 
-                    <td>{{ job.style }}</td>
+                            <a href="{% url 'culet:job_detail' job.id %}">
+                                {{ job.stock_num|default:"No stock #" }}
+                            </a>
+                        </div>
 
-                    <td {% if job.is_past_due %}class="past_due"{% endif %}>
-                        {{ job.due }}
-                    </td>
+                        <div class="mobile-job-due {% if job.is_past_due %}mobile-job-due-past{% endif %}">
+                            <span class="mobile-job-label">Due</span>
 
-                    <td>
+                            {% if job.due %}
+                                {{ job.due|date:"n/j/y" }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </div>
+
+                    </div>
+
+                    <div class="mobile-job-style">
+                        <span class="mobile-job-label">Style</span>
+                        <span>{{ job.style|default:"—" }}</span>
+                    </div>
+
+                    <div class="mobile-job-action">
 
                         {% if job.is_piecework %}
 
-                            <div class="piecework-card">
-                                <div class="piecework-title">
-                                    Piecework
-                                </div>
+                            <div class="mobile-piecework-status">
+                                <strong>Piecework</strong>
 
-                                <div class="piecework-date">
-                                    Return by:<br>
-
+                                <span>
+                                    Return by:
                                     {% if job.piecework_due_back %}
-                                        {{ job.piecework_due_back|date:"M j, Y" }}
+                                        {{ job.piecework_due_back|date:"n/j/y" }}
                                     {% else %}
                                         No due date
                                     {% endif %}
-                                </div>
+                                </span>
                             </div>
 
                         {% elif job.in_work and job.active_activity %}
@@ -55,14 +144,14 @@
                             <form
                                 method="post"
                                 action="{% url 'culet:stop_work' job.active_activity.id job.id %}"
-                                style="display:inline;"
+                                class="mobile-job-form"
                             >
                                 {% csrf_token %}
 
                                 <button
                                     type="submit"
-                                    class="btn btn-danger"
-                                    onclick="return confirm('Stop work on Job {{ job.barcode }}?');"
+                                    class="btn btn-danger mobile-job-button"
+                                    onclick="return confirm('Stop work on Job {{ job.stock_num|default:job.barcode }}?');"
                                 >
                                     Stop Work
                                 </button>
@@ -72,21 +161,20 @@
 
                             <a
                                 href="{% url 'culet:job_start' job.id %}"
-                                class="btn btn-success"
+                                class="btn btn-success mobile-job-button"
                             >
                                 Start Work
                             </a>
 
                         {% endif %}
 
-                    </td>
+                    </div>
 
-                </tr>
-
+                </article>
             {% endfor %}
 
-        </table>
-    </div>
+        </div>
+
     {% else %}
 
         <p>No jobs are available.</p>
