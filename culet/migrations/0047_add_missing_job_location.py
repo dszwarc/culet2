@@ -3,13 +3,18 @@
 import django.db.models.deletion
 from django.db import migrations, models
 
+
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('culet', '0046_jobstatus_location_job_holder_alter_job_assigned_to_and_more'),
+        ("culet", "0046_jobstatus_location_job_holder_alter_job_assigned_to_and_more"),
     ]
 
     operations = [
+        migrations.RunSQL(
+            sql="ALTER INDEX IF EXISTS culet_job_location_id_ee186efd RENAME TO culet_job_holder_id_ee186efd;",
+            reverse_sql="ALTER INDEX IF EXISTS culet_job_holder_id_ee186efd RENAME TO culet_job_location_id_ee186efd;",
+        ),
         migrations.AddField(
             model_name="job",
             name="location",

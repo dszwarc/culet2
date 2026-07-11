@@ -413,3 +413,184 @@ form:not(td form) {
         padding: 9px 12px;
     }
 }
+
+/* ==========================================================
+   Barcode Camera Scanner
+========================================================== */
+
+.culet-scanner-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+
+    display: none;
+    align-items: center;
+    justify-content: center;
+
+    padding: 1.5rem;
+
+    background: rgba(0, 0, 0, 0.80);
+    backdrop-filter: blur(4px);
+}
+
+.culet-scanner-overlay.is-active {
+    display: flex;
+}
+
+.culet-scanner-box {
+    width: min(100%, 440px);
+
+    background: #fff;
+    border-radius: 12px;
+
+    padding: 1.5rem;
+
+    box-shadow: 0 20px 40px rgba(0, 0, 0, .25);
+
+    text-align: center;
+}
+
+.culet-scanner-title {
+    margin: 0 0 .5rem;
+    font-size: 1.4rem;
+    font-weight: 600;
+}
+
+.culet-scanner-help {
+    margin: 1rem 0;
+    color: #666;
+    font-size: .95rem;
+}
+
+.culet-scanner-reader {
+    width: 100%;
+    max-width: 360px;
+
+    margin: 1rem auto;
+
+    overflow: hidden;
+
+    border-radius: 8px;
+    border: 2px solid #ddd;
+    background: #000;
+}
+
+.culet-scanner-reader video {
+    width: 100%;
+    display: block;
+}
+
+.culet-scanner-actions {
+    display: flex;
+    justify-content: center;
+    gap: .75rem;
+
+    margin-top: 1rem;
+}
+
+.culet-scanner-btn {
+    white-space: nowrap;
+}
+
+/* =========================================================
+   Job Detail
+   ========================================================= */
+
+.job-detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+}
+
+.job-detail-header h1 {
+    margin-bottom: 0.25rem;
+}
+
+.job-detail-subtitle {
+    margin: 0;
+    color: #6b7280;
+}
+
+.job-detail-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.job-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 1rem;
+}
+
+.job-detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 0;
+}
+
+.job-detail-label {
+    color: #6b7280;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.job-detail-value {
+    color: #111827;
+    overflow-wrap: anywhere;
+}
+
+.job-detail-notes {
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e5e7eb;
+}
+
+.job-detail-notes-content {
+    margin-top: 0.4rem;
+    line-height: 1.55;
+}
+
+.job-detail-lot {
+    margin-bottom: 0.65rem;
+}
+
+.job-detail-lot:last-child {
+    margin-bottom: 0;
+}
+
+.job-detail-lot small {
+    display: block;
+    margin-top: 0.15rem;
+    color: #6b7280;
+}
+
+.job-detail-empty {
+    padding: 1.5rem !important;
+    color: #6b7280;
+    text-align: center;
+}
+
+@media (max-width: 700px) {
+    .job-detail-header,
+    .job-detail-actions {
+        width: 100%;
+    }
+
+    .job-detail-actions .btn {
+        flex: 1;
+        text-align: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .job-detail-grid {
+        grid-template-columns: 1fr;
+    }
+}

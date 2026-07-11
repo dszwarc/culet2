@@ -24,8 +24,8 @@
                 {% for employee in employees %}
                     <tr>
                         <td>{{ employee.user.get_full_name|default:employee.user.username }}</td>
-                        <td>{{ employee.department_fk|default:"-" }}</td>
-                        <td>{{ employee.role_fk|default:"-" }}</td>
+                        <td>{{ employee.department|default:"-" }}</td>
+                        <td>{{ employee.role|default:"-" }}</td>
                         <td>{{ employee.last_activity_name|default:"No activity recorded" }}</td>
                         <td>{{ employee.last_activity_job_barcode|default:"-" }}</td>
                         <td>{{ employee.last_activity_start|date:"m/d/Y g:i A"|default:"-" }}</td>

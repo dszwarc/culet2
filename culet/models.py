@@ -101,9 +101,8 @@ class Employee(models.Model):
 
     user = models.OneToOneField(User, on_delete=models.CASCADE)
 
-    department = models.CharField(max_length=80, default="Product Management")
-    
-    department_fk = models.ForeignKey(
+
+    department = models.ForeignKey(
     Department,
     on_delete=models.PROTECT,
     null=True,
@@ -111,15 +110,13 @@ class Employee(models.Model):
     related_name="employees"
     )
 
-    role_fk = models.ForeignKey(
+    role = models.ForeignKey(
     Role,
     on_delete=models.PROTECT,
     null=True,
     blank=True,
     related_name="employees"
     )
-
-    role = models.CharField(max_length = 2,choices=employee_choices, default = "PD")
 
     clocked_in = models.BooleanField(default=False)
     
@@ -129,11 +126,11 @@ class Employee(models.Model):
     
     @property
     def role_level(self):
-        return self.role_fk.level if self.role_fk else 0
+        return self.role.level if self.role else 0
     
     @property
     def can_receive_all_jobs(self):
-        return bool(self.role_fk and (self.role_fk.can_receive_all_jobs or self.role_fk.level >= 30))
+        return bool(self.role and (self.role.can_receive_all_jobs or self.role.level >= 30))
 
     def __str__(self):
         return f"{self.user.first_name} {self.user.last_name}"

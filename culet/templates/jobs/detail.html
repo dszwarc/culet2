@@ -1,202 +1,355 @@
-{% extends 'base.html' %}
-
+{% extends "base.html" %}
 
 {% block content %}
+<div class="container job-detail-page">
 
-<div class="card" style="width:60%;">
-    <div class="card-featured">
-        <h1 class="barcode">*{{ job.barcode}}*</h1>
-    </div>
-    <div class="card-body">
-      <h5 class="card-title">{{job.barcode}}</h5>
-      <p class="card-text">Due: {{job.due}}</p>
-      <p class="card-text">Customer: {{job.customer}}</p>
-      <p class="card-text">Style: {{job.style}}</p>
-      <p class="card-text">Assigned To: {{job.assigned_to}}</p>
-      <p class="card-text">Current Holder: {{job.holder}}</p>
+    <div class="page-header">
+        <div>
+            <h1>Job {{ job }}</h1>
+            <p class="page-subtitle">
+                {{ job.customer }}{% if job.style %} &middot; {{ job.style }}{% endif %}
+            </p>
+        </div>
 
-      <p class="card-text"><small class="text-muted">Last updated {{job.last_updated}}</small></p>
-      <div class="card-footer">
-        <a class="btn btn-primary" href="{% url 'culet:job_update' job.id %}">Edit Job Details</a>
-
-        <a class="btn btn-warning" href="{% url 'culet:index_job' %}">Back</a>
-        <a class="btn btn-primary" href="{% url 'culet:job_envelope_print' job.id %}" target="_blank">Print Job Envelope</a>
-      </div>
-    </div>
-  </div>
-
-<br>
-
-<table class="index_table job_index">
-    <tr>
-        <td>Activity</td>
-        <td>Start Time</td>
-        <td>End Time</td>
-        <td>Employee</td>
-        <td>Duration</td>
-        <td></td>
-    </tr>
-    {% for act in activity %}
-        <tr>
-            <td>{{ act.name }}</td>
-            <td>{{ act.start }}</td>
-            <td>{{ act.end }}</td>
-            <td>{{ act.employee }}</td>
-            <td>{{ act.duration_hours }} h {{ act.duration_min }} m</td>
-            
-            {% if act.active == False %}
-                <td></td>
-            {% else %}
-                <td><a href="{% url 'culet:stop_work' pk=act.id job_id=job.id %}"><button>Stop Work</button></a></td>                
-            {% endif %}
-                
-
-        </tr>
-    {% endfor %}
-        
-</table>
-
-<h2>Metals</h2>
-<table border="1" cellpadding="8">
-  <tr>
-    <th>Part</th>
-    <th>Qty Req</th>
-    <th>Weight Req</th>
-    <th>Metal Type</th>
-    <th>Lots</th>
-  </tr>
-  
-  {% if job_metals %}
-    {% for jm in job_metals %}
-        <tr>
-        <td>{{ jm.part }}</td>
-        <td>{{ jm.qty_req }}</td>
-        <td>{{ jm.weight_req }}</td>
-        <td>{{ jm.metal_type }}</td>
-        <td>
-            {% for alloc in jm.lot_assignments.all %}
-            <div>
-                {{ alloc.metal_lot.vendor_lot.lot_num }} / {{ alloc.metal_lot.part }}
-                — qty {{ alloc.qty_used }}, wt {{ alloc.weight_used }}
-            </div>
-            {% empty %}
-            <div>No lots assigned</div>
-            {% endfor %}
-        </td>
-        <td>
-            {% for alloc in jm.lot_assignments.all %}
-                <div>
-                {{ alloc.metal_lot.vendor_lot.lot_num }} / {{ alloc.metal_lot.part }}
-                — qty {{ alloc.qty_used }}, wt {{ alloc.weight_used }}
-                </div>
-            {% empty %}
-                <div>No lots assigned</div>
-            {% endfor %}
-
-            <a href="{% url 'culet:job_metal_assign_lots' jm.pk %}">
-                Assign Lots
+        <div class="page-actions">
+            <a
+                href="{% url 'culet:assign_job' %}?job={{ job.barcode|urlencode }}"
+                class="btn btn-primary"
+            >
+                Assign Job
             </a>
-        </td>
-        </tr>
-    {% endfor %}
-  {% endif %}
-    
-    
-</table>
 
-<h2>Stones</h2>
-<table border="1" cellpadding="8">
-  <tr>
-    <th>Type</th>
-    <th>Shape</th>
-    <th>Size</th>
-    <th>Qty Req</th>
-    <th>Weight Req</th>
-  </tr>
-  
-  {% if job_stones %}
-      {% for js in job_stones %}
-    <tr>
-      <td>{{ js.stone_type }}</td>
-      <td>{{ js.stone_shape }}</td>
-      <td>{{ js.stone_size }}</td>
-      <td>{{ js.qty_req }}</td>
-      <td>{{ js.weight_req }}</td>
-    </tr>
-  {% endfor %}
-  {% endif %}
-    
+            <a
+                href="{% url 'culet:job_update' job.pk %}"
+                class="btn btn-secondary"
+            >
+                Edit Job
+            </a>
 
-</table>
+            <a
+                href="{% url 'culet:index_job' %}"
+                class="btn btn-outline-secondary"
+            >
+                Back to Jobs
+            </a>
+        </div>
+    </div>
 
-## Findings
 
-{% if job_findings %}
-<table>
-  <thead>
-    <tr>
-      <th>Finding</th>
-      <th>Qty Req</th>
-      <th>Qty Used</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for jf in job_findings %}
-      <tr>
-        <td>{{ jf.finding }}</td>
-        <td>{{ jf.qty_req }}</td>
-        <td>{{ jf.qty_used }}</td>
-      </tr>
-    {% endfor %}
-  </tbody>
-</table>
-{% else %}
-<p>No findings required.</p>
-{% endif %}
+    <!-- Job information -->
+    <section class="job-section-card">
+        <div class="job-section-header">
+            <h2 class="job-section-title">Job Information</h2>
 
-<h2>Weights</h2>
+            <div class="job-status-group">
+                {% if job.shipped %}
+                    <span class="status-badge status-badge-complete">
+                        Shipped
+                    </span>
+                {% elif job.in_work %}
+                    <span class="status-badge status-badge-active">
+                        In Work
+                    </span>
+                {% elif job.active %}
+                    <span class="status-badge status-badge-pending">
+                        Active
+                    </span>
+                {% else %}
+                    <span class="status-badge status-badge-inactive">
+                        Inactive
+                    </span>
+                {% endif %}
+            </div>
+        </div>
 
-<p><strong>Initial Total Weight:</strong> {{ job.initial_job_weight }} dwt</p>
-<p><strong>Latest Total Weight:</strong> {{ job.latest_job_weight }} dwt</p>
-<p>
-  <strong>% Weight Loss:</strong>
-  {% if job.weight_loss_percent is not None %}
-    {{ job.weight_loss_percent|floatformat:2 }}%
-  {% else %}
-    N/A
-  {% endif %}
-</p>
+        <div class="job-detail-grid">
+            <div class="job-detail-item">
+                <span class="job-detail-label">Job Number</span>
+                <span class="job-detail-value">{{ job }}</span>
+            </div>
 
-<p>
-  <a href="{% url 'culet:job_weight_lookup'%}">Add Weight</a>
-</p>
+            <div class="job-detail-item">
+                <span class="job-detail-label">Name</span>
+                <span class="job-detail-value">
+                    {{ job.name|default:"—" }}
+                </span>
+            </div>
 
-<table border="1" cellpadding="8">
-  <tr>
-    <th>Step</th>
-    <th>Recorded At</th>
-    <th>Piece</th>
-    <th>Sprue</th>
-    <th>Dust</th>
-    <th>Total</th>
-    <th>Recorded By</th>
-  </tr>
+            <div class="job-detail-item">
+                <span class="job-detail-label">Customer</span>
+                <span class="job-detail-value">
+                    {{ job.customer|default:"—" }}
+                </span>
+            </div>
 
-  {% for jw in job_weights %}
-    <tr>
-      <td>{{ jw.step }}</td>
-      <td>{{ jw.created_at }}</td>
-      <td>{{ jw.weight }} dwt</td>
-      <td>{{ jw.sprue_weight }} dwt</td>
-      <td>{{ jw.dust_weight }} dwt</td>
-      <td>{{ jw.total_weight }} dwt</td>
-      <td>{{ jw.recorded_by.first_name }} {{jw.recorded_by.last_name}}</td>
-    </tr>
-  {% empty %}
-    <tr>
-      <td colspan="6">No weights recorded yet.</td>
-    </tr>
-  {% endfor %}
-</table>
+            <div class="job-detail-item">
+                <span class="job-detail-label">Style</span>
+                <span class="job-detail-value">
+                    {{ job.style|default:"—" }}
+                </span>
+            </div>
 
+            <div class="job-detail-item">
+                <span class="job-detail-label">Due Date</span>
+                <span class="job-detail-value">
+                    {{ job.due|date:"M j, Y"|default:"—" }}
+                </span>
+            </div>
+
+            <div class="job-detail-item">
+                <span class="job-detail-label">Assigned To</span>
+                <span class="job-detail-value">
+                    {{ job.assigned_to|default:"Unassigned" }}
+                </span>
+            </div>
+
+            <div class="job-detail-item">
+                <span class="job-detail-label">Current Holder</span>
+                <span class="job-detail-value">
+                    {{ job.location|default:"No current holder" }}
+                </span>
+            </div>
+
+            <div class="job-detail-item">
+                <span class="job-detail-label">Created</span>
+                <span class="job-detail-value">
+                    {{ job.created|date:"M j, Y g:i A" }}
+                </span>
+            </div>
+
+            <div class="job-detail-item">
+                <span class="job-detail-label">Last Updated</span>
+                <span class="job-detail-value">
+                    {{ job.last_updated|date:"M j, Y g:i A" }}
+                </span>
+            </div>
+        </div>
+
+        <div class="job-notes-block">
+            <span class="job-detail-label">Notes</span>
+
+            <div class="job-notes-content">
+                {{ job.notes|default:"No notes have been added."|linebreaksbr }}
+            </div>
+        </div>
+    </section>
+
+
+    <!-- Activity history -->
+    <section class="job-section-card">
+        <div class="job-section-header">
+            <h2 class="job-section-title">Activity History</h2>
+        </div>
+
+        <div class="job-table-wrap">
+            <table class="job-table">
+                <thead>
+                    <tr>
+                        <th>Activity</th>
+                        <th>Employee</th>
+                        <th>Start Time</th>
+                        <th>End Time</th>
+                        <th>Duration</th>
+                        <th class="actions-cell">Action</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for act in activity %}
+                        <tr>
+                            <td data-label="Activity">
+                                {{ act.name|default:"—" }}
+                            </td>
+
+                            <td data-label="Employee">
+                                {{ act.employee|default:"—" }}
+                            </td>
+
+                            <td data-label="Start Time">
+                                {{ act.start|date:"M j, Y g:i A" }}
+                            </td>
+
+                            <td data-label="End Time">
+                                {% if act.end %}
+                                    {{ act.end|date:"M j, Y g:i A" }}
+                                {% else %}
+                                    <span class="status-badge status-badge-active">
+                                        In Progress
+                                    </span>
+                                {% endif %}
+                            </td>
+
+                            <td data-label="Duration">
+                                {% if act.end %}
+                                    {{ act.duration_hours }} h
+                                    {{ act.duration_min }} m
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+
+                            <td data-label="Action" class="actions-cell">
+                                {% if act.active %}
+                                    <a
+                                        href="{% url 'culet:stop_work' pk=act.pk job_id=job.pk %}"
+                                        class="btn btn-danger btn-sm"
+                                    >
+                                        Stop Work
+                                    </a>
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="6" class="empty-table-message">
+                                No activity has been recorded for this job.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+
+    <!-- Metal requirements -->
+    <section class="job-section-card">
+        <div class="job-section-header">
+            <h2 class="job-section-title">Metal Requirements</h2>
+        </div>
+
+        <div class="job-table-wrap">
+            <table class="job-table">
+                <thead>
+                    <tr>
+                        <th>Part</th>
+                        <th>Metal Type</th>
+                        <th>Qty Required</th>
+                        <th>Weight Required</th>
+                        <th>Assigned Lots</th>
+                        <th class="actions-cell">Action</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for jm in job_metals %}
+                        <tr>
+                            <td data-label="Part">
+                                {{ jm.part|default:"—" }}
+                            </td>
+
+                            <td data-label="Metal Type">
+                                {{ jm.metal_type|default:"—" }}
+                            </td>
+
+                            <td data-label="Qty Required">
+                                {{ jm.qty_req|default:"—" }}
+                            </td>
+
+                            <td data-label="Weight Required">
+                                {% if jm.weight_req %}
+                                    {{ jm.weight_req }}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+
+                            <td data-label="Assigned Lots">
+                                {% for allocation in jm.lot_assignments.all %}
+                                    <div class="table-subitem">
+                                        <strong>
+                                            {{ allocation.metal_lot.vendor_lot.lot_num }}
+                                        </strong>
+
+                                        <span>
+                                            {{ allocation.metal_lot.part }}
+                                        </span>
+
+                                        <small>
+                                            Qty: {{ allocation.qty_used }}
+                                            &middot;
+                                            Weight: {{ allocation.weight_used }}
+                                        </small>
+                                    </div>
+                                {% empty %}
+                                    <span class="text-muted">
+                                        No lots assigned
+                                    </span>
+                                {% endfor %}
+                            </td>
+
+                            <td data-label="Action" class="actions-cell">
+                                <a
+                                    href="{% url 'culet:job_metal_assign_lots' jm.pk %}"
+                                    class="btn btn-secondary btn-sm"
+                                >
+                                    Assign Lots
+                                </a>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="6" class="empty-table-message">
+                                No metal requirements have been added.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+
+    <!-- Stone requirements -->
+    <section class="job-section-card">
+        <div class="job-section-header">
+            <h2 class="job-section-title">Stone Requirements</h2>
+        </div>
+
+        <div class="job-table-wrap">
+            <table class="job-table">
+                <thead>
+                    <tr>
+                        <th>Stone Type</th>
+                        <th>Shape</th>
+                        <th>Size</th>
+                        <th>Qty Required</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for js in job_stones %}
+                        <tr>
+                            <td data-label="Stone Type">
+                                {{ js.stone_type|default:"—" }}
+                            </td>
+
+                            <td data-label="Shape">
+                                {{ js.stone_shape|default:"—" }}
+                            </td>
+
+                            <td data-label="Size">
+                                {{ js.stone_size|default:"—" }}
+                            </td>
+
+                            <td data-label="Qty Required">
+                                {{ js.qty_req|default:"—" }}
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="4" class="empty-table-message">
+                                No stone requirements have been added.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+</div>
 {% endblock content %}
+```

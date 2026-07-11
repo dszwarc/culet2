@@ -9,11 +9,19 @@
 
         {{ form.non_field_errors }}
 
-        <p>
+        <div class="form-group">
             {{ form.barcode.label_tag }}
-            {{ form.barcode }}
+
+            <div class="input-group">
+                {{ form.barcode }}
+            </div>
+
+            <div class="mt-2">
+                {% include "includes/barcode_scanner.html" with input_id="id_barcode" auto_submit="false" button_text="Scan Job" %}
+            </div>
+
             {{ form.barcode.errors }}
-        </p>
+        </div>
 
         <p>
             {{ form.result.label_tag }}
