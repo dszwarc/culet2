@@ -23,22 +23,37 @@ class ClockInResult:
 
 def stop_activity(activity, stopped_at=None):
     """
-    Stops one open Activity and marks the related Job as not in work.
-    Matches your current app fields: active/end/start/duration.
+    Close one Activity and synchronize Job.in_work with the remaining
+    open activities for that job.
     """
     stopped_at = stopped_at or timezone.now()
 
     activity.end = stopped_at
     activity.active = False
 
-    if hasattr(activity, "duration") and activity.start:
-        activity.duration = activity.end - activity.start
+    if activity.start:
+        activity.duration = stopped_at - activity.start
 
-    activity.save()
+    activity.save(
+        update_fields=[
+            "end",
+            "active",
+            "duration",
+        ]
+    )
 
-    if activity.job:
-        activity.job.in_work = False
-        activity.job.save()
+    job = activity.job
+
+    if job:
+        still_in_work = Activity.objects.filter(
+            job=job,
+            active=True,
+            end__isnull=True,
+        ).exists()
+
+        if job.in_work != still_in_work:
+            job.in_work = still_in_work
+            job.save(update_fields=["in_work", "last_updated"])
 
     return activity
 
@@ -124,3 +139,20 @@ def clock_out_employee(employee):
         stopped_job_count=stopped_job_count,
         message=message,
     )
+
+def sync_job_in_work(job):
+    """
+    Synchronize Job.in_work with whether the job has any open activities.
+    Job.active is intentionally untouched.
+    """
+    should_be_in_work = Activity.objects.filter(
+        job=job,
+        active=True,
+        end__isnull=True,
+    ).exists()
+
+    if job.in_work != should_be_in_work:
+        job.in_work = should_be_in_work
+        job.save(update_fields=["in_work", "last_updated"])
+
+    return should_be_in_work

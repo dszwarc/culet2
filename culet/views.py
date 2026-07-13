@@ -1450,6 +1450,21 @@ class StartWorkView(LoginRequiredMixin, generic.View):
         employee = request.user.employee
         job = get_object_or_404(Job, pk=pk)
 
+        if not job.active:
+            messages.error(request, "This job is inactive and cannot be started.")
+            return redirect("culet:my_jobs")
+
+        if job.shipped:
+            messages.error(request, "This job has already been shipped.")
+            return redirect("culet:my_jobs")
+
+        if job.is_piecework:
+            messages.error(
+                request,
+                "This job is currently assigned as piecework and cannot be started here."
+            )
+            return redirect("culet:my_jobs")
+
         if job.assigned_to != employee:
             messages.error(request, "You can only start jobs assigned to you.")
             return redirect("culet:my_jobs")
@@ -1473,12 +1488,40 @@ class StartWorkView(LoginRequiredMixin, generic.View):
             messages.error(request, "You can only start jobs assigned to you.")
             return redirect("culet:my_jobs")
 
+        if not job.active:
+            messages.error(request, "This job is inactive and cannot be started.")
+            return redirect("culet:my_jobs")
+
+        if job.shipped:
+            messages.error(request, "This job has already been shipped.")
+            return redirect("culet:my_jobs")
+
+        if job.is_piecework:
+            messages.error(
+                request,
+                "This job is currently assigned as piecework and cannot be started here."
+            )
+            return redirect("culet:my_jobs")
+
         if not employee.clocked_in:
             messages.error(request, "Please clock in before starting work.")
             return redirect("culet:my_jobs")
 
-        if job.in_work:
-            messages.error(request, f"Job {job.barcode} is already in work.")
+        has_open_activity = Activity.objects.filter(
+            job=job,
+            active=True,
+            end__isnull=True,
+        ).exists()
+
+        if has_open_activity:
+            if not job.in_work:
+                job.in_work = True
+                job.save(update_fields=["in_work", "last_updated"])
+
+            messages.error(
+                request,
+                f"Job {job.barcode} is already in work."
+            )
             return redirect("culet:my_jobs")
 
         form = StartWorkForm(employee=employee, data=request.POST)
@@ -2541,6 +2584,7 @@ class BulkJobShipView(LoginRequiredMixin, generic.TemplateView):
         jobs_by_barcode = {}
         missing_barcodes = []
         already_shipped_barcodes = []
+        in_work_barcodes = []
 
         for barcode in barcodes:
             job = Job.objects.filter(
@@ -2553,6 +2597,16 @@ class BulkJobShipView(LoginRequiredMixin, generic.TemplateView):
 
             if job.shipped:
                 already_shipped_barcodes.append(barcode)
+                continue
+
+            has_open_activity = Activity.objects.filter(
+                job=job,
+                active=True,
+                end__isnull=True,
+            ).exists()
+
+            if has_open_activity:
+                in_work_barcodes.append(barcode)
                 continue
 
             jobs_by_barcode[barcode] = job
@@ -2577,17 +2631,29 @@ class BulkJobShipView(LoginRequiredMixin, generic.TemplateView):
                 "formset": formset,
             })
 
+        if in_work_barcodes:
+            messages.error(
+                request,
+                (
+                    "These jobs are currently being worked on and must be "
+                    "stopped before shipping: "
+                    + ", ".join(in_work_barcodes)
+                ),
+            )
+            return self.render_to_response({
+                "form": form,
+                "formset": formset,
+            })
+
         with transaction.atomic():
             for barcode in barcodes:
                 job = jobs_by_barcode[barcode]
 
                 job.shipped = True
-                job.active = False
                 job.in_work = False
                 job.holder = employee
                 job.save(update_fields=[
                     "shipped",
-                    "active",
                     "in_work",
                     "holder",
                     "last_updated",
@@ -2993,11 +3059,31 @@ class PieceworkCreateView(LoginRequiredMixin, generic.TemplateView):
             job = find_job_by_scan(scan)
 
             if not job:
-                missing_scans.append(scan)
+                missing_scans.append(f"{scan} - job not found")
                 continue
 
-            if getattr(job, "shipped", False):
+            if not job.active:
+                missing_scans.append(f"{scan} - inactive")
+                continue
+
+            if job.shipped:
                 missing_scans.append(f"{scan} - already shipped")
+                continue
+
+            if job.is_piecework:
+                missing_scans.append(f"{scan} - already assigned to piecework")
+                continue
+
+            has_open_activity = Activity.objects.filter(
+                job=job,
+                active=True,
+                end__isnull=True,
+            ).exists()
+
+            if has_open_activity:
+                missing_scans.append(
+                    f"{scan} - currently being worked on"
+                )
                 continue
 
             found_jobs.append(job)
