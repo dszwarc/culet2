@@ -17,6 +17,12 @@
     </div>
 
     <div class="page-actions">
+        <a
+            href="{% url 'culet:style_update' style.pk %}"
+            class="btn btn-secondary"
+        >
+            Edit Style
+        </a>
         <a href="{% url 'culet:index_style' %}" class="btn btn-secondary">
             Back to Styles
         </a>

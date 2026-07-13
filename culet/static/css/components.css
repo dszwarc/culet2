@@ -750,3 +750,21 @@ form:not(td form) {
         grid-template-columns: 1fr;
     }
 }
+
+.current-style-upload {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+    margin-bottom: 0.75rem;
+}
+
+.current-style-photo {
+    display: block;
+    width: 140px;
+    height: 140px;
+    object-fit: contain;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 0.4rem;
+}

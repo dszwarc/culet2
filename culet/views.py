@@ -1311,6 +1311,77 @@ class StyleCreateView(LoginRequiredMixin, generic.CreateView):
         # If formset invalid, re-render page with errors
         return self.render_to_response(self.get_context_data(form=form))
 
+class StyleUpdateView(LoginRequiredMixin, generic.UpdateView):
+    model = Style
+    form_class = StyleForm
+    template_name = "styles/create.html"
+    context_object_name = "style"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        if self.request.POST:
+            context["metal_formset"] = StyleMetalFormSet(
+                self.request.POST,
+                instance=self.object,
+            )
+            context["stone_formset"] = StyleStoneFormSet(
+                self.request.POST,
+                instance=self.object,
+            )
+            context["finding_formset"] = StyleFindingFormSet(
+                self.request.POST,
+                instance=self.object,
+            )
+        else:
+            context["metal_formset"] = StyleMetalFormSet(
+                instance=self.object,
+            )
+            context["stone_formset"] = StyleStoneFormSet(
+                instance=self.object,
+            )
+            context["finding_formset"] = StyleFindingFormSet(
+                instance=self.object,
+            )
+
+        context["is_edit"] = True
+        return context
+
+    def form_valid(self, form):
+        context = self.get_context_data()
+
+        metal_formset = context["metal_formset"]
+        stone_formset = context["stone_formset"]
+        finding_formset = context["finding_formset"]
+
+        if (
+            metal_formset.is_valid()
+            and stone_formset.is_valid()
+            and finding_formset.is_valid()
+        ):
+            self.object = form.save()
+
+            metal_formset.instance = self.object
+            metal_formset.save()
+
+            stone_formset.instance = self.object
+            stone_formset.save()
+
+            finding_formset.instance = self.object
+            finding_formset.save()
+
+            return redirect(self.get_success_url())
+
+        return self.render_to_response(
+            self.get_context_data(form=form)
+        )
+
+    def get_success_url(self):
+        return reverse_lazy(
+            "culet:style_detail",
+            kwargs={"pk": self.object.pk},
+        )
+
 class AssignJobView(LoginRequiredMixin, generic.TemplateView):
     template_name = "jobs/assign.html"
 
