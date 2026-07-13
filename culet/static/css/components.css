@@ -50,9 +50,7 @@
 .success,
 .error {
     width: 100%;
-    padding: 14px 18px;
     border-radius: var(--radius);
-    margin-bottom: 12px;
     font-weight: 700;
 }
 
