@@ -75,6 +75,7 @@ form:not(td form) {
     border: 1px solid var(--border);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
+    padding: 1em;
 }
 
 .signin {
@@ -276,6 +277,12 @@ form:not(td form) {
     display: flex;
     align-items: center;
     gap: 10px;
+}
+
+.app-nav-right form {
+    margin: 0;
+    display: flex;
+    align-items: center;
 }
 
 .app-brand {
@@ -593,4 +600,14 @@ form:not(td form) {
     .job-detail-grid {
         grid-template-columns: 1fr;
     }
+}
+
+#welcome {
+    margin: 0 1rem;
+    display: flex;
+    align-items: center;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: white;
+    white-space: nowrap;
 }
