@@ -89,7 +89,12 @@ def can_view_all_inventory(user):
 
 
 def can_perform_quality_inspection(user):
-    return has_level(user, MANAGER_LEVEL)
+    employee = get_employee(user)
+
+    if not employee:
+        return False
+
+    return is_super(user) or employee.can_qc
 
 from functools import wraps
 

@@ -16,7 +16,9 @@ class CuletPermissionRequiredMixin(LoginRequiredMixin):
                 "Set permission_function on the view."
             )
 
-        return self.permission_function(self.request.user)
+        return self.__class__.permission_function(
+            self.request.user
+        )
 
     def dispatch(self, request, *args, **kwargs):
         if not request.user.is_authenticated:

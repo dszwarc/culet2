@@ -26,7 +26,7 @@ environ.Env.read_env(BASE_DIR / ".env")
 
 ALLOWED_HOSTS = ["localhost"]
 
-
+MEDIA_URL = "/media/"
 # Application definition
 
 INSTALLED_APPS = [
@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django_filters',
+    'storages',
 ]
 
 MIDDLEWARE = [
@@ -133,6 +134,32 @@ STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 STORAGES = {
+    # User-uploaded files: style photos, drawings, and spec sheets
+    "default": {
+        "BACKEND": "storages.backends.s3.S3Storage",
+        "OPTIONS": {
+            "access_key": env("DO_SPACES_ACCESS_KEY"),
+            "secret_key": env("DO_SPACES_SECRET_KEY"),
+            "bucket_name": env("DO_SPACES_BUCKET_NAME"),
+            "region_name": env("DO_SPACES_REGION"),
+            "endpoint_url": env("DO_SPACES_ENDPOINT_URL"),
+
+            # Keep uploaded files private and use temporary signed URLs.
+            "default_acl": None,
+            "querystring_auth": True,
+            "querystring_expire": 3600,
+
+            # Prevent a new upload from silently replacing an existing file.
+            "file_overwrite": False,
+
+            # Cache files in the user's browser for one day.
+            "object_parameters": {
+                "CacheControl": "max-age=86400",
+            },
+        },
+    },
+
+    # CSS and JavaScript continue to use WhiteNoise.
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
     },

@@ -99,6 +99,9 @@ from .forms import (
     JobsByHolderReportForm,
     )
 
+from .mixins import CuletPermissionRequiredMixin
+from .permissions import can_perform_quality_inspection
+
 from django.contrib import messages
 from django.shortcuts import redirect
 from django.urls import reverse
@@ -3287,7 +3290,11 @@ class MemoListView(LoginRequiredMixin, generic.TemplateView):
         context["memo_rows"] = memo_rows
         return context
     
-class QualityInspectionCreateView(LoginRequiredMixin, generic.TemplateView):
+class QualityInspectionCreateView(CuletPermissionRequiredMixin,generic.TemplateView,):
+    permission_function = can_perform_quality_inspection
+    permission_denied_message = (
+        "You do not have permission to perform quality inspections."
+    )
     template_name = "jobs/quality_inspection.html"
     success_url = reverse_lazy("culet:quality_inspection")
 

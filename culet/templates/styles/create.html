@@ -15,7 +15,7 @@
             </p>
         </div>
 
-        <form method="post">
+        <form method="post" enctype="multipart/form-data">
             {% csrf_token %}
 
             <div class="job-section-card">
@@ -44,6 +44,37 @@
                         <label for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
                         {{ form.description }}
                         {{ form.description.errors }}
+                    </div>
+                    <div class="job-field">
+                        <label for="{{ form.photo.id_for_label }}">
+                            {{ form.photo.label }}
+                        </label>
+
+                        {{ form.photo }}
+
+                        {% if form.photo.help_text %}
+                            <small class="form-help-text">
+                                {{ form.photo.help_text }}
+                            </small>
+                        {% endif %}
+
+                        {{ form.photo.errors }}
+                    </div>
+
+                    <div class="job-field">
+                        <label for="{{ form.spec_sheet.id_for_label }}">
+                            {{ form.spec_sheet.label }}
+                        </label>
+
+                        {{ form.spec_sheet }}
+
+                        {% if form.spec_sheet.help_text %}
+                            <small class="form-help-text">
+                                {{ form.spec_sheet.help_text }}
+                            </small>
+                        {% endif %}
+
+                        {{ form.spec_sheet.errors }}
                     </div>
                 </div>
             </div>

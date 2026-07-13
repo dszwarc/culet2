@@ -22,13 +22,21 @@
               <h2>Production</h2>
 
               <div class="home-grid">
-                  <a class="home-tile primary" href="{% url 'culet:my_jobs' %}">
-                      <span>My Jobs</span>
-                  </a>
+                    <a class="home-tile primary" href="{% url 'culet:my_jobs' %}">
+                        <span>My Jobs</span>
+                    </a>
 
-                  <a class="home-tile success" href="{% url 'culet:receive_list' %}">
-                      <span>Receive Jobs</span>
-                  </a>
+                    <a class="home-tile success" href="{% url 'culet:receive_list' %}">
+                        <span>Receive Jobs</span>
+                    </a>
+                    
+                    {% if culet_perms.quality_inspection %}
+                    <a class="home-tile primary" href="{% url 'culet:quality_inspection' %}">
+                      <span>Quality Inspection</span>
+                    </a> 
+                    {% endif %}
+                        
+
               </div>
           </section>
             {% if culet_perms.is_department_head %}
