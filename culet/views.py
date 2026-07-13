@@ -2612,6 +2612,21 @@ class JobEnvelopePrintView(LoginRequiredMixin, generic.DetailView):
     template_name = "jobs/print_envelopes.html"
     context_object_name = "job"
 
+    def get_queryset(self):
+        return (
+            Job.objects
+            .select_related("style", "customer")
+            .prefetch_related(
+                "job_stones__stone_type",
+                "job_stones__stone_shape",
+                "job_metals__part",
+                "job_metals__metal_type",
+                "job_findings__finding",
+                "job_findings__finding__metal_type",
+                "job_findings__finding__finding_type",
+            )
+        )
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["jobs"] = [self.object]
@@ -2630,24 +2645,79 @@ class JobEnvelopePrintBatchView(LoginRequiredMixin, generic.TemplateView):
 
         mode = self.request.GET.get("mode")
         jobs = Job.objects.none()
+        error_message = None
 
         if mode == "range":
-            start = self.request.GET.get("start")
-            end = self.request.GET.get("end")
+            start_stock_num = self.request.GET.get("start", "").strip()
+            end_stock_num = self.request.GET.get("end", "").strip()
 
-            if start and end:
-                jobs = Job.objects.filter(
-                    barcode__gte=start,
-                    barcode__lte=end,
-                ).order_by("barcode")
+            if not start_stock_num:
+                error_message = "Enter a stock number."
+            else:
+                try:
+                    start_job = Job.objects.get(
+                        stock_num=start_stock_num
+                    )
+                except Job.DoesNotExist:
+                    error_message = (
+                        f'No job was found with stock number '
+                        f'"{start_stock_num}".'
+                    )
+                except Job.MultipleObjectsReturned:
+                    error_message = (
+                        f'More than one job uses stock number '
+                        f'"{start_stock_num}".'
+                    )
+                else:
+                    if not end_stock_num:
+                        jobs = Job.objects.filter(pk=start_job.pk)
+                    else:
+                        try:
+                            end_job = Job.objects.get(
+                                stock_num=end_stock_num
+                            )
+                        except Job.DoesNotExist:
+                            error_message = (
+                                f'No job was found with stock number '
+                                f'"{end_stock_num}".'
+                            )
+                        except Job.MultipleObjectsReturned:
+                            error_message = (
+                                f'More than one job uses stock number '
+                                f'"{end_stock_num}".'
+                            )
+                        else:
+                            lower_barcode, upper_barcode = sorted(
+                                [start_job.barcode, end_job.barcode]
+                            )
+
+                            jobs = Job.objects.filter(
+                                barcode__gte=lower_barcode,
+                                barcode__lte=upper_barcode,
+                            ).order_by("barcode")
 
         elif mode == "today":
             today = timezone.localdate()
+
             jobs = Job.objects.filter(
-                created__date=today
+                created__date=today,
             ).order_by("barcode")
 
+        jobs = jobs.select_related(
+                "style",
+                "customer",
+            ).prefetch_related(
+                "job_stones__stone_type",
+                "job_stones__stone_shape",
+                "job_metals__part",
+                "job_metals__metal_type",
+                "job_findings__finding",
+                "job_findings__finding__metal_type",
+                "job_findings__finding__finding_type",
+            )
+
         context["jobs"] = jobs
+        context["error_message"] = error_message
         return context
     
 class JobTransferMemoCreateView(LoginRequiredMixin, generic.FormView):
