@@ -65,6 +65,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'culet.context_processors.clock_status',
+                'culet.context_processors.culet_permissions',
             ],
         },
     },
