@@ -51,6 +51,12 @@ def culet_permissions(request):
 
     return {
         "culet_perms": {
+            # Role tiers
+            "is_department_head": permissions.is_department_head(user),
+            "is_manager": permissions.is_manager(user),
+            "is_super": permissions.is_super(user),
+
+            # Specific permissions
             "view_own_jobs": permissions.can_view_own_jobs(user),
             "receive_own_jobs": permissions.can_receive_own_jobs(user),
             "start_work": permissions.can_start_work(user),

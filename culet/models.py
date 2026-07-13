@@ -117,6 +117,7 @@ class Employee(models.Model):
     blank=True,
     related_name="employees"
     )
+    can_qc = models.BooleanField(default=False)
 
     clocked_in = models.BooleanField(default=False)
     

@@ -37,7 +37,6 @@ def has_level(user, minimum_level):
 def is_super(user):
     return has_level(user, SUPER_LEVEL)
 
-
 def is_manager(user):
     return has_level(user, MANAGER_LEVEL)
 
