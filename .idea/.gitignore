@@ -2,6 +2,3 @@
 /shelf/
 /workspace.xml
 /.env
-
-#Django static files
-staticfiles/

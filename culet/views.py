@@ -2630,6 +2630,7 @@ class JobEnvelopePrintView(LoginRequiredMixin, generic.DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["jobs"] = [self.object]
+        context["auto_print"] = True
         return context
 
 
@@ -2718,6 +2719,7 @@ class JobEnvelopePrintBatchView(LoginRequiredMixin, generic.TemplateView):
 
         context["jobs"] = jobs
         context["error_message"] = error_message
+        context["auto_print"] = jobs.exists() and error_message is None
         return context
     
 class JobTransferMemoCreateView(LoginRequiredMixin, generic.FormView):

@@ -582,22 +582,19 @@
 
 <script>
     document.addEventListener("DOMContentLoaded", function () {
-        const barcodes = document.querySelectorAll(".barcode");
 
-        if (barcodes.length > 0) {
-            try {
-                JsBarcode(".barcode").init();
-            } catch (error) {
-                console.error(
-                    "Unable to generate one or more job barcodes:",
-                    error
-                );
-            }
+        try {
+            JsBarcode(".barcode").init();
+        } catch (e) {
+            console.error(e);
         }
 
-        {% if not error_message and jobs %}
+        const autoPrint = {{ auto_print|yesno:"true,false" }};
+
+        if (autoPrint) {
             window.print();
-        {% endif %}
+        }
+
     });
 </script>
 
