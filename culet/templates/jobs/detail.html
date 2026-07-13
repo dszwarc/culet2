@@ -5,7 +5,7 @@
 
     <div class="page-header">
         <div>
-            <h1>Job {{ job }}</h1>
+            <h1>Stock Number:  {{ job.stock_num }}</h1>
             <p class="page-subtitle">
                 {{ job.customer }}{% if job.style %} &middot; {{ job.style }}{% endif %}
             </p>
@@ -63,31 +63,6 @@
         </div>
 
         <div class="job-detail-grid">
-            <div class="job-detail-item">
-                <span class="job-detail-label">Job Number</span>
-                <span class="job-detail-value">{{ job }}</span>
-            </div>
-
-            <div class="job-detail-item">
-                <span class="job-detail-label">Name</span>
-                <span class="job-detail-value">
-                    {{ job.name|default:"—" }}
-                </span>
-            </div>
-
-            <div class="job-detail-item">
-                <span class="job-detail-label">Customer</span>
-                <span class="job-detail-value">
-                    {{ job.customer|default:"—" }}
-                </span>
-            </div>
-
-            <div class="job-detail-item">
-                <span class="job-detail-label">Style</span>
-                <span class="job-detail-value">
-                    {{ job.style|default:"—" }}
-                </span>
-            </div>
 
             <div class="job-detail-item">
                 <span class="job-detail-label">Due Date</span>

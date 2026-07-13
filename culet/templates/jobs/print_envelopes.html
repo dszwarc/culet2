@@ -1,6 +1,8 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+
     <title>Print Job Envelope</title>
 
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
@@ -11,286 +13,593 @@
             margin: 0;
         }
 
+        * {
+            box-sizing: border-box;
+        }
+
         html,
         body {
             margin: 0;
             padding: 0;
-            font-family: Arial, sans-serif;
+            font-family: Arial, Helvetica, sans-serif;
+            color: #000;
         }
 
         .label {
+            position: relative;
             width: 3in;
             height: 5in;
-            box-sizing: border-box;
             padding: 0.08in;
-            position: relative;
-            page-break-after: always;
             overflow: hidden;
-            background: white;
+            background: #fff;
+            page-break-after: always;
+            break-after: page;
+        }
+
+        .label:last-child {
+            page-break-after: auto;
+            break-after: auto;
+        }
+
+        /* =========================================================
+           TOP JOB INFORMATION
+           ========================================================= */
+
+        .top-section {
+            height: 0.94in;
+            border-bottom: 1px solid #000;
         }
 
         .top-barcode {
-            text-align: center;
-            border-bottom: 1px solid #000;
-            padding-bottom: 0.04in;
+            display: block;
+            width: 2.2in;
+            height: 0.32in;
+            margin: 0;
         }
 
-        .barcode {
-            width: 2.45in;
-            height: 0.45in;
-        }
-
-        .stock-num {
-            font-size: 22px;
-            font-weight: bold;
-            line-height: 1.1;
+        .top-stock-number {
             margin-top: 0.02in;
-        }
-
-        .due {
             font-size: 20px;
-            font-weight: bold;
-            margin-top: 0.02in;
+            font-weight: 700;
+            line-height: 1;
         }
 
-        .main-style {
-            font-size: 21px;
-            font-weight: bold;
-            margin-top: 0.12in;
+        .top-due-date {
+            margin-top: 0.06in;
+            font-size: 18px;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        /* =========================================================
+           STYLE, METAL, SIZE, QUANTITY
+           ========================================================= */
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: 1.7in 1fr;
+            column-gap: 0.1in;
+            min-height: 0.62in;
+            padding-top: 0.06in;
+        }
+
+        .summary-line {
+            display: flex;
+            align-items: baseline;
+            min-height: 0.25in;
+            font-size: 13px;
+            line-height: 1.1;
+        }
+
+        .summary-label {
+            flex-shrink: 0;
+            margin-right: 0.04in;
+            font-weight: 700;
+        }
+
+        .summary-value {
+            min-width: 0;
+            flex-grow: 1;
+            padding-bottom: 1px;
+            overflow: hidden;
             border-bottom: 1px solid #000;
-            padding-bottom: 0.04in;
+            white-space: nowrap;
+            text-overflow: ellipsis;
         }
 
-        .info-grid {
+        .summary-right .summary-value {
+            border-bottom: 0;
+        }
+
+        /* =========================================================
+           STAMP AND NOTES
+           ========================================================= */
+
+        .stamp-box {
+            height: 0.37in;
+            padding: 0.05in 0.07in;
+            overflow: hidden;
+            border: 1px solid #000;
+            font-size: 16px;
+            line-height: 1.1;
+        }
+
+        .stamp-label {
+            margin-right: 0.05in;
+            font-weight: 700;
+        }
+
+        .notes-box {
+            height: 0.57in;
+            margin-top: 0.06in;
+            padding: 0.04in 0.06in;
+            overflow: hidden;
+            border: 1px solid #000;
+        }
+
+        .notes-title {
+            display: block;
+            margin-bottom: 0.02in;
+            font-size: 9px;
+            font-weight: 700;
+        }
+
+        .notes-content {
+            overflow: hidden;
+            font-size: 9px;
+            line-height: 1.15;
+        }
+
+        /* =========================================================
+           STONES AND FINDINGS
+           ========================================================= */
+
+        .requirements-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             column-gap: 0.08in;
-            margin-top: 0.08in;
+            height: 1.05in;
+            margin-top: 0.07in;
+            overflow: hidden;
+        }
+
+        .requirement-column {
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .requirement-column + .requirement-column {
+            padding-left: 0.07in;
+            border-left: 1px solid #000;
+        }
+
+        .section-heading {
+            margin: 0 0 0.04in;
             font-size: 14px;
-            line-height: 1.25;
+            font-weight: 700;
+            line-height: 1;
         }
 
-        .info-label {
-            font-weight: bold;
+        .requirement-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 0.03in;
+            min-height: 0.15in;
+            padding: 0.025in 0;
+            border-bottom: 1px solid #999;
+            font-size: 8px;
+            line-height: 1.1;
         }
 
-        .section-title {
-            font-weight: bold;
-            font-size: 13px;
-            margin-top: 0.1in;
-            border-bottom: 1px solid #000;
+        .requirement-description {
+            min-width: 0;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
         }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 11px;
-            margin-top: 0.03in;
+        .requirement-qty {
+            flex-shrink: 0;
+            font-weight: 700;
         }
 
-        th,
-        td {
-            border: 1px solid #000;
-            padding: 2px;
+        .requirement-empty {
+            padding: 0.04in 0;
+            font-size: 8px;
+            font-style: italic;
+            color: #555;
+        }
+
+        /* =========================================================
+           METAL PARTS
+           ========================================================= */
+
+        .metal-parts-section {
+            height: 0.75in;
+            margin-top: 0.02in;
+            overflow: hidden;
+        }
+
+        .metal-part-row {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            column-gap: 0.05in;
+            min-height: 0.15in;
+            padding: 0.025in 0;
+            border-bottom: 1px solid #999;
+            font-size: 8px;
+            line-height: 1.1;
+        }
+
+        .metal-part-description {
+            min-width: 0;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+
+        .metal-part-qty {
+            font-weight: 700;
+        }
+
+        /* =========================================================
+           BOTTOM REPEATED JOB INFORMATION
+           ========================================================= */
+
+        .bottom-section {
+            position: absolute;
+            right: 0.08in;
+            bottom: 0.04in;
+            left: 0.08in;
+            height: 0.7in;
             text-align: center;
         }
 
-        th {
-            font-weight: bold;
+        .bottom-stock-number {
+            font-size: 16px;
+            font-weight: 700;
+            line-height: 1;
         }
 
-        .stamp-box {
-            position: absolute;
-            left: 0.08in;
-            right: 0.08in;
-            bottom: 0.72in;
-            height: 0.34in;
-            border: 1px solid #000;
-            font-size: 20px;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            padding-left: 0.06in;
-            box-sizing: border-box;
-        }
-
-        .notes {
-            position: absolute;
-            left: 0.08in;
-            right: 0.08in;
-            bottom: 0.36in;
-            height: 0.28in;
+        .bottom-start-date {
+            margin-top: 0.03in;
             font-size: 10px;
-            line-height: 1.1;
-            overflow: hidden;
+            line-height: 1;
         }
 
         .bottom-barcode {
-            position: absolute;
-            left: 0.08in;
-            right: 0.08in;
-            bottom: 0.04in;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.06in;
+            display: block;
+            width: 2.2in;
+            height: 0.28in;
+            margin: 0.04in auto 0;
         }
 
-        .bottom-stock {
-            font-size: 14px;
-            font-weight: bold;
-            line-height: 1.1;
-            width: 0.75in;
-            overflow: hidden;
+        /* =========================================================
+           ERROR DISPLAY
+           ========================================================= */
+
+        .print-error {
+            max-width: 500px;
+            margin: 30px auto;
+            padding: 16px;
+            border: 1px solid #b42318;
+            background: #fef3f2;
+            color: #b42318;
+            font-family: Arial, sans-serif;
         }
 
-        .bottom-barcode .barcode {
-            width: 1.8in;
-            height: 0.32in;
-        }
+        /* =========================================================
+           SCREEN PREVIEW
+           ========================================================= */
 
         @media screen {
             body {
-                background: #ddd;
+                padding: 20px 0;
+                background: #d9d9d9;
             }
 
             .label {
-                margin: 20px auto;
-                border: 1px solid #aaa;
+                margin: 0 auto 20px;
+                border: 1px solid #000;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            }
+        }
+
+        @media print {
+            body {
+                background: #fff;
+            }
+
+            .label {
+                margin: 0;
+                border: 0;
+            }
+
+            .print-error {
+                display: none;
             }
         }
     </style>
 </head>
 
 <body>
-    {% for job in jobs %}
-        <div class="label">
 
-            <div class="top-barcode">
-                <svg class="barcode"
-                     jsbarcode-format="CODE128"
-                     jsbarcode-value="{{ job.barcode }}"
-                     jsbarcode-displayvalue="false"
-                     jsbarcode-margin="0"
-                     jsbarcode-height="45">
-                </svg>
+{% if error_message %}
+    <div class="print-error">
+        {{ error_message }}
+    </div>
+{% endif %}
 
-                <div class="stock-num">
-                    {{ job.stock_num }}
-                </div>
+{% for job in jobs %}
+    <div class="label">
 
-                <div class="due">
-                    Due: {{ job.due|date:"m/d/y" }}
-                </div>
+        <!-- Top barcode and primary job identification -->
+        <div class="top-section">
+
+            <svg
+                class="barcode top-barcode"
+                jsbarcode-format="CODE128"
+                jsbarcode-value="{{ job.barcode }}"
+                jsbarcode-displayvalue="false"
+                jsbarcode-margin="0"
+                jsbarcode-height="30">
+            </svg>
+
+            <div class="top-stock-number">
+                {{ job.stock_num|default:"-" }}
             </div>
 
-            <div class="main-style">
-                {{ job.stock_num }}
-            </div>
-
-            <div class="info-grid">
-                <div>
-                    <span class="info-label">Customer:</span><br>
-                    {{ job.customer }}
-                </div>
-
-                <div>
-                    <span class="info-label">Job:</span><br>
-                    {{ job.job_num }}
-                </div>
-
-                <div>
-                    <span class="info-label">Size:</span><br>
-                    {{ job.size|default:"-" }}
-                </div>
-
-                <div>
-                    <span class="info-label">Qty:</span><br>
-                    1
-                </div>
-            </div>
-
-            {% if job.jobstone_set.all %}
-                <div class="section-title">Stones</div>
-
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Type</th>
-                            <th>Shape</th>
-                            <th>Size</th>
-                            <th>Qty</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for stone in job.jobstone_set.all %}
-                            <tr>
-                                <td>{{ stone.stone_type }}</td>
-                                <td>{{ stone.stone_shape }}</td>
-                                <td>{{ stone.stone_size }}</td>
-                                <td>{{ stone.qty_req }}</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            {% endif %}
-
-            {% if job.jobmetal_set.all %}
-                <div class="section-title">Parts / Metal</div>
-
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Part</th>
-                            <th>Metal</th>
-                            <th>Wt</th>
-                            <th>Qty</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for metal in job.jobmetal_set.all %}
-                            <tr>
-                                <td>{{ metal.part }}</td>
-                                <td>{{ metal.metal_type }}</td>
-                                <td>{{ metal.weight_req }}</td>
-                                <td>{{ metal.qty_req }}</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            {% endif %}
-
-            <div class="stamp-box">
-                {{ job.stamp|default:"" }}
-            </div>
-
-            <div class="notes">
-                {{ job.notes|default:"" }}
-            </div>
-
-            <div class="bottom-barcode">
-                <div class="bottom-stock">
-                    {{ job.stock_num }}<br>
-                    {{ job.created|date:"m/d/y" }}
-                </div>
-
-                <svg class="barcode"
-                     jsbarcode-format="CODE128"
-                     jsbarcode-value="{{ job.barcode }}"
-                     jsbarcode-displayvalue="false"
-                     jsbarcode-margin="0"
-                     jsbarcode-height="32">
-                </svg>
+            <div class="top-due-date">
+                Due:
+                {% if job.due %}
+                    {{ job.due|date:"m/d/Y" }}
+                {% else %}
+                    -
+                {% endif %}
             </div>
 
         </div>
+
+        <!-- Style, primary metal, size, and quantity -->
+        <div class="summary-grid">
+
+            <div class="summary-left">
+
+                <div class="summary-line">
+                    <span class="summary-label">Style:</span>
+
+                    <span class="summary-value">
+                        {{ job.style|default:"-" }}
+                    </span>
+                </div>
+
+                <div class="summary-line">
+                    <span class="summary-label">Metal:</span>
+
+                    <span class="summary-value">
+                        {% for metal in job.job_metals.all %}
+                            {% if forloop.first %}
+                                {% if metal.metal_type %}
+                                    {{ metal.metal_type }}
+                                {% else %}
+                                    {{ metal.part }}
+                                {% endif %}
+                            {% endif %}
+                        {% empty %}
+                            -
+                        {% endfor %}
+                    </span>
+                </div>
+
+            </div>
+
+            <div class="summary-right">
+
+                <div class="summary-line">
+                    <span class="summary-label">Size:</span>
+
+                    <span class="summary-value">
+                        {{ job.size|default:"-" }}
+                    </span>
+                </div>
+
+                <div class="summary-line">
+                    <span class="summary-label">Qty:</span>
+
+                    <span class="summary-value">
+                        1
+                    </span>
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- Stamp -->
+        <div class="stamp-box">
+            <span class="stamp-label">STAMP</span>
+            {{ job.stamp|default:"" }}
+        </div>
+
+        <!-- Notes -->
+        <div class="notes-box">
+            <span class="notes-title">Notes</span>
+
+            <div class="notes-content">
+                {{ job.notes|default:"" }}
+            </div>
+        </div>
+
+        <!-- Stones and findings -->
+<!-- Stones and Metal Parts -->
+<div class="requirements-grid">
+
+    <!-- Stones -->
+    <div class="requirement-column">
+
+        <h2 class="section-heading">Stones</h2>
+
+        {% for stone in job.job_stones.all|slice:":5" %}
+            <div class="requirement-row">
+
+                <span class="requirement-description">
+                    {% if stone.stone_type %}
+                        {{ stone.stone_type }}
+                    {% endif %}
+
+                    {% if stone.stone_shape %}
+                        {{ stone.stone_shape }}
+                    {% endif %}
+
+                    {% if stone.stone_size %}
+                        {{ stone.stone_size }}
+                    {% endif %}
+                </span>
+
+                <span class="requirement-qty">
+                    × {{ stone.qty_req }}
+                </span>
+
+            </div>
+        {% empty %}
+            <div class="requirement-empty">
+                None required
+            </div>
+        {% endfor %}
+
+    </div>
+
+    <!-- Metal Parts -->
+    <div class="requirement-column">
+
+        <h2 class="section-heading">Metal Parts</h2>
+
+        {% for metal in job.job_metals.all|slice:":5" %}
+            <div class="requirement-row">
+
+                <span class="requirement-description">
+                    {{ metal.part.sku }}
+
+                    {% if metal.part.description %}
+                        — {{ metal.part.description }}
+                    {% endif %}
+
+                    {% if metal.metal_type %}
+                        — {{ metal.metal_type }}
+                    {% endif %}
+                </span>
+
+                <span class="requirement-qty">
+                    × {{ metal.qty_req }}
+                </span>
+
+            </div>
+        {% empty %}
+            <div class="requirement-empty">
+                None required
+            </div>
+        {% endfor %}
+
+    </div>
+
+</div>
+
+<!-- Findings -->
+<div class="metal-parts-section">
+
+    <h2 class="section-heading">Findings</h2>
+
+    {% for job_finding in job.job_findings.all|slice:":6" %}
+        <div class="metal-part-row">
+
+            <span class="metal-part-description">
+
+                {% if job_finding.finding.sku %}
+                    {{ job_finding.finding.sku }} —
+                {% endif %}
+
+                {{ job_finding.finding.name }}
+
+                {% if job_finding.finding.metal_type %}
+                    — {{ job_finding.finding.metal_type }}
+                {% endif %}
+
+            </span>
+
+            <span class="metal-part-qty">
+                × {{ job_finding.qty_req }}
+            </span>
+
+        </div>
+
     {% empty %}
-        <p>No jobs found.</p>
+
+        <div class="requirement-empty">
+            None required
+        </div>
+
     {% endfor %}
 
-    <script>
-        JsBarcode(".barcode").init();
-        window.print();
-    </script>
+</div>
+
+        <!-- Bottom repeated job information -->
+        <div class="bottom-section">
+
+            <div class="bottom-stock-number">
+                {{ job.stock_num|default:"-" }}
+            </div>
+
+            <div class="bottom-start-date">
+                Start:
+                {% if job.created %}
+                    {{ job.created|date:"m/d/Y" }}
+                {% else %}
+                    -
+                {% endif %}
+            </div>
+
+            <svg
+                class="barcode bottom-barcode"
+                jsbarcode-format="CODE128"
+                jsbarcode-value="{{ job.barcode }}"
+                jsbarcode-displayvalue="false"
+                jsbarcode-margin="0"
+                jsbarcode-height="27">
+            </svg>
+
+        </div>
+
+    </div>
+{% empty %}
+
+    {% if not error_message %}
+        <div class="print-error">
+            No jobs were found to print.
+        </div>
+    {% endif %}
+
+{% endfor %}
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const barcodes = document.querySelectorAll(".barcode");
+
+        if (barcodes.length > 0) {
+            try {
+                JsBarcode(".barcode").init();
+            } catch (error) {
+                console.error(
+                    "Unable to generate one or more job barcodes:",
+                    error
+                );
+            }
+        }
+
+        {% if not error_message and jobs %}
+            window.print();
+        {% endif %}
+    });
+</script>
+
 </body>
 </html>

@@ -1,45 +1,116 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 
 {% block content %}
 
-<h1>Print Job Envelopes</h1>
+<div class="container">
 
-<div class="card" style="width: 60%;">
-    <div class="card-body">
+    <div class="page-header">
+        <div>
+            <h1>Print Job Envelopes</h1>
+            <p class="page-subtitle">
+                Print one job envelope, a range of job envelopes, or all jobs created today.
+            </p>
+        </div>
+    </div>
 
-        <h3>Print Job Number Range</h3>
+    <div class="form-card">
 
-        <form method="get" action="{% url 'culet:job_envelope_print_batch' %}" target="_blank">
-            <input type="hidden" name="mode" value="range">
+        <section class="form-section">
 
-            <p>
-                <label>Start Barcode</label><br>
-                <input type="number" name="start" required>
+            <h2>Print by Stock Number</h2>
+
+            <p class="form-help-text">
+                Enter one stock number to print a single envelope. To print a range,
+                enter both the starting and ending stock numbers.
             </p>
 
-            <p>
-                <label>End Barcode</label><br>
-                <input type="number" name="end" required>
-            </p>
+            <form
+                method="get"
+                action="{% url 'culet:job_envelope_print_batch' %}"
+                target="_blank"
+            >
+                <input type="hidden" name="mode" value="range">
 
-            <button class="btn btn-primary" type="submit">
-                Print Range
-            </button>
-        </form>
+                <div class="form-row">
+
+                    <div class="form-group">
+                        <label for="id_start_stock_num">
+                            Starting Stock Number
+                        </label>
+
+                        <input
+                            type="text"
+                            id="id_start_stock_num"
+                            name="start"
+                            class="form-control"
+                            placeholder="Enter stock number"
+                            autocomplete="off"
+                            required
+                        >
+
+                        <small class="form-text">
+                            Required. Leave the ending stock number blank to print only this job.
+                        </small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="id_end_stock_num">
+                            Ending Stock Number
+                        </label>
+
+                        <input
+                            type="text"
+                            id="id_end_stock_num"
+                            name="end"
+                            class="form-control"
+                            placeholder="Optional ending stock number"
+                            autocomplete="off"
+                        >
+
+                        <small class="form-text">
+                            Optional. Enter this only when printing a range.
+                        </small>
+                    </div>
+
+                </div>
+
+                <div class="form-actions">
+                    <button class="btn btn-primary" type="submit">
+                        Print Envelope(s)
+                    </button>
+                </div>
+            </form>
+
+        </section>
 
         <hr>
 
-        <h3>Print Jobs Created Today</h3>
+        <section class="form-section">
 
-        <form method="get" action="{% url 'culet:job_envelope_print_batch' %}" target="_blank">
-            <input type="hidden" name="mode" value="today">
+            <h2>Print Jobs Created Today</h2>
 
-            <button class="btn btn-primary" type="submit">
-                Print Today's Jobs
-            </button>
-        </form>
+            <p class="form-help-text">
+                Print one envelope for every job created today, ordered by barcode.
+            </p>
+
+            <form
+                method="get"
+                action="{% url 'culet:job_envelope_print_batch' %}"
+                target="_blank"
+            >
+                <input type="hidden" name="mode" value="today">
+
+                <div class="form-actions">
+                    <button class="btn btn-secondary" type="submit">
+                        Print Today's Jobs
+                    </button>
+                </div>
+            </form>
+
+        </section>
 
     </div>
+
 </div>
 
 {% endblock content %}
