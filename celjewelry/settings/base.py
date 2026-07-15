@@ -85,14 +85,26 @@ DEBUG = env("DEBUG") == "True"
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': env("DB_NAME"),
-        'USER':env("DB_USER"),
-        'PASSWORD':env("DB_PASSWORD"),
-        'HOST':env("DB_HOST"),
-        'PORT':env("DB_PORT"),
-    }
+    "default": {
+        "ENGINE": "django.db.backends.postgresql_psycopg2",
+        "NAME": env("DB_NAME"),
+        "USER": env("DB_USER"),
+        "PASSWORD": env("DB_PASSWORD"),
+        "HOST": env("DB_HOST"),
+        "PORT": env("DB_PORT"),
+    },
+
+    "old_culet": {
+        "ENGINE": "django.db.backends.mysql",
+        "NAME": env("OLD_DB_NAME"),
+        "USER": env("OLD_DB_USER"),
+        "PASSWORD": env("OLD_DB_PASSWORD"),
+        "HOST": env("OLD_DB_HOST"),
+        "PORT": env("OLD_DB_PORT"),
+        "OPTIONS": {
+            "charset": "utf8mb4",
+        },
+    },
 }
 
 
