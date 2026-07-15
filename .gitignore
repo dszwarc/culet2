@@ -2,3 +2,7 @@
 /env/
 requirements.txt
 /staticfiles/
+/backups
+
+*.sql
+*.sql.gz
