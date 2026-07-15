@@ -109,6 +109,83 @@
         </div>
     </section>
 
+    {% if job.style %}
+        <section class="job-section-card">
+            <div class="job-section-header">
+                <h2 class="job-section-title">Style Reference</h2>
+
+                {% if job.style.spec_sheet %}
+                    <a
+                        href="{{ job.style.spec_sheet.url }}"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="btn btn-primary btn-sm"
+                    >
+                        View Spec Sheet
+                    </a>
+                {% endif %}
+            </div>
+
+            <div class="job-style-reference">
+                <div class="job-style-reference-photo">
+                    {% if job.style.photo %}
+                        <a
+                            href="{{ job.style.photo.url }}"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            <img
+                                src="{{ job.style.photo.url }}"
+                                alt="Photo of {{ job.style.name }}"
+                                class="job-style-photo"
+                            >
+                        </a>
+                    {% else %}
+                        <div class="job-style-photo-placeholder">
+                            No style photo uploaded
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="job-style-reference-details">
+                    <div class="job-detail-item">
+                        <span class="job-detail-label">Style</span>
+                        <span class="job-detail-value">
+                            {{ job.style.name }}
+                        </span>
+                    </div>
+
+                    <div class="job-detail-item">
+                        <span class="job-detail-label">Description</span>
+                        <span class="job-detail-value">
+                            {% if job.style.description %}
+                                {{ job.style.description|linebreaksbr }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </span>
+                    </div>
+
+                    <div class="job-detail-item">
+                        <span class="job-detail-label">Specification Sheet</span>
+                        <span class="job-detail-value">
+                            {% if job.style.spec_sheet %}
+                                <a
+                                    href="{{ job.style.spec_sheet.url }}"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    Open PDF
+                                </a>
+                            {% else %}
+                                No specification sheet uploaded
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </section>
+    {% endif %}
 
     <!-- Activity history -->
     <section class="job-section-card">

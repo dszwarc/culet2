@@ -1,64 +1,221 @@
-{% extends 'base.html' %}
-
+{% extends "base.html" %}
 
 {% block content %}
 
-<div class="card" style="width:60%;">
-    <div class="card-body">
-        <h5 class="card-title">{{style}}</h5>
-        <p class="card-text">Customer: {{style.customer}}</p>
-        <p class="card-text">Stamp: {{style.stamp}}</p>
-        <p class="card-text">Description: {{style.description}}</p>
+<div class="container">
+
+
+<div class="page-header">
+    <div>
+        <h1>{{ style.name }}</h1>
+
+        {% if style.customer %}
+            <p class="page-subtitle">
+                Customer: {{ style.customer }}
+            </p>
+        {% endif %}
     </div>
-  </div>
 
-<br>
-<div class="table-wrap">
-    <table class="index_table job_index">
-        <tr>
-            <td>Part Name</td>
-            <td>Quantity</td>
-            <td>Metal Type</td>
-            <td></td>
-        </tr>
-        {% for m in metal %}
-            <tr>
-                <td>{{ m.part }}</td>
-                <td>{{ m.qty_req }}</td>
-                <td>{{ m.metal_type }}</td>
-            </tr>
-        {% endfor %}
-            
-    </table>
+    <div class="page-actions">
+        <a
+            href="{% url 'culet:style_update' style.pk %}"
+            class="btn btn-secondary"
+        >
+            Edit Style
+        </a>
+        <a href="{% url 'culet:index_style' %}" class="btn btn-secondary">
+            Back to Styles
+        </a>
+
+        {% if style.spec_sheet %}
+            <a
+                href="{{ style.spec_sheet.url }}"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="btn btn-primary"
+            >
+                View Spec Sheet
+            </a>
+        {% endif %}
+    </div>
 </div>
 
-<div class="table-wrap">
-    <table class="index_table job_index">
-        <tr>
-            <td>Stone Type</td>
-            <td>Quantity</td>
-            <td>Metal Type</td>
-            <td></td>
-        </tr>
-        {% for s in stones %}
-            <tr>
-                <td>{{ s.stone_type }}</td>
-                <td>{{ s.stone_shape}}</td>
-                <td>{{ s.stone_size }}</td>
-                <td>{{ s.qty_req }}</td>
-                
-            </tr>
-        {% endfor %}
-    
-    </table>
+<div class="job-section-card">
+    <h2 class="job-section-title">Style Information</h2>
+
+    <div class="style-detail-layout">
+
+        <div class="style-detail-photo">
+            {% if style.photo %}
+                <a
+                    href="{{ style.photo.url }}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    <img
+                        src="{{ style.photo.url }}"
+                        alt="Photo of {{ style.name }}"
+                        class="style-photo"
+                    >
+                </a>
+            {% else %}
+                <div class="style-photo-placeholder">
+                    No style photo uploaded
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="style-detail-information">
+            <dl class="detail-list">
+                <div class="detail-row">
+                    <dt>Style</dt>
+                    <dd>{{ style.name }}</dd>
+                </div>
+
+                <div class="detail-row">
+                    <dt>Customer</dt>
+                    <dd>
+                        {% if style.customer %}
+                            {{ style.customer }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </dd>
+                </div>
+
+                <div class="detail-row">
+                    <dt>Stamp</dt>
+                    <dd>
+                        {% if style.stamp %}
+                            {{ style.stamp }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </dd>
+                </div>
+
+                <div class="detail-row">
+                    <dt>Description</dt>
+                    <dd>
+                        {% if style.description %}
+                            {{ style.description|linebreaksbr }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </dd>
+                </div>
+
+                <div class="detail-row">
+                    <dt>Specification Sheet</dt>
+                    <dd>
+                        {% if style.spec_sheet %}
+                            <a
+                                href="{{ style.spec_sheet.url }}"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                Open PDF
+                            </a>
+                        {% else %}
+                            No specification sheet uploaded
+                        {% endif %}
+                    </dd>
+                </div>
+            </dl>
+        </div>
+
+    </div>
 </div>
 
-<h2>Findings</h2>
+<div class="job-section-card">
+    <h2 class="job-section-title">Metal Requirements</h2>
 
-{% for f in findings %}
-  <p>{{ f.finding }} — Qty: {{ f.qty_req }}</p>
-{% empty %}
-  <p>No findings required.</p>
-{% endfor %}
+    {% if metal %}
+        <div class="table-wrap">
+            <table class="index_table job_index">
+                <thead>
+                    <tr>
+                        <th>Part Name</th>
+                        <th>Quantity</th>
+                        <th>Metal Type</th>
+                    </tr>
+                </thead>
 
+                <tbody>
+                    {% for m in metal %}
+                        <tr>
+                            <td>{{ m.part }}</td>
+                            <td>{{ m.qty_req }}</td>
+                            <td>{{ m.metal_type }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p>No metal requirements have been added.</p>
+    {% endif %}
+</div>
+
+<div class="job-section-card">
+    <h2 class="job-section-title">Stone Requirements</h2>
+
+    {% if stones %}
+        <div class="table-wrap">
+            <table class="index_table job_index">
+                <thead>
+                    <tr>
+                        <th>Stone Type</th>
+                        <th>Shape</th>
+                        <th>Size</th>
+                        <th>Quantity</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for s in stones %}
+                        <tr>
+                            <td>{{ s.stone_type }}</td>
+                            <td>{{ s.stone_shape }}</td>
+                            <td>{{ s.stone_size }}</td>
+                            <td>{{ s.qty_req }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p>No stone requirements have been added.</p>
+    {% endif %}
+</div>
+
+<div class="job-section-card">
+    <h2 class="job-section-title">Finding Requirements</h2>
+
+    {% if findings %}
+        <div class="table-wrap">
+            <table class="index_table job_index">
+                <thead>
+                    <tr>
+                        <th>Finding</th>
+                        <th>Quantity</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for f in findings %}
+                        <tr>
+                            <td>{{ f.finding }}</td>
+                            <td>{{ f.qty_req }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p>No finding requirements have been added.</p>
+    {% endif %}
+</div>
+
+</div>
 {% endblock content %}

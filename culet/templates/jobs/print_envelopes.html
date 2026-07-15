@@ -9,7 +9,7 @@
 
     <style>
         @page {
-            size: 3in 5in;
+            size: 4.5in 6.5in;
             margin: 0;
         }
 
@@ -19,16 +19,25 @@
 
         html,
         body {
+            width: 4.5in;
+            height: 6.5in;
             margin: 0;
             padding: 0;
-            font-family: Arial, Helvetica, sans-serif;
-            color: #000;
+        }
+
+        .envelope {
+            box-sizing: border-box;
+            width: 4.5in;
+            height: 6.5in;
+            padding: 0.18in;
+            page-break-after: always;
+            overflow: hidden;
         }
 
         .label {
             position: relative;
-            width: 3in;
-            height: 5in;
+            width: 4.25in;
+            height: 6.25in;
             padding: 0.08in;
             overflow: hidden;
             background: #fff;
@@ -46,29 +55,76 @@
            ========================================================= */
 
         .top-section {
-            height: 0.94in;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 0.9in;
+            column-gap: 0.1in;
+            min-height: 1in;
+            padding-bottom: 0.06in;
             border-bottom: 1px solid #000;
+        }
+
+        .top-information {
+            min-width: 0;
+            overflow: hidden;
         }
 
         .top-barcode {
             display: block;
-            width: 2.2in;
+            width: 2.65in;
             height: 0.32in;
             margin: 0;
         }
 
         .top-stock-number {
             margin-top: 0.02in;
-            font-size: 20px;
+            overflow: hidden;
+            font-size: 21px;
             font-weight: 700;
             line-height: 1;
+            white-space: nowrap;
+            text-overflow: ellipsis;
         }
 
         .top-due-date {
             margin-top: 0.06in;
-            font-size: 18px;
+            font-size: 15px;
             font-weight: 700;
             line-height: 1;
+        }
+
+        .envelope-style-photo-wrap {
+            display: flex;
+            align-items: flex-start;
+            justify-content: flex-end;
+            width: 0.9in;
+            height: 0.9in;
+            overflow: hidden;
+        }
+
+        .envelope-style-photo,
+        .envelope-style-photo-placeholder {
+            box-sizing: border-box;
+            width: 0.9in;
+            height: 0.9in;
+        }
+
+        .envelope-style-photo {
+            display: block;
+            object-fit: contain;
+            background: #fff;
+            border: 1px solid #000;
+        }
+
+        .envelope-style-photo-placeholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.04in;
+            color: #777;
+            text-align: center;
+            font-size: 7px;
+            line-height: 1.1;
+            border: 1px dashed #999;
         }
 
         /* =========================================================
@@ -77,23 +133,23 @@
 
         .summary-grid {
             display: grid;
-            grid-template-columns: 1.7in 1fr;
-            column-gap: 0.1in;
-            min-height: 0.62in;
-            padding-top: 0.06in;
+            grid-template-columns: 1.65in 1fr;
+            column-gap: 0.08in;
+            min-height: 0.48in;
+            padding-top: 0.035in;
         }
 
         .summary-line {
             display: flex;
             align-items: baseline;
-            min-height: 0.25in;
-            font-size: 13px;
-            line-height: 1.1;
+            min-height: 0.2in;
+            font-size: 11px;
+            line-height: 1.05;
         }
 
         .summary-label {
             flex-shrink: 0;
-            margin-right: 0.04in;
+            margin-right: 0.03in;
             font-weight: 700;
         }
 
@@ -116,7 +172,7 @@
            ========================================================= */
 
         .stamp-box {
-            height: 0.37in;
+            height: 0.5in;
             padding: 0.05in 0.07in;
             overflow: hidden;
             border: 1px solid #000;
@@ -130,7 +186,7 @@
         }
 
         .notes-box {
-            height: 0.57in;
+            height: 0.5in;
             margin-top: 0.06in;
             padding: 0.04in 0.06in;
             overflow: hidden;
@@ -334,31 +390,48 @@
     <div class="label">
 
         <!-- Top barcode and primary job identification -->
-        <div class="top-section">
+<!-- Top barcode, job identification, and style photo -->
+<div class="top-section">
 
-            <svg
-                class="barcode top-barcode"
-                jsbarcode-format="CODE128"
-                jsbarcode-value="{{ job.barcode }}"
-                jsbarcode-displayvalue="false"
-                jsbarcode-margin="0"
-                jsbarcode-height="30">
-            </svg>
+    <div class="top-information">
+        <svg
+            class="barcode top-barcode"
+            jsbarcode-format="CODE128"
+            jsbarcode-value="{{ job.barcode }}"
+            jsbarcode-displayvalue="false"
+            jsbarcode-margin="0"
+            jsbarcode-height="26">
+        </svg>
 
-            <div class="top-stock-number">
-                {{ job.stock_num|default:"-" }}
-            </div>
-
-            <div class="top-due-date">
-                Due:
-                {% if job.due %}
-                    {{ job.due|date:"m/d/Y" }}
-                {% else %}
-                    -
-                {% endif %}
-            </div>
-
+        <div class="top-stock-number">
+            {{ job.stock_num|default:"-" }}
         </div>
+
+        <div class="top-due-date">
+            Due:
+            {% if job.due %}
+                {{ job.due|date:"m/d/Y" }}
+            {% else %}
+                -
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="envelope-style-photo-wrap">
+        {% if job.style and job.style.photo %}
+            <img
+                src="{{ job.style.photo.url }}"
+                alt=""
+                class="envelope-style-photo"
+            >
+        {% else %}
+            <div class="envelope-style-photo-placeholder">
+                No photo
+            </div>
+        {% endif %}
+    </div>
+
+</div>
 
         <!-- Style, primary metal, size, and quantity -->
         <div class="summary-grid">
@@ -582,19 +655,41 @@
 
 <script>
     document.addEventListener("DOMContentLoaded", function () {
-
         try {
             JsBarcode(".barcode").init();
-        } catch (e) {
-            console.error(e);
+        } catch (error) {
+            console.error("Barcode rendering failed:", error);
         }
 
         const autoPrint = {{ auto_print|yesno:"true,false" }};
 
-        if (autoPrint) {
-            window.print();
+        if (!autoPrint) {
+            return;
         }
 
+        const images = Array.from(
+            document.querySelectorAll(".envelope-style-photo")
+        );
+
+        if (images.length === 0) {
+            window.print();
+            return;
+        }
+
+        const imagePromises = images.map(function (image) {
+            if (image.complete) {
+                return Promise.resolve();
+            }
+
+            return new Promise(function (resolve) {
+                image.addEventListener("load", resolve, { once: true });
+                image.addEventListener("error", resolve, { once: true });
+            });
+        });
+
+        Promise.all(imagePromises).then(function () {
+            window.print();
+        });
     });
 </script>
 

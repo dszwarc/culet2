@@ -1,7 +1,11 @@
 {% extends 'base.html' %}
 
 {% block title %}
-    Create Style
+    {% if is_edit %}
+        Edit {{ style.name }}
+    {% else %}
+        Create Style
+    {% endif %}
 {% endblock title %}
 
 {% block content %}
@@ -9,13 +13,23 @@
     <div class="job-create-card">
         <div class="job-create-header">
             <p class="job-create-eyebrow">Style Library</p>
-            <h1 class="job-create-title">Create Style</h1>
-            <p class="job-create-subtitle">
-                Build a reusable style with default metal and stone requirements.
-            </p>
+                <h1 class="job-create-title">
+                    {% if is_edit %}
+                        Edit Style
+                    {% else %}
+                        Create Style
+                    {% endif %}
+                </h1>
+                <p class="job-create-subtitle">
+                    {% if is_edit %}
+                        Update the style information, media, and component requirements.
+                    {% else %}
+                        Build a reusable style with default metal, stone, and finding requirements.
+                    {% endif %}
+                </p>
         </div>
 
-        <form method="post">
+        <form method="post" enctype="multipart/form-data">
             {% csrf_token %}
 
             <div class="job-section-card">
@@ -44,6 +58,79 @@
                         <label for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
                         {{ form.description }}
                         {{ form.description.errors }}
+                    </div>
+                    <div class="job-field">
+                        <label for="{{ form.photo.id_for_label }}">
+                            {{ form.photo.label }}
+                        </label>
+                            {% if is_edit and style.photo %}
+                                <div class="current-style-upload">
+                                    <img
+                                        src="{{ style.photo.url }}"
+                                        alt="Current photo of {{ style.name }}"
+                                        class="current-style-photo"
+                                    >
+
+                                    <a
+                                        href="{{ style.photo.url }}"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        View current photo
+                                    </a>
+                                </div>
+                            {% endif %}
+                        {{ form.photo }}
+
+                        {% if form.photo.help_text %}
+                            <small class="form-help-text">
+                                {{ form.photo.help_text }}
+                            </small>
+                        {% endif %}
+
+                        {{ form.photo.errors }}
+                    </div>
+
+                    <div class="job-field">
+                        <label for="{{ form.spec_sheet.id_for_label }}">
+                            {{ form.spec_sheet.label }}
+                        </label>
+                            <div class="job-field">
+                                <label for="{{ form.spec_sheet.id_for_label }}">
+                                    {{ form.spec_sheet.label }}
+                                </label>
+
+                                {% if is_edit and style.spec_sheet %}
+                                    <div class="current-style-upload">
+                                        <a
+                                            href="{{ style.spec_sheet.url }}"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
+                                            Open current specification sheet
+                                        </a>
+                                    </div>
+                                {% endif %}
+
+                                {{ form.spec_sheet }}
+
+                                {% if form.spec_sheet.help_text %}
+                                    <small class="form-help-text">
+                                        {{ form.spec_sheet.help_text }}
+                                    </small>
+                                {% endif %}
+
+                                {{ form.spec_sheet.errors }}
+                            </div>
+                        {{ form.spec_sheet }}
+
+                        {% if form.spec_sheet.help_text %}
+                            <small class="form-help-text">
+                                {{ form.spec_sheet.help_text }}
+                            </small>
+                        {% endif %}
+
+                        {{ form.spec_sheet.errors }}
                     </div>
                 </div>
             </div>
@@ -220,7 +307,13 @@
 </div>
 
 <div class="job-actions">
-    <button type="submit" class="job-submit-btn">Save Style</button>
+    <button type="submit" class="job-submit-btn">
+        {% if is_edit %}
+            Save Changes
+        {% else %}
+            Save Style
+        {% endif %}
+    </button>
 </div>
 </form>
 

@@ -5,6 +5,9 @@ from django.utils import timezone
 from decimal import Decimal
 from django.core.exceptions import ValidationError
 
+from pathlib import Path
+from PIL import Image
+
 from .models import (
     FailureType,
     QualityInspection,
@@ -363,7 +366,15 @@ class JobUpdateForm(forms.ModelForm):
 class StyleForm(forms.ModelForm):
     class Meta:
         model = Style
-        fields = ("name", "customer", "stamp", "description")
+        fields = (
+            "name",
+            "customer",
+            "stamp",
+            "description",
+            "photo",
+            "spec_sheet",
+        )
+
         widgets = {
             "name": forms.TextInput(
                 attrs={
@@ -389,13 +400,106 @@ class StyleForm(forms.ModelForm):
                     "placeholder": "Style description...",
                 }
             ),
+            "photo": forms.ClearableFileInput(
+                attrs={
+                    "class": "form-control job-input",
+                    "accept": "image/jpeg,image/png,image/webp",
+                }
+            ),
+            "spec_sheet": forms.ClearableFileInput(
+                attrs={
+                    "class": "form-control job-input",
+                    "accept": "application/pdf,.pdf",
+                }
+            ),
+        }
+
+        labels = {
+            "photo": "Style Photo",
+            "spec_sheet": "Specification Sheet",
+        }
+
+        help_texts = {
+            "photo": "Upload a JPG, PNG, or WebP image.",
+            "spec_sheet": "Upload the style specification sheet as a PDF.",
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
         self.fields["customer"].required = False
         self.fields["customer"].empty_label = "Select a customer"
+        
+    def clean_photo(self):
+        photo = self.cleaned_data.get("photo")
 
+        if not photo:
+            return photo
+
+        max_size = 10 * 1024 * 1024  # 10 MB
+
+        if photo.size > max_size:
+            raise ValidationError(
+                "The style photo must be 10 MB or smaller."
+            )
+
+        allowed_extensions = {".jpg", ".jpeg", ".png", ".webp"}
+        extension = Path(photo.name).suffix.lower()
+
+        if extension not in allowed_extensions:
+            raise ValidationError(
+                "Upload a JPG, JPEG, PNG, or WebP image."
+            )
+
+        try:
+            image = Image.open(photo)
+            image.verify()
+        except Exception as error:
+            raise ValidationError(
+                "The uploaded file is not a valid image."
+            ) from error
+        finally:
+            photo.seek(0)
+
+        allowed_formats = {"JPEG", "PNG", "WEBP"}
+
+        if image.format not in allowed_formats:
+            raise ValidationError(
+                "Upload a JPG, JPEG, PNG, or WebP image."
+            )
+
+        return photo
+
+
+    def clean_spec_sheet(self):
+        spec_sheet = self.cleaned_data.get("spec_sheet")
+
+        if not spec_sheet:
+            return spec_sheet
+
+        max_size = 25 * 1024 * 1024  # 25 MB
+
+        if spec_sheet.size > max_size:
+            raise ValidationError(
+                "The specification sheet must be 25 MB or smaller."
+            )
+
+        extension = Path(spec_sheet.name).suffix.lower()
+
+        if extension != ".pdf":
+            raise ValidationError(
+                "The specification sheet must be a PDF."
+            )
+
+        header = spec_sheet.read(5)
+        spec_sheet.seek(0)
+
+        if header != b"%PDF-":
+            raise ValidationError(
+                "The uploaded file does not appear to be a valid PDF."
+            )
+
+        return spec_sheet
 
 class StyleMetalForm(forms.ModelForm):
     class Meta:

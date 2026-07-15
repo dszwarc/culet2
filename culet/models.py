@@ -117,6 +117,7 @@ class Employee(models.Model):
     blank=True,
     related_name="employees"
     )
+    can_qc = models.BooleanField(default=False)
 
     clocked_in = models.BooleanField(default=False)
     
@@ -137,10 +138,44 @@ class Employee(models.Model):
 
 class Style(models.Model):
     name = models.CharField(max_length=50, unique=True)
-    customer = models.ForeignKey(Customer, blank=True, on_delete=models.PROTECT, null=True)
-    stamp = models.CharField(blank=True, max_length=80)
-    description = models.TextField(max_length=500, null=True)
-    product = models.CharField(max_length=20, blank=True, null=True)
+
+    customer = models.ForeignKey(
+        Customer,
+        blank=True,
+        on_delete=models.PROTECT,
+        null=True,
+    )
+
+    stamp = models.CharField(
+        blank=True,
+        max_length=80,
+    )
+
+    description = models.TextField(
+        max_length=500,
+        blank=True,
+        null=True,
+    )
+
+    product = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+    )
+
+    photo = models.ImageField(
+        upload_to="styles/photos/",
+        blank=True,
+        null=True,
+        help_text="Upload a photograph of the finished style.",
+    )
+
+    spec_sheet = models.FileField(
+        upload_to="styles/spec-sheets/",
+        blank=True,
+        null=True,
+        help_text="Upload the style specification sheet as a PDF.",
+    )
 
     def __str__(self):
         return self.name
