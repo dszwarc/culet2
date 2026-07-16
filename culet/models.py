@@ -432,6 +432,7 @@ class Metal(models.Model):
 class MetalPart(models.Model):
     sku = models.CharField(max_length=50, unique=True)
     description = models.TextField(max_length=200, blank=True, null=True)
+    customer = models.ForeignKey(Customer, on_delete=models.PROTECT, null=True, blank=True)
     def __str__(self):
         return self.sku
 
@@ -439,7 +440,7 @@ class JobMetal(models.Model):
     job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="job_metals")
     part = models.ForeignKey(MetalPart, on_delete=models.PROTECT)
     qty_req = models.PositiveIntegerField(null=True, blank=True)
-    weight_req = models.PositiveIntegerField(null=True, blank=True)
+    weight_req = models.DecimalField(decimal_places=2, max_digits=10,null=True, blank=True)
     metal_type = models.ForeignKey(MetalType, on_delete=models.PROTECT, null=True, blank=True)
 
     def __str__(self):
@@ -461,7 +462,7 @@ class MetalLot(models.Model):
     )
     part = models.ForeignKey(MetalPart, on_delete=models.PROTECT)
     qty_on_hand = models.DecimalField(max_digits=15, decimal_places=3, default=0)
-    weight_on_hand = models.DecimalField(max_digits=15, decimal_places=3, default=0)
+    weight_on_hand = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     cost = models.DecimalField(max_digits=15, decimal_places=2,default=0)
     class Meta:
         constraints = [
@@ -557,7 +558,7 @@ class StyleMetal(models.Model):
     style = models.ForeignKey(Style, on_delete=models.CASCADE)
     part = models.ForeignKey(MetalPart, on_delete=models.PROTECT)
     qty_req = models.PositiveIntegerField(null=True, blank=True)
-    weight = models.PositiveIntegerField(null=True, blank=True)
+    weight = models.DecimalField(decimal_places=2, max_digits=10,null=True, blank=True)
     metal_type = models.ForeignKey(MetalType, on_delete=models.PROTECT, blank=True)
     def __str__(self):
         return f"{self.style} - {self.part}"
@@ -567,7 +568,7 @@ class Stone(models.Model):
     job = models.ForeignKey(Job, on_delete=models.CASCADE, null=True)
     stone_type = models.ForeignKey(StoneType, on_delete=models.PROTECT, null=True)
     size = models.CharField(blank=True, default="")
-    weight = models.PositiveIntegerField(blank=True, default=1)
+    weight = models.DecimalField(decimal_places=2, max_digits=10,blank=True, default=1)
 
 class StyleStone(models.Model):
     style = models.ForeignKey(Style, on_delete=models.CASCADE)
