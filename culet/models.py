@@ -790,3 +790,134 @@ class PieceworkMemoLine(models.Model):
     job = models.ForeignKey(Job, on_delete=models.PROTECT)
     notes = models.CharField(max_length=255, blank=True)
 
+
+
+
+#MAPPING MODELS FOR OLD DATABASE
+
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
+
+class LegacyImportRun(models.Model):
+    STATUS_RUNNING = "running"
+    STATUS_COMPLETED = "completed"
+    STATUS_FAILED = "failed"
+
+    STATUS_CHOICES = [
+        (STATUS_RUNNING, "Running"),
+        (STATUS_COMPLETED, "Completed"),
+        (STATUS_FAILED, "Failed"),
+    ]
+
+    command = models.CharField(max_length=100)
+    dry_run = models.BooleanField(default=False)
+
+    started_at = models.DateTimeField(default=timezone.now)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_RUNNING,
+    )
+
+    git_commit = models.CharField(max_length=40, blank=True)
+    summary = models.JSONField(default=dict, blank=True)
+    error_message = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-started_at", "-id"]
+
+    def __str__(self):
+        return (
+            f"{self.command} — {self.started_at:%Y-%m-%d %H:%M} "
+            f"({self.get_status_display()})"
+        )
+
+
+class LegacyRecordMap(models.Model):
+    ACTION_CREATED = "created"
+    ACTION_UPDATED = "updated"
+    ACTION_UNCHANGED = "unchanged"
+    ACTION_SKIPPED = "skipped"
+
+    ACTION_CHOICES = [
+        (ACTION_CREATED, "Created"),
+        (ACTION_UPDATED, "Updated"),
+        (ACTION_UNCHANGED, "Unchanged"),
+        (ACTION_SKIPPED, "Skipped"),
+    ]
+
+    import_run = models.ForeignKey(
+        LegacyImportRun,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="record_maps",
+    )
+
+    legacy_table = models.CharField(max_length=100)
+    legacy_id = models.BigIntegerField()
+
+    content_type = models.ForeignKey(
+        ContentType,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+    )
+    object_id = models.PositiveBigIntegerField(null=True, blank=True)
+
+    content_object = GenericForeignKey(
+        "content_type",
+        "object_id",
+    )
+
+    action = models.CharField(
+        max_length=20,
+        choices=ACTION_CHOICES,
+    )
+
+    message = models.TextField(blank=True)
+    imported_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "legacy_table",
+                    "legacy_id",
+                    "content_type",
+                ],
+                name="uniq_legacy_record_target_type",
+            ),
+        ]
+
+        indexes = [
+            models.Index(
+                fields=["legacy_table", "legacy_id"],
+                name="legacy_table_id_idx",
+            ),
+            models.Index(
+                fields=["content_type", "object_id"],
+                name="legacy_target_idx",
+            ),
+        ]
+
+        ordering = [
+            "legacy_table",
+            "legacy_id",
+            "content_type_id",
+        ]
+
+    def __str__(self):
+        target = (
+            f"{self.content_type} #{self.object_id}"
+            if self.content_type_id and self.object_id
+            else "No target"
+        )
+
+        return (
+            f"{self.legacy_table} #{self.legacy_id} "
+            f"→ {target} ({self.action})"
+        )
