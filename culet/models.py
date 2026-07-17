@@ -120,7 +120,8 @@ class Employee(models.Model):
     can_qc = models.BooleanField(default=False)
 
     clocked_in = models.BooleanField(default=False)
-    
+    must_change_password = models.BooleanField(default=True)
+
     @property
     def active_activities(self):
         return self.activity_set.filter(active=True,end__isnull=True)
