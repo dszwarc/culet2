@@ -91,4 +91,6 @@ urlpatterns = [
 
     #logout
     path("logout/", views.culet_logout, name="culet_logout"),
+    #password change
+    path("change-password/",views.RequiredPasswordChangeView.as_view(),name="required_password_change",),
     ]

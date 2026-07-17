@@ -19,7 +19,10 @@ from decimal import Decimal
 from itertools import chain
 from operator import itemgetter
 import re
+from django.contrib.auth.views import PasswordChangeView
 from .services import clock_in_employee, clock_out_employee, stop_activity
+from django.contrib.auth import update_session_auth_hash
+from django.contrib.auth.forms import SetPasswordForm
 
 from .models import (
     ActivityStep,
@@ -3581,3 +3584,42 @@ class RepairLookupView(LoginRequiredMixin, generic.FormView):
             f"{reverse('culet:job_create')}?repair_from={original_job.pk}"
         )
     
+class RequiredPasswordChangeView(LoginRequiredMixin, generic.FormView):
+    template_name = "registration/required_password_change.html"
+    form_class = SetPasswordForm
+    success_url = reverse_lazy("culet:home")
+
+    def dispatch(self, request, *args, **kwargs):
+        employee = getattr(request.user, "employee", None)
+
+        if employee is None:
+            return redirect("culet:home")
+
+        if not employee.must_change_password:
+            return redirect("culet:home")
+
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
+    def form_valid(self, form):
+        user = form.save()
+
+        update_session_auth_hash(
+            self.request,
+            user,
+        )
+
+        employee = self.request.user.employee
+        employee.must_change_password = False
+        employee.save(update_fields=["must_change_password"])
+
+        messages.success(
+            self.request,
+            "Your password has been changed successfully.",
+        )
+
+        return super().form_valid(form)
