@@ -557,10 +557,22 @@ class MetalReceiptLine(models.Model):
 
 class StyleMetal(models.Model):
     style = models.ForeignKey(Style, on_delete=models.CASCADE)
-    part = models.ForeignKey(MetalPart, on_delete=models.PROTECT)
     qty_req = models.PositiveIntegerField(null=True, blank=True)
     weight = models.DecimalField(decimal_places=2, max_digits=10,null=True, blank=True)
-    metal_type = models.ForeignKey(MetalType, on_delete=models.PROTECT, blank=True)
+    part = models.ForeignKey(
+        MetalPart,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+    )
+
+    metal_type = models.ForeignKey(
+        MetalType,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+    )
+
     def __str__(self):
         return f"{self.style} - {self.part}"
 
