@@ -29,6 +29,10 @@
                     <a class="home-tile success" href="{% url 'culet:receive_list' %}">
                         <span>Receive Jobs</span>
                     </a>
+
+                    <a class="home-tile primary" href="{% url 'culet:return_job' %}">
+                        <span>Return Jobs</span>
+                    </a>
                     
                     {% if culet_perms.quality_inspection %}
                     <a class="home-tile primary" href="{% url 'culet:quality_inspection' %}">

@@ -38,24 +38,68 @@
   </div>
 
   <div class="form-group">
-    <label>Scan Jobs</label>
+      <label>
+          {% if selected_job %}
+              Selected Job
+          {% else %}
+              Scan Job Barcodes
+          {% endif %}
+      </label>
 
-    <div id="job-scan-fields">
-      <input
-    name="job"
-    type="text"
-    value="{{ selected_job }}"
-    placeholder="Enter Job Number"
-    autocomplete="off"
-    required
->
-      <input type="text" name="job" class="scan-input" placeholder="Scan job barcode">
-      <input type="text" name="job" class="scan-input" placeholder="Scan job barcode">
-    </div>
+      <div id="job-scan-fields">
+          {% if selected_job %}
+              <input
+                  type="hidden"
+                  name="job_id"
+                  value="{{ selected_job.pk }}"
+              >
 
-    <button type="button" class="btn btn-secondary" id="add-job-field">
-      + Add Job
-    </button>
+              <input
+                  type="text"
+                  value="{{ selected_job.stock_num }}"
+                  readonly
+              >
+
+              <p class="form-help-text">
+                  Barcode: {{ selected_job.barcode }}
+              </p>
+          {% else %}
+              <input
+                  name="job"
+                  type="text"
+                  class="scan-input"
+                  placeholder="Scan job barcode"
+                  autocomplete="off"
+                  required
+              >
+
+              <input
+                  name="job"
+                  type="text"
+                  class="scan-input"
+                  placeholder="Scan job barcode"
+                  autocomplete="off"
+              >
+
+              <input
+                  name="job"
+                  type="text"
+                  class="scan-input"
+                  placeholder="Scan job barcode"
+                  autocomplete="off"
+              >
+          {% endif %}
+      </div>
+
+      {% if not selected_job %}
+          <button
+              type="button"
+              class="btn btn-secondary"
+              id="add-job-field"
+          >
+              + Add Job
+          </button>
+      {% endif %}
   </div>
 
   <button
@@ -68,21 +112,27 @@
 </form>
 
 <script>
-  document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener("DOMContentLoaded", function () {
     const container = document.getElementById("job-scan-fields");
     const addButton = document.getElementById("add-job-field");
 
-    addButton.addEventListener("click", function () {
-      const input = document.createElement("input");
-      input.type = "text";
-      input.name = "job";
-      input.className = "scan-input";
-      input.placeholder = "Scan job barcode";
+    if (!container || !addButton) {
+        return;
+    }
 
-      container.appendChild(input);
-      input.focus();
+    addButton.addEventListener("click", function () {
+        const input = document.createElement("input");
+
+        input.type = "text";
+        input.name = "job";
+        input.className = "scan-input";
+        input.placeholder = "Scan job barcode";
+        input.autocomplete = "off";
+
+        container.appendChild(input);
+        input.focus();
     });
-  });
+});
 </script>
 
 {% endblock %}

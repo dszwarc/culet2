@@ -13,7 +13,7 @@
 
         <div class="page-actions">
             <a
-                href="{% url 'culet:assign_job' %}?job={{ job.barcode|urlencode }}"
+                href="{% url 'culet:assign_job' %}?job_id={{ job.pk }}"
                 class="btn btn-primary"
             >
                 Assign Job

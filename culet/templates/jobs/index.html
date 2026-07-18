@@ -45,30 +45,14 @@
 </div>
 
     {% if latest_job_list %}
-    <div class="table-wrap">
+    <div class="table-wrap sticky-table-wrap">
         <table class="index_table job_index freeze-row">
             <thead>
                 <tr>
-                <th class="{% if current_sort == 'barcode' %}sorted-column{% endif %}">
-                    <a href="?{{ sort_links.barcode }}">
-                        Barcode
-                        {% with field="barcode" %}
-                            {% include "includes/sort_arrow.html" %}
-                        {% endwith %}
-                    </a>
-                </th>
                 <th class="{% if current_sort == 'stock_num' %}sorted-column{% endif %}">
                     <a href="?{{ sort_links.stock_num }}">
                         Stock Num
                         {% with field="stock_num" %}
-                            {% include "includes/sort_arrow.html" %}
-                        {% endwith %}
-                    </a>
-                </th>
-                <th class="{% if current_sort == 'name' %}sorted-column{% endif %}">
-                    <a href="?{{ sort_links.name }}">
-                        Name
-                        {% with field="name" %}
                             {% include "includes/sort_arrow.html" %}
                         {% endwith %}
                     </a>
@@ -97,14 +81,6 @@
                         {% endwith %}
                     </a>
                 </th>
-                <th class="{% if current_sort == 'location' %}sorted-column{% endif %}">
-                    <a href="?{{ sort_links.location }}">
-                        Location
-                        {% with field="location" %}
-                            {% include "includes/sort_arrow.html" %}
-                        {% endwith %}
-                    </a>
-                </th>
                 <th class="{% if current_sort == 'customer' %}sorted-column{% endif %}">
                     <a href="?{{ sort_links.customer }}">
                         Customer
@@ -125,10 +101,8 @@
             </thead>
             <tbody>
             {% for job in latest_job_list %}
-                    <tr class="{% if forloop.counter|divisibleby:2 %}even_row{% else %}odd_row{% endif %}">
-                        <td><a href="{% url 'culet:job_detail' job.id %}">{{ job.barcode }}</a></td>
-                        <td>{{ job.stock_num }}</td>
-                        <td>{{ job.name }}</td>
+                    <tr>
+                        <td><a href="{% url 'culet:job_detail' job.id %}">{{ job.stock_num }}</a></td>
                         <td>{{ job.style }}</td>
                         <td>
                             {% if job.assigned_to %}
@@ -136,13 +110,13 @@
                             {% endif %}
                         </td>
                         <td>{{ job.holder }}</td>
-                        <td>{{ job.location }}</td>
                         <td>{{ job.customer }}</td>
                         <td {% if job.is_past_due%}class="past_due"{% elif job.is_near_due %}class="near_due"{% endif %}>{{ job.due }}</td>
                         
                     </tr>
-            </tbody>    
+ 
             {% endfor %}
+            </tbody>   
         </table>
     </div>
     {% else %}
@@ -150,29 +124,74 @@
     {% endif %}
 
     {% if is_paginated %}
-    <div class="pagination">
-        <span class="step-links">
+        {% if page_obj.paginator.num_pages > 1 %}
+            <nav class="pagination-nav" aria-label="Job list pagination">
+                <div class="pagination-controls">
 
-            {% if page_obj.has_previous %}
-                <a href="?{% if query_params %}{{ query_params }}&{% endif %}page=1">&laquo; first</a>
-                <a href="?{% if query_params %}{{ query_params }}&{% endif %}page={{ page_obj.previous_page_number }}">previous</a>
-            {% endif %}
+                    {% if page_obj.has_previous %}
+                        <a
+                            class="pagination-button pagination-edge"
+                            href="?{% if query_params %}{{ query_params }}&{% endif %}page=1"
+                            aria-label="Go to first page"
+                        >
+                            &laquo; First
+                        </a>
 
-            <span class="current">
-                Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
-            </span>
+                        <a
+                            class="pagination-button"
+                            href="?{% if query_params %}{{ query_params }}&{% endif %}page={{ page_obj.previous_page_number }}"
+                            aria-label="Go to previous page"
+                        >
+                            Previous
+                        </a>
+                    {% else %}
+                        <span class="pagination-button pagination-edge is-disabled">
+                            &laquo; First
+                        </span>
 
-            {% if page_obj.has_next %}
-                <a href="?{% if query_params %}{{ query_params }}&{% endif %}page={{ page_obj.next_page_number }}">next</a>
-                <a href="?{% if query_params %}{{ query_params }}&{% endif %}page={{ page_obj.paginator.num_pages }}">last &raquo;</a>
-            {% endif %}
+                        <span class="pagination-button is-disabled">
+                            Previous
+                        </span>
+                    {% endif %}
 
-        </span>
-    </div>
+                    <span class="pagination-status">
+                        <span class="pagination-status-label">Page</span>
+                        <strong>{{ page_obj.number }}</strong>
+                        <span>of</span>
+                        <strong>{{ page_obj.paginator.num_pages }}</strong>
+                    </span>
+
+                    {% if page_obj.has_next %}
+                        <a
+                            class="pagination-button"
+                            href="?{% if query_params %}{{ query_params }}&{% endif %}page={{ page_obj.next_page_number }}"
+                            aria-label="Go to next page"
+                        >
+                            Next
+                        </a>
+
+                        <a
+                            class="pagination-button pagination-edge"
+                            href="?{% if query_params %}{{ query_params }}&{% endif %}page={{ page_obj.paginator.num_pages }}"
+                            aria-label="Go to last page"
+                        >
+                            Last &raquo;
+                        </a>
+                    {% else %}
+                        <span class="pagination-button is-disabled">
+                            Next
+                        </span>
+
+                        <span class="pagination-button pagination-edge is-disabled">
+                            Last &raquo;
+                        </span>
+                    {% endif %}
+
+                </div>
+            </nav>
+        {% endif %}
     {% endif %}
 
 {% endif %}
-    
-    
 
 {% endblock content %}

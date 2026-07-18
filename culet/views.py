@@ -272,13 +272,25 @@ class HomeView(LoginRequiredMixin, generic.TemplateView):
             due__lt=today,
         ).count()
 
-        context["inactive_jobs_count"] = Job.objects.filter(
-            shipped=False,
-        ).annotate(
-            last_activity=Max("activity__start"),
-        ).filter(
-            last_activity__lt=inactive_cutoff,
-        ).count()
+        context["inactive_jobs_count"] = (
+            Job.objects
+            .filter(
+                active=True,
+                shipped=False,
+            )
+            .annotate(
+                last_activity_start=Max("activity__start"),
+            )
+            .filter(
+                Q(last_activity_start__lt=inactive_cutoff)
+                |
+                Q(
+                    last_activity_start__isnull=True,
+                    created__lt=inactive_cutoff,
+                )
+            )
+            .count()
+        )
 
         context["shipped_today_count"] = JobShip.objects.filter(
             shipped_at__date=today,
@@ -325,8 +337,14 @@ class JobListView(LoginRequiredMixin, generic.ListView):
             "location",
             "customer",
         )
+        filter_data = self.request.GET.copy()
 
-        self.filter = JobFilter(self.request.GET, queryset=jobs)
+        # Hide shipped jobs by default.
+        # Users can still change the Shipped filter when needed.
+        if "shipped" not in filter_data:
+            filter_data["shipped"] = "false"
+
+        self.filter = JobFilter(filter_data, queryset=jobs)
 
         sort = self.request.GET.get("sort", self.DEFAULT_SORT)
         direction = self.request.GET.get("direction", "asc")
@@ -385,7 +403,8 @@ class MyJobListView(LoginRequiredMixin, generic.ListView):
         employee = Employee.objects.get(user=self.request.user)
         return Job.objects.filter(
             assigned_to=employee,
-            holder=employee
+            holder=employee,
+            shipped=False,
         ).prefetch_related("activity_set")
 
     def get_context_data(self, **kwargs):
@@ -397,7 +416,8 @@ class MyJobListView(LoginRequiredMixin, generic.ListView):
 def get_receivable_jobs_for_employee(employee):
     return (
         Job.objects
-        .filter(assigned_to=employee)
+        .filter(assigned_to=employee,
+                shipped=False)
         .exclude(holder=employee)
     )
 
@@ -1396,34 +1416,35 @@ class AssignJobView(LoginRequiredMixin, generic.TemplateView):
             "user__first_name",
         )
 
-        context["selected_job"] = self.request.GET.get("job", "").strip()
+        job_id = self.request.GET.get("job_id")
+        selected_job = None
+
+        if job_id:
+            selected_job = Job.objects.filter(pk=job_id).first()
+
+        context["selected_job"] = selected_job
 
         return context
 
     def post(self, request, *args, **kwargs):
-        job_number = request.POST.get("job", "").strip()
         employee_id = request.POST.get("employee")
+        job_id = request.POST.get("job_id")
 
-        if not job_number:
-            messages.error(request, "Please enter a job number.")
-            return redirect("culet:assign_job")
+        barcodes = [
+            value.strip()
+            for value in request.POST.getlist("job")
+            if value.strip()
+        ]
 
         if not employee_id:
             messages.error(request, "Please select an employee.")
-            return redirect(
-                f"{reverse('culet:assign_job')}?job={job_number}"
-            )
 
-        try:
-            job = Job.objects.get(job_num=job_number)
-        except Job.DoesNotExist:
-            messages.error(
-                request,
-                f"No job was found with job number {job_number}.",
-            )
-            return redirect(
-                f"{reverse('culet:assign_job')}?job={job_number}"
-            )
+            if job_id:
+                return redirect(
+                    f"{reverse('culet:assign_job')}?job_id={job_id}"
+                )
+
+            return redirect("culet:assign_job")
 
         try:
             employee = Employee.objects.get(pk=employee_id)
@@ -1432,19 +1453,63 @@ class AssignJobView(LoginRequiredMixin, generic.TemplateView):
                 request,
                 "The selected employee could not be found.",
             )
-            return redirect(
-                f"{reverse('culet:assign_job')}?job={job_number}"
+            return redirect("culet:assign_job")
+
+        jobs = []
+
+        # Assignment started from a Job Detail page.
+        if job_id:
+            job = Job.objects.filter(pk=job_id).first()
+
+            if not job:
+                messages.error(request, "The selected job could not be found.")
+                return redirect("culet:index_job")
+
+            jobs.append(job)
+
+        # Assignment started by scanning or entering barcodes.
+        else:
+            if not barcodes:
+                messages.error(
+                    request,
+                    "Please enter or scan at least one barcode.",
+                )
+                return redirect("culet:assign_job")
+
+            for barcode in barcodes:
+                try:
+                    job = Job.objects.get(barcode=barcode)
+                except (Job.DoesNotExist, ValueError):
+                    messages.error(
+                        request,
+                        f"Barcode not found: {barcode}",
+                    )
+                    return redirect("culet:assign_job")
+
+                if job not in jobs:
+                    jobs.append(job)
+
+        for job in jobs:
+            job.assigned_to = employee
+            job.save(update_fields=["assigned_to", "last_updated"])
+
+        if len(jobs) == 1:
+            messages.success(
+                request,
+                f"Job {jobs[0]} has been assigned to {employee}.",
             )
 
-        job.assigned_to = employee
-        job.save(update_fields=["assigned_to", "last_updated"])
+            return redirect(
+                "culet:job_detail",
+                pk=jobs[0].pk,
+            )
 
         messages.success(
             request,
-            f"Job {job} has been assigned to {employee}.",
+            f"{len(jobs)} jobs have been assigned to {employee}.",
         )
 
-        return redirect("culet:job_detail", pk=job.pk)
+        return redirect("culet:index_job")
 
 class ReturnJobView(LoginRequiredMixin, generic.TemplateView):
     template_name = "jobs/return.html"
