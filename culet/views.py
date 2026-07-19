@@ -451,7 +451,7 @@ class ReceiveJobView(LoginRequiredMixin, generic.View):
         job.save()
 
         messages.success(request, f"Job {job.barcode} received.")
-        return redirect("culet:my_jobs")
+        return redirect("culet:receive_list")
 
 
 class ReceiveAllJobsView(LoginRequiredMixin, generic.View):
@@ -1514,29 +1514,104 @@ class AssignJobView(LoginRequiredMixin, generic.TemplateView):
 class ReturnJobView(LoginRequiredMixin, generic.TemplateView):
     template_name = "jobs/return.html"
 
-    def get(self, request, *args, **kwargs):
-        employees = Employee.objects.exclude(role__name="Hourly")
-
-        context = {
-            "managers": employees.filter(role__name="Manager") | employees.filter(role__name="Super"),
-        }
-
-        return render(request, self.template_name, context)
-
-    def post(self, request, *args, **kwargs):
-        job = get_object_or_404(Job, barcode=request.POST.get("job"))
-
-        employee = get_object_or_404(
-            Employee,
-            id=request.POST.get("employee")
+    def get_managers(self):
+        return (
+            Employee.objects
+            .filter(
+                role__name__in=["Manager", "Super"],
+                user__is_active=True,
+            )
+            .select_related("user", "department", "role")
+            .order_by(
+                "user__last_name",
+                "user__first_name",
+            )
         )
 
-        job.assigned_to = employee
-        job.save()
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["managers"] = self.get_managers()
+        return context
+
+    def post(self, request, *args, **kwargs):
+        submitted_barcodes = [
+            barcode.strip()
+            for barcode in request.POST.getlist("jobs")
+            if barcode.strip()
+        ]
+
+        employee_id = request.POST.get("employee", "").strip()
+
+        if not submitted_barcodes:
+            messages.error(
+                request,
+                "Please enter or scan at least one job barcode.",
+            )
+            return redirect("culet:return_job")
+
+        if not employee_id:
+            messages.error(
+                request,
+                "Please select the manager receiving these jobs.",
+            )
+            return redirect("culet:return_job")
+
+        # Detect repeated scans before looking up the jobs.
+        duplicate_barcodes = sorted({
+            barcode
+            for barcode in submitted_barcodes
+            if submitted_barcodes.count(barcode) > 1
+        })
+
+        if duplicate_barcodes:
+            messages.error(
+                request,
+                "The following barcode was entered more than once: "
+                + ", ".join(duplicate_barcodes),
+            )
+            return redirect("culet:return_job")
+
+        manager = get_object_or_404(
+            self.get_managers(),
+            pk=employee_id,
+        )
+
+        jobs = list(
+            Job.objects
+            .filter(barcode__in=submitted_barcodes)
+            .select_related("style")
+        )
+
+        jobs_by_barcode = {
+            str(job.barcode): job
+            for job in jobs
+        }
+
+        missing_barcodes = [
+            barcode
+            for barcode in submitted_barcodes
+            if barcode not in jobs_by_barcode
+        ]
+
+        if missing_barcodes:
+            messages.error(
+                request,
+                "No job was found for the following barcode(s): "
+                + ", ".join(missing_barcodes),
+            )
+            return redirect("culet:return_job")
+
+        with transaction.atomic():
+            for barcode in submitted_barcodes:
+                job = jobs_by_barcode[barcode]
+                job.assigned_to = manager
+                job.save(update_fields=["assigned_to", "last_updated"])
+
+        job_word = "job" if len(jobs) == 1 else "jobs"
 
         messages.success(
             request,
-            f"Job {job.stock_num} (Barcode {job.barcode}) has been returned to {employee}."
+            f"{len(jobs)} {job_word} returned to {manager}.",
         )
 
         return redirect("culet:return_job")
@@ -3429,7 +3504,10 @@ class MemoListView(LoginRequiredMixin, generic.TemplateView):
         context["memo_rows"] = memo_rows
         return context
     
-class QualityInspectionCreateView(CuletPermissionRequiredMixin,generic.TemplateView,):
+class QualityInspectionCreateView(
+    CuletPermissionRequiredMixin,
+    generic.TemplateView,
+):
     permission_function = can_perform_quality_inspection
     permission_denied_message = (
         "You do not have permission to perform quality inspections."
@@ -3439,23 +3517,71 @@ class QualityInspectionCreateView(CuletPermissionRequiredMixin,generic.TemplateV
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["form"] = QualityInspectionForm()
+
+        initial = {}
+
+        barcode = self.request.GET.get("barcode", "").strip()
+
+        if barcode:
+            initial["barcode"] = barcode
+
+        context["form"] = kwargs.get("form") or QualityInspectionForm(
+            initial=initial
+        )
+
         return context
 
     def post(self, request, *args, **kwargs):
         form = QualityInspectionForm(request.POST)
 
         if not form.is_valid():
-            return self.render_to_response({"form": form})
+            return self.render_to_response(
+                self.get_context_data(form=form)
+            )
 
-        employee = get_object_or_404(Employee, user=request.user)
+        employee = get_object_or_404(
+            Employee,
+            user=request.user,
+        )
+
         barcode = form.cleaned_data["barcode"]
+        inspection_duration_minutes = form.cleaned_data[
+            "inspection_duration_minutes"
+        ]
 
-        job = Job.objects.filter(barcode=barcode).first()
+        job = (
+            Job.objects
+            .filter(barcode=barcode)
+            .first()
+        )
 
         if not job:
-            messages.error(request, f"No job found with barcode {barcode}.")
-            return self.render_to_response({"form": form})
+            messages.error(
+                request,
+                f"No job found with barcode {barcode}.",
+            )
+            return self.render_to_response(
+                self.get_context_data(form=form)
+            )
+
+        qc_step = ActivityStep.objects.filter(
+            code="qc"
+        ).first()
+
+        if not qc_step:
+            messages.error(
+                request,
+                'The QC activity step with code "qc" was not found.',
+            )
+            return self.render_to_response(
+                self.get_context_data(form=form)
+            )
+
+        inspection_time = timezone.now()
+
+        activity_start = inspection_time - timedelta(
+            minutes=inspection_duration_minutes
+        )
 
         with transaction.atomic():
             inspection = QualityInspection.objects.create(
@@ -3463,19 +3589,48 @@ class QualityInspectionCreateView(CuletPermissionRequiredMixin,generic.TemplateV
                 inspected_by=employee,
                 result=form.cleaned_data["result"],
                 notes=form.cleaned_data.get("notes", ""),
+                inspection_duration_minutes=inspection_duration_minutes,
             )
 
             if inspection.result == QualityInspection.RESULT_FAIL:
-                for failure_type in form.cleaned_data["failure_types"]:
-                    QualityInspectionFailure.objects.create(
-                        inspection=inspection,
-                        failure_type=failure_type,
-                    )
+                QualityInspectionFailure.objects.bulk_create(
+                    [
+                        QualityInspectionFailure(
+                            inspection=inspection,
+                            failure_type=failure_type,
+                        )
+                        for failure_type in form.cleaned_data[
+                            "failure_types"
+                        ]
+                    ]
+                )
+
+            Activity.objects.create(
+                job=job,
+                employee=employee,
+                step=qc_step,
+                start=activity_start,
+                end=inspection_time,
+                active=False,
+                is_piecework=False,
+            )
 
         if inspection.result == QualityInspection.RESULT_PASS:
-            messages.success(request, f"Job {job.barcode} passed QC.")
+            messages.success(
+                request,
+                (
+                    f"Job {job.barcode} passed QC. "
+                    f"{inspection_duration_minutes} minutes recorded."
+                ),
+            )
         else:
-            messages.error(request, f"Job {job.barcode} failed QC.")
+            messages.error(
+                request,
+                (
+                    f"Job {job.barcode} failed QC. "
+                    f"{inspection_duration_minutes} minutes recorded."
+                ),
+            )
 
         return redirect(self.success_url)
 

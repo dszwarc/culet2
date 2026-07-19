@@ -1022,6 +1022,16 @@ class MemoFilterForm(forms.Form):
     )
 
 class QualityInspectionForm(forms.Form):
+    class Meta:
+        model = QualityInspection
+        fields = [
+            "barcode",
+            "result",
+            "failure_types",
+            "notes",
+            "inspection_duration_minutes",
+        ]
+
     barcode = forms.CharField(
         label="Job Barcode",
         widget=text_widget("Scan job barcode"),
@@ -1039,7 +1049,18 @@ class QualityInspectionForm(forms.Form):
         required=False,
         widget=forms.CheckboxSelectMultiple,
     )
-
+    inspection_duration_minutes = forms.IntegerField(
+        min_value=1,
+        max_value=480,
+        label="Inspection time",
+        help_text="Enter the approximate number of minutes spent inspecting this job.",
+        widget=forms.NumberInput(
+            attrs={
+                "inputmode": "numeric",
+                "placeholder": "Minutes",
+            }
+        ),
+    )
     notes = forms.CharField(
         label="Notes",
         required=False,

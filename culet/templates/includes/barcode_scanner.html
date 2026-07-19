@@ -1,37 +1,41 @@
-<button
-    type="button"
-    class="btn btn-outline-secondary culet-scanner-btn js-culet-scanner-btn"
-    data-target="{{ input_id }}"
-    data-auto-submit="{{ auto_submit|default:'false' }}"
->
-    📷 {{ button_text|default:"Scan with Camera" }}
-</button>
+{% if not overlay_only %}
+    <button
+        type="button"
+        class="btn btn-outline-secondary culet-scanner-btn js-culet-scanner-btn"
+        data-target="{{ input_id }}"
+        data-auto-submit="{{ auto_submit|default:'false' }}"
+    >
+        📷 {{ button_text|default:"Scan with Camera" }}
+    </button>
+{% endif %}
 
-<div class="culet-scanner-overlay" id="culet-scanner-overlay">
-    <div class="culet-scanner-box">
+{% if not button_only %}
+    <div class="culet-scanner-overlay" id="culet-scanner-overlay">
+        <div class="culet-scanner-box">
 
-        <h2 class="culet-scanner-title">
-            Scan Job Barcode
-        </h2>
+            <h2 class="culet-scanner-title">
+                Scan Job Barcode
+            </h2>
 
-        <div
-            id="culet-scanner-reader"
-            class="culet-scanner-reader"
-        ></div>
+            <div
+                id="culet-scanner-reader"
+                class="culet-scanner-reader"
+            ></div>
 
-        <p class="culet-scanner-help">
-            Point your camera at the barcode on the job envelope.
-        </p>
+            <p class="culet-scanner-help">
+                Point your camera at the barcode on the job envelope.
+            </p>
 
-        <div class="culet-scanner-actions">
-            <button
-                type="button"
-                class="btn btn-danger"
-                id="culet-scanner-cancel"
-            >
-                Cancel
-            </button>
+            <div class="culet-scanner-actions">
+                <button
+                    type="button"
+                    class="btn btn-danger"
+                    id="culet-scanner-cancel"
+                >
+                    Cancel
+                </button>
+            </div>
+
         </div>
-
     </div>
-</div>
+{% endif %}

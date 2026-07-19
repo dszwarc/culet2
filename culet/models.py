@@ -375,6 +375,7 @@ class QualityInspection(models.Model):
         related_name="quality_inspections",
     )
     inspected_at = models.DateTimeField(default=timezone.now)
+    inspection_duration_minutes = models.PositiveIntegerField(null=True,blank=True,verbose_name="Inspection duration",help_text="Approximate inspection time in minutes.")
     result = models.CharField(max_length=10, choices=RESULT_CHOICES)
     notes = models.TextField(blank=True)
 

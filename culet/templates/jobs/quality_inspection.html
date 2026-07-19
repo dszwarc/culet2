@@ -41,6 +41,12 @@
             {{ form.notes.errors }}
         </p>
 
+        <div id="failure-types-row">
+            <label>Duration (Minutes)</label>
+            {{ form.inspection_duration_minutes }}
+            {{ form.inspection_duration_minutes.errors }}
+        </div>
+
         <button type="submit" class="btn btn-primary">
             Submit Inspection
         </button>

@@ -53,33 +53,44 @@
                                         </div>
                                     </div>
 
-                                {% elif job.in_work and job.active_activity %}
-
-                                    <form
-                                        method="post"
-                                        action="{% url 'culet:stop_work' job.active_activity.id job.id %}"
-                                    >
-                                        {% csrf_token %}
-
-                                        <button
-                                            type="submit"
-                                            class="btn btn-danger"
-                                            onclick="return confirm('Stop work on Job {{ job.stock_num|default:job.barcode }}?');"
-                                        >
-                                            Stop Work
-                                        </button>
-                                    </form>
-
-                                {% else %}
-
+                                {% elif request.user.employee.can_qc %}
                                     <a
-                                        href="{% url 'culet:job_start' job.id %}"
-                                        class="btn btn-success"
+                                        href="{% url 'culet:quality_inspection' %}?barcode={{ job.barcode|urlencode }}"
+                                        class="btn btn-primary"
                                     >
-                                        Start Work
+                                        Start Inspection
                                     </a>
+            
+                                        {% elif job.in_work and job.active_activity %}
 
-                                {% endif %}
+                                            <form
+                                                method="post"
+                                                action="{% url 'culet:stop_work' job.active_activity.id job.id %}"
+                                            >
+                                                {% csrf_token %}
+
+                                                <button
+                                                    type="submit"
+                                                    class="btn btn-danger"
+                                                    onclick="return confirm('Stop work on Job {{ job.stock_num|default:job.barcode }}?');"
+                                                >
+                                                    Stop Work
+                                                </button>
+                                            </form>
+
+                                        {% else %}
+
+                                            <a
+                                                href="{% url 'culet:job_start' job.id %}"
+                                                class="btn btn-success"
+                                            >
+                                                Start Work
+                                            </a>
+
+                                    {% endif %}
+
+
+
                             </td>
 
                         </tr>
@@ -138,6 +149,14 @@
                                     {% endif %}
                                 </span>
                             </div>
+                        
+                        {% elif request.user.employee.can_qc %}
+                            <a
+                                href="{% url 'culet:quality_inspection' %}?barcode={{ job.barcode|urlencode }}"
+                                class="btn btn-primary"
+                            >
+                                Start Inspection
+                            </a>
 
                         {% elif job.in_work and job.active_activity %}
 

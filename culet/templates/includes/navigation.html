@@ -18,8 +18,8 @@
 
     <div class="app-nav-right">
 
-        {% if user.is_authenticated %}
-                <p id="welcome">Welcome, {{user.employee}}</p>
+            {% if user.is_authenticated %}
+                <p class="nav-welcome" id="welcome">Welcome, {{user.employee}}</p>
             {% if nav_requires_clock_in %}
 
                 {% if nav_clocked_in %}
