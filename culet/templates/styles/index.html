@@ -1,38 +1,264 @@
-{% extends 'base.html' %}
-   
+{% extends "base.html" %}
 
 {% block content %}
-    
-<div class="filter_box">
-    <form method="get" action="">
-        {{filter.form}}
-        <button class="btn btn-primary" type="submit">Search</button>
-    </form>
-</div>
-    
 
-{% if style_list %}
-    
-    <div class="table-wrap">
-        <table class="index_table job_table">
-            <tr>
-                <td>Style Name</td>
-                <td>Product Type</td>
-            </tr>
-            
-            {% for style in style_list %}
-            <tr>
-                <td><a href="{% url 'culet:style_detail' style.id %}">{{ style.name }}</a></td>
-                <td>{{ style.product }}</td>
-            </tr>
+{% if user.is_authenticated %}
+
+    <div class="filter-panel">
+
+        <div class="filter-header">
+            <div>
+                <h2 class="filter-title">Filter Styles</h2>
+
+                <p class="filter-subtitle">
+                    Search by style name, customer, stamp, or description.
+                </p>
+            </div>
+        </div>
+
+        <form method="get" class="filter-form">
+
+            {% for field in filter.form %}
+                <div class="filter-field">
+
+                    <label for="{{ field.id_for_label }}">
+                        {{ field.label }}
+                    </label>
+
+                    {{ field }}
+
+                    {% if field.errors %}
+                        <div class="field-error">
+                            {{ field.errors }}
+                        </div>
+                    {% endif %}
+
+                </div>
             {% endfor %}
-                
-        </table>
+
+            <div class="filter-actions">
+                <button
+                    type="submit"
+                    class="btn btn-primary"
+                >
+                    Apply Filters
+                </button>
+
+                <a
+                    href="{% url 'culet:index_style' %}"
+                    class="filter-clear"
+                >
+                    Clear
+                </a>
+            </div>
+
+        </form>
+
     </div>
 
-{% endif %}
-    
-    <a href="{% url 'culet:style_create' %}"><button>Add Style</button></a>
-    <a href="{% url 'culet:job_create' %}"><button>Create New Job</button></a>
+    {% if style_list %}
 
-    {% endblock content %}
+        <div class="table-wrap sticky-table-wrap">
+
+            <table class="index_table job_index freeze-row">
+
+                <thead>
+                    <tr>
+
+                        <th
+                            class="{% if current_sort == 'name' %}sorted-column{% endif %}"
+                        >
+                            <a href="?{{ sort_links.name }}">
+                                Style Name
+
+                                {% with field="name" %}
+                                    {% include "includes/sort_arrow.html" %}
+                                {% endwith %}
+                            </a>
+                        </th>
+
+                        <th
+                            class="{% if current_sort == 'customer' %}sorted-column{% endif %}"
+                        >
+                            <a href="?{{ sort_links.customer }}">
+                                Customer
+
+                                {% with field="customer" %}
+                                    {% include "includes/sort_arrow.html" %}
+                                {% endwith %}
+                            </a>
+                        </th>
+
+                        <th
+                            class="{% if current_sort == 'stamp' %}sorted-column{% endif %}"
+                        >
+                            <a href="?{{ sort_links.stamp }}">
+                                Stamp
+
+                                {% with field="stamp" %}
+                                    {% include "includes/sort_arrow.html" %}
+                                {% endwith %}
+                            </a>
+                        </th>
+
+                        <th
+                            class="{% if current_sort == 'description' %}sorted-column{% endif %}"
+                        >
+                            <a href="?{{ sort_links.description }}">
+                                Description
+
+                                {% with field="description" %}
+                                    {% include "includes/sort_arrow.html" %}
+                                {% endwith %}
+                            </a>
+                        </th>
+
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    {% for style in style_list %}
+                        <tr>
+
+                            <td>
+                                <a
+                                    href="{% url 'culet:style_detail' style.id %}"
+                                >
+                                    {{ style.name }}
+                                </a>
+                            </td>
+
+                            <td>
+                                {% if style.customer %}
+                                    {{ style.customer }}
+                                {% else %}
+                                    &mdash;
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                {% if style.stamp %}
+                                    {{ style.stamp }}
+                                {% else %}
+                                    &mdash;
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                {% if style.description %}
+                                    {{ style.description|truncatechars:140 }}
+                                {% else %}
+                                    &mdash;
+                                {% endif %}
+                            </td>
+
+                        </tr>
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    {% else %}
+
+        <p>No styles found matching the selected filters.</p>
+
+    {% endif %}
+
+    {% if is_paginated %}
+        {% if page_obj.paginator.num_pages > 1 %}
+
+            <nav
+                class="pagination-nav"
+                aria-label="Style list pagination"
+            >
+
+                <div class="pagination-controls">
+
+                    {% if page_obj.has_previous %}
+
+                        <a
+                            class="pagination-button pagination-edge"
+                            href="?{% if query_params %}{{ query_params }}&{% endif %}page=1"
+                            aria-label="Go to first page"
+                        >
+                            &laquo; First
+                        </a>
+
+                        <a
+                            class="pagination-button"
+                            href="?{% if query_params %}{{ query_params }}&{% endif %}page={{ page_obj.previous_page_number }}"
+                            aria-label="Go to previous page"
+                        >
+                            Previous
+                        </a>
+
+                    {% else %}
+
+                        <span class="pagination-button pagination-edge is-disabled">
+                            &laquo; First
+                        </span>
+
+                        <span class="pagination-button is-disabled">
+                            Previous
+                        </span>
+
+                    {% endif %}
+
+                    <span class="pagination-status">
+                        <span class="pagination-status-label">
+                            Page
+                        </span>
+
+                        <strong>{{ page_obj.number }}</strong>
+
+                        <span>of</span>
+
+                        <strong>
+                            {{ page_obj.paginator.num_pages }}
+                        </strong>
+                    </span>
+
+                    {% if page_obj.has_next %}
+
+                        <a
+                            class="pagination-button"
+                            href="?{% if query_params %}{{ query_params }}&{% endif %}page={{ page_obj.next_page_number }}"
+                            aria-label="Go to next page"
+                        >
+                            Next
+                        </a>
+
+                        <a
+                            class="pagination-button pagination-edge"
+                            href="?{% if query_params %}{{ query_params }}&{% endif %}page={{ page_obj.paginator.num_pages }}"
+                            aria-label="Go to last page"
+                        >
+                            Last &raquo;
+                        </a>
+
+                    {% else %}
+
+                        <span class="pagination-button is-disabled">
+                            Next
+                        </span>
+
+                        <span class="pagination-button pagination-edge is-disabled">
+                            Last &raquo;
+                        </span>
+
+                    {% endif %}
+
+                </div>
+
+            </nav>
+
+        {% endif %}
+    {% endif %}
+
+{% endif %}
+
+{% endblock content %}

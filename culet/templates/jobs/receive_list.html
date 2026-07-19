@@ -5,19 +5,23 @@
 {% if user.is_authenticated %}
 
     {% if receive_list %}
+        
+        {% if  %}
+            
+        {% endif %}
+            
+            <form
+                method="post"
+                action="{% url 'culet:receive_all' %}"
+                class="receive-all-form"
+                onsubmit="return confirm('Receive all jobs currently in your queue?');"
+            >
+                {% csrf_token %}
 
-        <form
-            method="post"
-            action="{% url 'culet:receive_all' %}"
-            class="receive-all-form"
-            onsubmit="return confirm('Receive all jobs currently in your queue?');"
-        >
-            {% csrf_token %}
-
-            <button class="btn btn-primary receive-all-button" type="submit">
-                Receive All Jobs
-            </button>
-        </form>
+                <button class="btn btn-primary receive-all-button" type="submit">
+                    Receive All Jobs
+                </button>
+            </form>
 
 
         {# Desktop/tablet table #}

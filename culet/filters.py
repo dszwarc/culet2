@@ -108,3 +108,58 @@ class ActivityFilter(django_filters.FilterSet):
         fields = '__all__'
         exclude = ['start', 'end','active','job']
         
+class StyleFilter(django_filters.FilterSet):
+    name = django_filters.CharFilter(
+        field_name="name",
+        lookup_expr="icontains",
+        label="Style Name:",
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": "Search style name",
+            }
+        ),
+    )
+
+    customer = django_filters.ModelChoiceFilter(
+        field_name="customer",
+        queryset=Customer.objects.order_by("name"),
+        label="Customer:",
+        empty_label="All customers",
+        widget=forms.Select(
+            attrs={
+                "class": "combo-box",
+                "data-placeholder": "All customers",
+            }
+        ),
+    )
+
+    stamp = django_filters.CharFilter(
+        field_name="stamp",
+        lookup_expr="icontains",
+        label="Stamp:",
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": "Search stamp",
+            }
+        ),
+    )
+
+    description = django_filters.CharFilter(
+        field_name="description",
+        lookup_expr="icontains",
+        label="Description:",
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": "Search description",
+            }
+        ),
+    )
+
+    class Meta:
+        model = Style
+        fields = [
+            "name",
+            "customer",
+            "stamp",
+            "description",
+        ]

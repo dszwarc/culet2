@@ -12,7 +12,7 @@ from django.contrib import messages
 from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
-from .filters import JobFilter, ActivityFilter
+from .filters import JobFilter, ActivityFilter, StyleFilter
 from datetime import timedelta, datetime, time, date
 from collections import defaultdict
 from decimal import Decimal
@@ -1261,15 +1261,93 @@ class JobUpdateView(LoginRequiredMixin, generic.UpdateView):
     def get_success_url(self):
         return self.object.get_absolute_url()
 
-class StyleListView(LoginRequiredMixin,generic.ListView):
+class StyleListView(LoginRequiredMixin, generic.ListView):
     model = Style
     template_name = "styles/index.html"
     context_object_name = "style_list"
+    paginate_by = 50
+
+    SORT_FIELDS = {
+        "name": "name",
+        "customer": "customer__name",
+        "stamp": "stamp",
+        "description": "description",
+    }
+
+    DEFAULT_SORT = "name"
+
     def get_queryset(self):
-        return Style.objects.all()#.prefetch_related(
-            #"style_components__component_type",
-            #"style_components__attribute_contraints__attribute",
-        #)
+        styles = Style.objects.select_related(
+            "customer",
+        )
+
+        self.filter = StyleFilter(
+            self.request.GET,
+            queryset=styles,
+        )
+
+        sort = self.request.GET.get(
+            "sort",
+            self.DEFAULT_SORT,
+        )
+
+        direction = self.request.GET.get(
+            "direction",
+            "asc",
+        )
+
+        if sort not in self.SORT_FIELDS:
+            sort = self.DEFAULT_SORT
+
+        if direction not in ["asc", "desc"]:
+            direction = "asc"
+
+        self.current_sort = sort
+        self.current_direction = direction
+
+        order_field = self.SORT_FIELDS[sort]
+
+        if direction == "desc":
+            order_field = f"-{order_field}"
+
+        return self.filter.qs.order_by(
+            order_field,
+            "name",
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context["filter"] = self.filter
+        context["current_sort"] = self.current_sort
+        context["current_direction"] = self.current_direction
+
+        query_params = self.request.GET.copy()
+        query_params.pop("page", None)
+        context["query_params"] = query_params.urlencode()
+
+        sort_links = {}
+
+        for key in self.SORT_FIELDS:
+            params = self.request.GET.copy()
+            params.pop("page", None)
+
+            next_direction = "asc"
+
+            if (
+                self.current_sort == key
+                and self.current_direction == "asc"
+            ):
+                next_direction = "desc"
+
+            params["sort"] = key
+            params["direction"] = next_direction
+
+            sort_links[key] = params.urlencode()
+
+        context["sort_links"] = sort_links
+
+        return context
 
 class StyleDetailView(LoginRequiredMixin,generic.DetailView):
     model = Style
