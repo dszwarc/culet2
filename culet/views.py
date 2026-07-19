@@ -313,7 +313,7 @@ class JobListView(LoginRequiredMixin, generic.ListView):
     model = Job
     template_name = "jobs/index.html"
     context_object_name = "latest_job_list"
-    paginate_by = 25
+    paginate_by = 50
 
     SORT_FIELDS = {
         "barcode": "barcode",
@@ -332,11 +332,17 @@ class JobListView(LoginRequiredMixin, generic.ListView):
     def get_queryset(self):
         jobs = Job.objects.select_related(
             "style",
+            "assigned_to",
             "assigned_to__user",
+            "assigned_to__department",
+            "holder",
             "holder__user",
+            "holder__department",
             "location",
             "customer",
+            "status",
         )
+
         filter_data = self.request.GET.copy()
 
         # Hide shipped jobs by default.
@@ -344,10 +350,20 @@ class JobListView(LoginRequiredMixin, generic.ListView):
         if "shipped" not in filter_data:
             filter_data["shipped"] = "false"
 
-        self.filter = JobFilter(filter_data, queryset=jobs)
+        self.filter = JobFilter(
+            filter_data,
+            queryset=jobs,
+        )
 
-        sort = self.request.GET.get("sort", self.DEFAULT_SORT)
-        direction = self.request.GET.get("direction", "asc")
+        sort = self.request.GET.get(
+            "sort",
+            self.DEFAULT_SORT,
+        )
+
+        direction = self.request.GET.get(
+            "direction",
+            "asc",
+        )
 
         if sort not in self.SORT_FIELDS:
             sort = self.DEFAULT_SORT
@@ -363,25 +379,39 @@ class JobListView(LoginRequiredMixin, generic.ListView):
         if direction == "desc":
             order_field = f"-{order_field}"
 
-        return self.filter.qs.order_by(order_field, "barcode")
+        return self.filter.qs.order_by(
+            order_field,
+            "barcode",
+        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+
         context["filter"] = self.filter
         context["current_sort"] = self.current_sort
         context["current_direction"] = self.current_direction
 
+        # Preserve filters and sorting during pagination.
         query_params = self.request.GET.copy()
         query_params.pop("page", None)
-        context["query_params"] = query_params.urlencode()
 
+        context["query_params"] = (
+            query_params.urlencode()
+        )
+
+        # Build sorting links while preserving all current filters.
         sort_links = {}
-        for key in self.SORT_FIELDS.keys():
+
+        for key in self.SORT_FIELDS:
             params = self.request.GET.copy()
             params.pop("page", None)
 
             next_direction = "asc"
-            if self.current_sort == key and self.current_direction == "asc":
+
+            if (
+                self.current_sort == key
+                and self.current_direction == "asc"
+            ):
                 next_direction = "desc"
 
             params["sort"] = key
@@ -392,7 +422,6 @@ class JobListView(LoginRequiredMixin, generic.ListView):
         context["sort_links"] = sort_links
 
         return context
-
     
 class MyJobListView(LoginRequiredMixin, generic.ListView):
     model = Job

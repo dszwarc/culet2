@@ -18,7 +18,11 @@ class JobFilter(django_filters.FilterSet):
     )
 
     due_date = django_filters.DateFilter(
-        widget=forms.DateInput(attrs={"type": "date"}),
+        widget=forms.DateInput(
+            attrs={
+                "type": "date",
+            }
+        ),
         label="Due Before:",
         field_name="due",
         lookup_expr="lte",
@@ -53,9 +57,17 @@ class JobFilter(django_filters.FilterSet):
     )
 
     assigned_to = django_filters.ModelChoiceFilter(
-        queryset=Employee.objects.select_related("user").order_by(
-            "user__last_name",
-            "user__first_name",
+        queryset=(
+            Employee.objects
+            .select_related(
+                "user",
+                "department",
+            )
+            .filter(user__is_active=True)
+            .order_by(
+                "user__last_name",
+                "user__first_name",
+            )
         ),
         empty_label="All employees",
         widget=forms.Select(
@@ -67,9 +79,17 @@ class JobFilter(django_filters.FilterSet):
     )
 
     holder = django_filters.ModelChoiceFilter(
-        queryset=Employee.objects.select_related("user").order_by(
-            "user__last_name",
-            "user__first_name",
+        queryset=(
+            Employee.objects
+            .select_related(
+                "user",
+                "department",
+            )
+            .filter(user__is_active=True)
+            .order_by(
+                "user__last_name",
+                "user__first_name",
+            )
         ),
         empty_label="All holders",
         widget=forms.Select(
@@ -80,8 +100,24 @@ class JobFilter(django_filters.FilterSet):
         ),
     )
 
+    holder_department = django_filters.ModelChoiceFilter(
+        label="Holder Department:",
+        field_name="holder__department",
+        queryset=Department.objects.filter(
+            active=True
+        ).order_by("name"),
+        empty_label="All holder departments",
+        widget=forms.Select(
+            attrs={
+                "class": "combo-box",
+                "data-placeholder": "All holder departments",
+            }
+        ),
+    )
+
     class Meta:
         model = Job
+
         fields = [
             "barcode",
             "stock_num",
@@ -89,13 +125,12 @@ class JobFilter(django_filters.FilterSet):
             "customer",
             "assigned_to",
             "holder",
+            "holder_department",
             "location",
-            "status",
             "shipped",
             "due_date",
         ]
-        exclude = ['status']
-
+        
 class ActivityFilter(django_filters.FilterSet):
     name = CharFilter(label='Operation:',field_name='name',lookup_expr='icontains')
     style = CharFilter(label='Style:', field_name='job__style__name', lookup_expr='icontains')
