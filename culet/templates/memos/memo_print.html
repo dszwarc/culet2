@@ -1,11 +1,9 @@
-{% load static %}
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
 
-    <title>Transfer Memo #{{ memo.memo_num }}</title>
+    <title>{{ memo_title }} {{ memo.memo_num }}</title>
 
     <style>
         :root {
@@ -19,17 +17,25 @@
             --surface: #ffffff;
         }
 
+        /*
+         * The larger bottom margin reserves space for the repeating footer.
+         */
         @page {
             size: letter portrait;
-            margin: 0.45in;
+            margin: 0.45in 0.45in 0.72in;
         }
 
         * {
             box-sizing: border-box;
         }
 
+        html,
         body {
             margin: 0;
+            padding: 0;
+        }
+
+        body {
             background: #f3f4f6;
             color: var(--black);
             font-family: Arial, Helvetica, sans-serif;
@@ -73,7 +79,7 @@
 
         .company-header {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) 180px;
+            grid-template-columns: minmax(0, 1fr) 190px;
             gap: 28px;
             align-items: start;
             margin-bottom: 22px;
@@ -204,6 +210,10 @@
             table-layout: fixed;
         }
 
+        .jobs-table thead {
+            display: table-header-group;
+        }
+
         .jobs-table th {
             padding: 8px 7px;
             border: 1px solid var(--navy);
@@ -227,29 +237,34 @@
             background: var(--blue-light);
         }
 
-        .jobs-table .column-number {
+        .jobs-table tr {
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+
+        .column-number {
             width: 5%;
             text-align: center;
         }
 
-        .jobs-table .column-job {
+        .column-job {
+            width: 18%;
+        }
+
+        .column-barcode {
             width: 17%;
         }
 
-        .jobs-table .column-barcode {
-            width: 16%;
+        .column-description {
+            width: 29%;
         }
 
-        .jobs-table .column-description {
-            width: 28%;
+        .column-customer {
+            width: 18%;
         }
 
-        .jobs-table .column-customer {
-            width: 19%;
-        }
-
-        .jobs-table .column-due {
-            width: 15%;
+        .column-due {
+            width: 13%;
         }
 
         .job-number {
@@ -268,10 +283,19 @@
             font-size: 10.5px;
         }
 
+        .line-notes {
+            margin-top: 4px;
+            color: var(--gray-dark);
+            font-size: 10px;
+            font-style: italic;
+        }
+
         .acceptance {
             margin-top: 34px;
             padding-top: 16px;
             border-top: 2px solid var(--navy);
+            break-inside: avoid;
+            page-break-inside: avoid;
         }
 
         .acceptance-text {
@@ -283,6 +307,13 @@
             display: grid;
             grid-template-columns: minmax(0, 2fr) minmax(150px, 1fr);
             gap: 34px;
+        }
+
+        .secondary-signatures {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 34px;
+            margin-top: 30px;
         }
 
         .signature-line {
@@ -298,22 +329,29 @@
             text-transform: uppercase;
         }
 
-        .secondary-signatures {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 34px;
-            margin-top: 30px;
-        }
-
-        .footer {
-            margin-top: 28px;
-            padding-top: 8px;
-            border-top: 1px solid var(--gray-light);
-            display: flex;
+        /*
+         * Fixed elements are repeated on each printed page by Chromium-based
+         * browsers, including Chrome.
+         */
+        .print-footer {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0.18in;
+            display: none;
+            align-items: center;
             justify-content: space-between;
             gap: 20px;
+            padding-top: 5px;
+            border-top: 1px solid #cbd5e1;
+            background: #ffffff;
             color: var(--gray);
             font-size: 9px;
+            line-height: 1;
+        }
+
+        .print-footer-memo {
+            font-weight: 700;
         }
 
         @media print {
@@ -334,15 +372,22 @@
                 box-shadow: none;
             }
 
-            .jobs-table thead {
-                display: table-header-group;
+            .print-footer {
+                display: flex;
             }
 
-            .jobs-table tr,
             .summary-item,
             .acceptance {
                 break-inside: avoid;
                 page-break-inside: avoid;
+            }
+
+            /*
+             * Helps browsers preserve the blue and navy backgrounds.
+             */
+            * {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
             }
         }
 
@@ -378,7 +423,11 @@
 
 <body>
     <div class="print-toolbar">
-        <button type="button" class="print-button" onclick="window.print()">
+        <button
+            type="button"
+            class="print-button"
+            onclick="window.print()"
+        >
             Print Memo
         </button>
     </div>
@@ -396,9 +445,12 @@
             </div>
 
             <div class="memo-brand">
-                <div class="memo-brand-title">Transfer Memo</div>
+                <div class="memo-brand-title">
+                    {{ memo_title }}
+                </div>
+
                 <div class="memo-brand-number">
-                    #{{ memo.memo_num }}
+                    {{ memo.memo_num }}
                 </div>
             </div>
         </header>
@@ -408,47 +460,79 @@
         <section class="summary-grid">
             <div class="summary-item">
                 <div class="summary-label">Date</div>
+
                 <div class="summary-value">
                     {{ memo.created_at|date:"F j, Y" }}
                 </div>
             </div>
 
-            <div class="summary-item">
-                <div class="summary-label">To</div>
-                <div class="summary-value">
-                    {% if memo.memo_to %}
-                        {{ memo.memo_to }}
-                    {% elif memo.to_location %}
-                        {{ memo.to_location }}
-                    {% else %}
-                        -
-                    {% endif %}
+            {% if memo_type == "piecework" %}
+                <div class="summary-item">
+                    <div class="summary-label">Assigned To</div>
+
+                    <div class="summary-value">
+                        {{ memo.assigned_to|default:"-" }}
+                    </div>
                 </div>
-            </div>
+
+                <div class="summary-item">
+                    <div class="summary-label">Assigned By</div>
+
+                    <div class="summary-value">
+                        {{ memo.created_by|default:"-" }}
+                    </div>
+                </div>
+
+                <div class="summary-item">
+                    <div class="summary-label">Due Back</div>
+
+                    <div class="summary-value">
+                        {% if memo.due_back %}
+                            {{ memo.due_back|date:"F j, Y" }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </div>
+                </div>
+            {% else %}
+                <div class="summary-item">
+                    <div class="summary-label">
+                        Recipient / Customer
+                    </div>
+
+                    <div class="summary-value">
+                        {{ memo.memo_to|default:"-" }}
+                    </div>
+                </div>
+
+                <div class="summary-item">
+                    <div class="summary-label">Created By</div>
+
+                    <div class="summary-value">
+                        {{ memo.created_by|default:"-" }}
+                    </div>
+                </div>
+
+                <div class="summary-item">
+                    <div class="summary-label">Memo Number</div>
+
+                    <div class="summary-value">
+                        {{ memo.memo_num }}
+                    </div>
+                </div>
+            {% endif %}
 
             <div class="summary-item">
-                <div class="summary-label">Created By</div>
-                <div class="summary-value">
-                    {{ memo.created_by|default:"-" }}
-                </div>
-            </div>
+                <div class="summary-label">From</div>
 
-            <div class="summary-item">
-                <div class="summary-label">Memo Number</div>
-                <div class="summary-value">
-                    {{ memo.memo_num }}
-                </div>
-            </div>
-
-            <div class="summary-item">
-                <div class="summary-label">From Location</div>
                 <div class="summary-value">
                     {{ memo.from_location|default:"-" }}
                 </div>
             </div>
 
             <div class="summary-item">
-                <div class="summary-label">To Location</div>
+                <div class="summary-label">To</div>
+
                 <div class="summary-value">
                     {{ memo.to_location|default:"-" }}
                 </div>
@@ -459,13 +543,14 @@
             <h2 class="section-title">Instructions</h2>
 
             <p class="instructions">
-                The goods described below are delivered for examination,
-                inspection, transport, or processing only and remain the
-                property of CEL Jewelry LLC. The recipient accepts
-                responsibility for the merchandise until it is returned to
-                and received by CEL Jewelry LLC. No right or authority is
-                given to sell, pledge, transfer, or otherwise dispose of this
-                merchandise.
+                The goods described and valued below are delivered to you for
+                examination, inspection, transport, or processing only and
+                remain the property of CEL Jewelry LLC, subject to our order.
+                The merchandise shall be returned to us upon demand. Until
+                returned to and actually received by CEL Jewelry LLC, the
+                merchandise remains at the recipient's risk from all hazards.
+                No right or authority is given to sell, pledge, transfer, or
+                otherwise dispose of this merchandise.
             </p>
         </section>
 
@@ -484,10 +569,11 @@
                 <thead>
                     <tr>
                         <th class="column-number">#</th>
-                        <th class="column-job">Project / Job</th>
-                        <th class="column-barcode">Barcode</th>
+                        <th class="column-job">Stock Number</th>
                         <th class="column-description">Description</th>
+                        {% if memo_type != "piecework" %}
                         <th class="column-customer">Customer</th>
+                        {% endif %}
                         <th class="column-due">Due Date</th>
                     </tr>
                 </thead>
@@ -503,16 +589,10 @@
                                 <div class="job-number">
                                     {% if line.job.stock_num %}
                                         {{ line.job.stock_num }}
-                                    {% elif line.job.barcode %}
-                                        {{ line.job.barcode }}
                                     {% else %}
                                         -
                                     {% endif %}
                                 </div>
-                            </td>
-
-                            <td class="column-barcode">
-                                {{ line.job.barcode|default:"-" }}
                             </td>
 
                             <td class="column-description">
@@ -520,14 +600,11 @@
                                     {{ line.job.name|default:"-" }}
                                 </div>
 
-                                <div class="job-style">
-                                    Style:
-                                    {{ line.job.style|default:"-" }}
-                                </div>
-                            </td>
-
-                            <td class="column-customer">
-                                {{ line.job.customer|default:"-" }}
+                                {% if line.notes %}
+                                    <div class="line-notes">
+                                        {{ line.notes }}
+                                    </div>
+                                {% endif %}
                             </td>
 
                             <td class="column-due">
@@ -558,6 +635,7 @@
             <div class="signature-grid">
                 <div>
                     <div class="signature-line"></div>
+
                     <div class="signature-label">
                         Recipient Signature
                     </div>
@@ -565,6 +643,7 @@
 
                 <div>
                     <div class="signature-line"></div>
+
                     <div class="signature-label">
                         Date
                     </div>
@@ -574,6 +653,7 @@
             <div class="secondary-signatures">
                 <div>
                     <div class="signature-line"></div>
+
                     <div class="signature-label">
                         Released By
                     </div>
@@ -581,17 +661,25 @@
 
                 <div>
                     <div class="signature-line"></div>
+
                     <div class="signature-label">
-                        Received By
+                        {% if memo_type == "piecework" %}
+                            Returned To / Received By
+                        {% else %}
+                            Received By
+                        {% endif %}
                     </div>
                 </div>
             </div>
         </section>
-
-        <footer class="footer">
-            <span>CEL Jewelry LLC</span>
-            <span>Transfer Memo #{{ memo.memo_num }}</span>
-        </footer>
     </main>
+
+    <footer class="print-footer">
+        <span>CEL Jewelry LLC</span>
+
+        <span class="print-footer-memo">
+            {{ memo.memo_num }} &bull; Confidential
+        </span>
+    </footer>
 </body>
 </html>

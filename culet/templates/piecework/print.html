@@ -1,62 +1,607 @@
-{% extends "base.html" %}
+{% load static %}
 
-{% block content %}
-<div class="container print-memo">
-    <h1>Piecework Memo #{{ memo.memo_num }}</h1>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
 
-    <p><strong>Date:</strong> {{ memo.created_at }}</p>
-    <p><strong>Assigned By:</strong> {{ memo.created_by }}</p>
-    <p><strong>Assigned To:</strong> {{ memo.assigned_to }}</p>
-    <p><strong>From:</strong> {{ memo.from_location }}</p>
-    <p><strong>To:</strong> {{ memo.to_location }}</p>
+    <title>Piecework Memo #{{ memo.memo_num }}</title>
 
-    {% if memo.due_back %}
-        <p><strong>Due Back:</strong> {{ memo.due_back }}</p>
-    {% endif %}
+    <style>
+        :root {
+            --navy: #14263d;
+            --blue: #2563a6;
+            --blue-light: #eaf2fb;
+            --black: #111827;
+            --gray-dark: #4b5563;
+            --gray: #6b7280;
+            --gray-light: #d1d5db;
+            --surface: #ffffff;
+        }
 
-    {% if memo.notes %}
-        <p><strong>Notes:</strong> {{ memo.notes }}</p>
-    {% endif %}
+        @page {
+            size: letter portrait;
+            margin: 0.45in 0.45in 0.7in 0.45in;
+        }
 
-    <hr>
+        .print-footer {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0.18in;
 
-    <table class="index_table">
-        <tr>
-            <th>Barcode</th>
-            <th>Stock</th>
-            <th>Name</th>
-            <th>Style</th>
-            <th>Customer</th>
-            <th>Due</th>
-        </tr>
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
 
-        {% for line in memo.lines.all %}
-            <tr>
-                <td>{{ line.job.barcode }}</td>
-                <td>
-                    {% if line.job.stock_num %}
-                        {{ line.job.stock_num }}
-                    {% elif line.job.barcode %}
-                        {{ line.job.barcode }}
+            padding: 0 0.45in;
+
+            font-size: 9px;
+            color: #666;
+
+            border-top: 1px solid #cbd5e1;
+            padding-top: 4px;
+
+            background: white;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: #f3f4f6;
+            color: var(--black);
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .print-toolbar {
+            width: 8.5in;
+            max-width: calc(100% - 30px);
+            margin: 20px auto 0;
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .print-button {
+            appearance: none;
+            border: 0;
+            border-radius: 6px;
+            background: var(--blue);
+            color: #ffffff;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 700;
+            padding: 10px 18px;
+        }
+
+        .print-button:hover {
+            background: var(--navy);
+        }
+
+        .memo-page {
+            width: 8.5in;
+            min-height: 11in;
+            max-width: calc(100% - 30px);
+            margin: 16px auto 30px;
+            padding: 0.45in;
+            background: var(--surface);
+            box-shadow: 0 8px 30px rgba(15, 23, 42, 0.12);
+        }
+
+        .company-header {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 180px;
+            gap: 28px;
+            align-items: start;
+            margin-bottom: 22px;
+        }
+
+        .company-name {
+            margin: 0 0 7px;
+            color: var(--navy);
+            font-size: 29px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .company-address {
+            color: var(--gray-dark);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .memo-brand {
+            min-height: 112px;
+            border: 2px solid var(--navy);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 14px;
+            text-align: center;
+        }
+
+        .memo-brand-title {
+            color: var(--navy);
+            font-size: 19px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .memo-brand-number {
+            margin-top: 7px;
+            color: var(--blue);
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .document-rule {
+            height: 3px;
+            margin-bottom: 16px;
+            background: linear-gradient(
+                to right,
+                var(--navy) 0,
+                var(--navy) 70%,
+                var(--blue) 70%,
+                var(--blue) 100%
+            );
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            border-top: 1px solid var(--blue);
+            border-bottom: 1px solid var(--blue);
+            margin-bottom: 18px;
+        }
+
+        .summary-item {
+            min-height: 66px;
+            padding: 10px 13px;
+        }
+
+        .summary-item:nth-child(odd) {
+            border-right: 1px solid var(--gray-light);
+        }
+
+        .summary-item:nth-child(n + 3) {
+            border-top: 1px solid var(--gray-light);
+        }
+
+        .summary-label {
+            margin-bottom: 4px;
+            color: var(--blue);
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .summary-value {
+            color: var(--black);
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .section {
+            margin-top: 18px;
+        }
+
+        .section-title {
+            margin: 0 0 7px;
+            padding-bottom: 5px;
+            border-bottom: 2px solid var(--blue);
+            color: var(--navy);
+            font-size: 14px;
+            font-weight: 800;
+            letter-spacing: 0.25px;
+            text-transform: uppercase;
+        }
+
+        .instructions {
+            margin: 0;
+            color: #303642;
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: 11.5px;
+            line-height: 1.42;
+        }
+
+        .notes-box {
+            min-height: 48px;
+            padding: 10px 12px;
+            border: 1px solid var(--gray-light);
+            background: #fafafa;
+            white-space: pre-wrap;
+        }
+
+        .jobs-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        .jobs-table th {
+            padding: 8px 7px;
+            border: 1px solid var(--navy);
+            background: var(--navy);
+            color: #ffffff;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.3px;
+            text-align: left;
+            text-transform: uppercase;
+        }
+
+        .jobs-table td {
+            padding: 8px 7px;
+            border: 1px solid var(--gray-light);
+            vertical-align: top;
+            overflow-wrap: anywhere;
+        }
+
+        .jobs-table tbody tr:nth-child(even) {
+            background: var(--blue-light);
+        }
+
+        .jobs-table .column-number {
+            width: 5%;
+            text-align: center;
+        }
+
+        .jobs-table .column-job {
+            width: 17%;
+        }
+
+        .jobs-table .column-barcode {
+            width: 16%;
+        }
+
+        .jobs-table .column-description {
+            width: 28%;
+        }
+
+        .jobs-table .column-customer {
+            width: 19%;
+        }
+
+        .jobs-table .column-due {
+            width: 15%;
+        }
+
+        .job-number {
+            color: var(--navy);
+            font-weight: 800;
+        }
+
+        .job-description {
+            color: var(--black);
+            font-weight: 600;
+        }
+
+        .job-style {
+            margin-top: 2px;
+            color: var(--gray);
+            font-size: 10.5px;
+        }
+
+        .acceptance {
+            margin-top: 34px;
+            padding-top: 16px;
+            border-top: 2px solid var(--navy);
+        }
+
+        .acceptance-text {
+            margin: 0 0 28px;
+            font-size: 12px;
+        }
+
+        .signature-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 2fr) minmax(150px, 1fr);
+            gap: 34px;
+        }
+
+        .signature-line {
+            min-height: 32px;
+            border-bottom: 1px solid var(--black);
+        }
+
+        .signature-label {
+            margin-top: 5px;
+            color: var(--gray-dark);
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .secondary-signatures {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 34px;
+            margin-top: 30px;
+        }
+
+        .footer {
+            margin-top: 28px;
+            padding-top: 8px;
+            border-top: 1px solid var(--gray-light);
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            color: var(--gray);
+            font-size: 9px;
+        }
+
+        @media print {
+            body {
+                background: #ffffff;
+            }
+
+            .print-toolbar {
+                display: none;
+            }
+
+            .memo-page {
+                width: auto;
+                min-height: auto;
+                max-width: none;
+                margin: 0;
+                padding: 0;
+                box-shadow: none;
+            }
+
+            .jobs-table thead {
+                display: table-header-group;
+            }
+
+            .jobs-table tr,
+            .summary-item,
+            .acceptance {
+                break-inside: avoid;
+                page-break-inside: avoid;
+            }
+        }
+
+        @media screen and (max-width: 760px) {
+            .memo-page {
+                padding: 24px;
+            }
+
+            .company-header {
+                grid-template-columns: 1fr;
+            }
+
+            .memo-brand {
+                min-height: auto;
+            }
+
+            .summary-grid,
+            .signature-grid,
+            .secondary-signatures {
+                grid-template-columns: 1fr;
+            }
+
+            .summary-item:nth-child(odd) {
+                border-right: 0;
+            }
+
+            .summary-item + .summary-item {
+                border-top: 1px solid var(--gray-light);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="print-toolbar">
+        <button type="button" class="print-button" onclick="window.print()">
+            Print Memo
+        </button>
+    </div>
+
+    <main class="memo-page">
+        <header class="company-header">
+            <div>
+                <h1 class="company-name">CEL Jewelry LLC</h1>
+
+                <div class="company-address">
+                    37 West 47th Street<br>
+                    16th Floor<br>
+                    New York, NY 10036
+                </div>
+            </div>
+
+            <div class="memo-brand">
+                <div class="memo-brand-title">Piecework Memo</div>
+                <div class="memo-brand-number">
+                    #{{ memo.memo_num }}
+                </div>
+            </div>
+        </header>
+
+        <div class="document-rule"></div>
+
+        <section class="summary-grid">
+            <div class="summary-item">
+                <div class="summary-label">Date</div>
+                <div class="summary-value">
+                    {{ memo.created_at|date:"F j, Y" }}
+                </div>
+            </div>
+
+            <div class="summary-item">
+                <div class="summary-label">Assigned To</div>
+                <div class="summary-value">
+                    {{ memo.assigned_to|default:"-" }}
+                </div>
+            </div>
+
+            <div class="summary-item">
+                <div class="summary-label">Assigned By</div>
+                <div class="summary-value">
+                    {{ memo.created_by|default:"-" }}
+                </div>
+            </div>
+
+            <div class="summary-item">
+                <div class="summary-label">Due Back</div>
+                <div class="summary-value">
+                    {% if memo.due_back %}
+                        {{ memo.due_back|date:"F j, Y" }}
                     {% else %}
                         -
                     {% endif %}
-                </td>
-                <td>{{ line.job.name }}</td>
-                <td>{{ line.job.style }}</td>
-                <td>{{ line.job.customer }}</td>
-                <td>{{ line.job.due }}</td>
-            </tr>
-        {% endfor %}
-    </table>
+                </div>
+            </div>
 
-    <br><br>
+            <div class="summary-item">
+                <div class="summary-label">From</div>
+                <div class="summary-value">
+                    {{ memo.from_location|default:"-" }}
+                </div>
+            </div>
 
-    <p>Employee Signature: ________________________________</p>
-    <p>Supervisor Signature: ______________________________</p>
+            <div class="summary-item">
+                <div class="summary-label">To</div>
+                <div class="summary-value">
+                    {{ memo.to_location|default:"-" }}
+                </div>
+            </div>
+        </section>
 
-    <button onclick="window.print()" class="btn btn-primary no-print">
-        Print Memo
-    </button>
-</div>
-{% endblock %}
+        <section class="section">
+            <h2 class="section-title">Instructions</h2>
+
+            <p class="instructions">
+                The goods described below are delivered for piecework,
+                examination, or processing only and remain the property of
+                CEL Jewelry LLC. The recipient accepts responsibility for the
+                merchandise until it is returned to and received by
+                CEL Jewelry LLC. No right or authority is given to sell,
+                pledge, transfer, or otherwise dispose of this merchandise.
+            </p>
+        </section>
+
+        {% if memo.notes %}
+            <section class="section">
+                <h2 class="section-title">Notes</h2>
+
+                <div class="notes-box">{{ memo.notes }}</div>
+            </section>
+        {% endif %}
+
+        <section class="section">
+            <h2 class="section-title">Jobs Included</h2>
+
+            <table class="jobs-table">
+                <thead>
+                    <tr>
+                        <th class="column-number">#</th>
+                        <th class="column-job">Stock Num</th>
+                        <th class="column-description">Description</th>
+                        <th class="column-due">Due Date</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for line in memo.lines.all %}
+                        <tr>
+                            <td class="column-number">
+                                {{ forloop.counter }}
+                            </td>
+
+                            <td class="column-job">
+                                <div class="job-number">
+                                    {% if line.job.stock_num %}
+                                        {{ line.job.stock_num }}
+                                    {% elif line.job.barcode %}
+                                        {{ line.job.barcode }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </div>
+                            </td>
+
+                            <td class="column-description">
+                                <div class="job-description">
+                                    {{ line.job.name|default:"-" }}
+                                </div>
+                            </td>
+
+                            <td class="column-due">
+                                {% if line.job.due %}
+                                    {{ line.job.due|date:"m/d/Y" }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="6">
+                                No jobs are included on this memo.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
+
+        <section class="acceptance">
+            <p class="acceptance-text">
+                I acknowledge receipt of the merchandise listed above and
+                accept the terms of this memorandum.
+            </p>
+
+            <div class="signature-grid">
+                <div>
+                    <div class="signature-line"></div>
+                    <div class="signature-label">
+                        Recipient Signature
+                    </div>
+                </div>
+
+                <div>
+                    <div class="signature-line"></div>
+                    <div class="signature-label">
+                        Date
+                    </div>
+                </div>
+            </div>
+
+            <div class="secondary-signatures">
+                <div>
+                    <div class="signature-line"></div>
+                    <div class="signature-label">
+                        Released By
+                    </div>
+                </div>
+
+                <div>
+                    <div class="signature-line"></div>
+                    <div class="signature-label">
+                        Returned To / Received By
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div class="print-footer">
+            <span>CEL Jewelry LLC</span>
+
+            <span>
+                {% if memo.memo_num|slice:":2" == "PW" %}
+                    Piecework Memo {{ memo.memo_num }}
+                {% else %}
+                    Transfer Memo {{ memo.memo_num }}
+                {% endif %}
+            </span>
+        </div>
+    </main>
+</body>
+</html>

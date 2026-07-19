@@ -3371,19 +3371,61 @@ class JobTransferMemoCreateView(LoginRequiredMixin, generic.FormView):
 
 class JobTransferMemoPrintView(LoginRequiredMixin, generic.DetailView):
     model = JobTransferMemo
-    template_name = "jobs/job_transfer_memo_print.html"
+    template_name = "memos/memo_print.html"
     context_object_name = "memo"
 
     def get_queryset(self):
         return (
             JobTransferMemo.objects
-            .select_related("created_by", "from_location", "to_location")
+            .select_related(
+                "created_by",
+                "created_by__user",
+                "from_location",
+                "to_location",
+            )
             .prefetch_related(
                 "lines__job",
                 "lines__job__style",
                 "lines__job__customer",
             )
         )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["memo_type"] = "transfer"
+        context["memo_title"] = "Transfer Memo"
+        return context
+    
+class PieceworkPrintView(LoginRequiredMixin, generic.DetailView):
+    model = PieceworkMemo
+    template_name = "memos/memo_print.html"
+    context_object_name = "memo"
+
+    def get_queryset(self):
+        return (
+            PieceworkMemo.objects
+            .select_related(
+                "created_by",
+                "created_by__user",
+                "assigned_to",
+                "assigned_to__user",
+                "from_location",
+                "to_location",
+                "returned_by",
+                "returned_by__user",
+            )
+            .prefetch_related(
+                "lines__job",
+                "lines__job__style",
+                "lines__job__customer",
+            )
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["memo_type"] = "piecework"
+        context["memo_title"] = "Piecework Memo"
+        return context
     
 class JobShippedReportView(LoginRequiredMixin, generic.TemplateView):
     template_name = "reports/job_shipped_report.html"
@@ -3620,12 +3662,6 @@ class PieceworkCreateView(LoginRequiredMixin, generic.TemplateView):
 
         messages.success(request, "Piecework memo created.")
         return redirect("culet:piecework_print", pk=memo.pk)
-
-
-class PieceworkPrintView(LoginRequiredMixin, generic.DetailView):
-    model = PieceworkMemo
-    template_name = "piecework/print.html"
-    context_object_name = "memo"
 
 
 class PieceworkOpenListView(LoginRequiredMixin, generic.ListView):
