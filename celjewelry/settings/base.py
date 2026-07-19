@@ -94,19 +94,22 @@ DATABASES = {
         "HOST": env("DB_HOST"),
         "PORT": env("DB_PORT"),
     },
+}
 
-    "old_culet": {
+# Only add the legacy MySQL database when its environment variables exist.
+# This keeps it available locally without requiring it on DigitalOcean.
+if env("OLD_DB_NAME", default=None):
+    DATABASES["old_culet"] = {
         "ENGINE": "django.db.backends.mysql",
         "NAME": env("OLD_DB_NAME"),
-        "USER": env("OLD_DB_USER"),
-        "PASSWORD": env("OLD_DB_PASSWORD"),
-        "HOST": env("OLD_DB_HOST"),
-        "PORT": env("OLD_DB_PORT"),
+        "USER": env("OLD_DB_USER", default="root"),
+        "PASSWORD": env("OLD_DB_PASSWORD", default=""),
+        "HOST": env("OLD_DB_HOST", default="127.0.0.1"),
+        "PORT": env("OLD_DB_PORT", default="3306"),
         "OPTIONS": {
             "charset": "utf8mb4",
         },
-    },
-}
+    }
 
 
 # Password validation
