@@ -68,6 +68,8 @@
     flex-direction: column;
     justify-content: center;
     gap: 8px;
+    text-align: center;
+    align-items: center;
 
     transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
 }
@@ -130,6 +132,11 @@
         width: 30px;
         height: 30px;
     }
+}
+
+/* Allow the homepage dashboard to use more screen width */
+.home-page-container {
+    width: min(calc(100% - 32px), 1750px);
 }
 
 .home-layout {
