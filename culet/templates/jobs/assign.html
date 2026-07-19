@@ -1,138 +1,499 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 
 {% block content %}
 
-<div class="page-header">
-  <h1>Assign Jobs</h1>
-  <p>Scan multiple jobs, choose an employee, then assign them all at once.</p>
+<div class="page-container return-jobs-page">
+
+    <div class="page-header">
+
+        <h1>Assign Jobs</h1>
+
+        <p>
+            {% if selected_job %}
+                Select the employee who will receive this job.
+            {% else %}
+                Scan one or more jobs and select the employee
+                receiving them.
+            {% endif %}
+        </p>
+
+    </div>
+
+
+    <form method="post" class="return-jobs-form">
+
+        {% csrf_token %}
+
+
+        {# ================================================= #}
+        {# Job scanner section                               #}
+        {# ================================================= #}
+
+        <section class="return-jobs-section">
+
+            <div class="return-jobs-section-header">
+
+                <div>
+
+                    <h2>
+                        {% if selected_job %}
+                            Selected Job
+                        {% else %}
+                            Jobs
+                        {% endif %}
+                    </h2>
+
+                    <p>
+                        {% if selected_job %}
+                            This assignment was opened from the
+                            job detail page.
+                        {% else %}
+                            Use the camera, a USB scanner, or
+                            enter each barcode manually.
+                        {% endif %}
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            {% if selected_job %}
+
+                <input
+                    type="hidden"
+                    name="job_id"
+                    value="{{ selected_job.pk }}"
+                >
+
+
+                <div class="return-job-lines">
+
+                    <div class="return-job-line">
+
+                        <label class="return-job-label">
+                            Job
+                        </label>
+
+
+                        <div class="return-job-controls">
+
+                            <input
+                                type="text"
+                                class="return-job-input"
+                                value="{{ selected_job.stock_num }}"
+                                readonly
+                            >
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <p class="form-help-text">
+
+                    Barcode:
+                    <strong>
+                        {{ selected_job.barcode }}
+                    </strong>
+
+                    {% if selected_job.style %}
+                        &nbsp;·&nbsp;
+
+                        Style:
+                        <strong>
+                            {{ selected_job.style }}
+                        </strong>
+                    {% endif %}
+
+                </p>
+
+            {% else %}
+
+                <div
+                    id="assign-job-lines"
+                    class="return-job-lines"
+                >
+
+                    {% for line_number in "123" %}
+
+                        <div class="return-job-line">
+
+                            <label
+                                for="assign-job-{{ forloop.counter }}"
+                                class="return-job-label"
+                            >
+                                Job {{ forloop.counter }}
+                            </label>
+
+
+                            <div class="return-job-controls">
+
+                                <input
+                                    type="text"
+                                    inputmode="numeric"
+                                    pattern="[0-9]*"
+                                    name="jobs"
+                                    id="assign-job-{{ forloop.counter }}"
+                                    class="return-job-input"
+                                    placeholder="Scan or enter barcode"
+                                    autocomplete="off"
+                                    {% if forloop.first %}
+                                        autofocus
+                                    {% endif %}
+                                >
+
+
+                                <button
+                                    type="button"
+                                    class="btn btn-outline-secondary culet-scanner-btn js-culet-scanner-btn"
+                                    data-target="assign-job-{{ forloop.counter }}"
+                                    data-auto-submit="false"
+                                >
+                                    📷 Scan
+                                </button>
+
+
+                                <button
+                                    type="button"
+                                    class="
+                                        btn
+                                        btn-outline-danger
+                                        return-job-remove
+                                        js-remove-assign-line
+                                    "
+                                    aria-label="Remove this job line"
+                                >
+                                    Remove
+                                </button>
+
+                            </div>
+
+                        </div>
+
+                    {% endfor %}
+
+                </div>
+
+
+                <button
+                    type="button"
+                    id="add-assign-job-line"
+                    class="
+                        btn
+                        btn-outline-primary
+                        return-job-add
+                    "
+                >
+                    + Add another job
+                </button>
+
+            {% endif %}
+
+        </section>
+
+
+        {# ================================================= #}
+        {# Employee section                                  #}
+        {# ================================================= #}
+
+        <section class="return-jobs-section">
+
+            <div class="form-group return-manager-field">
+
+                <label for="id_employee">
+                    Assign to employee
+                </label>
+
+
+                <select
+                    name="employee"
+                    id="id_employee"
+                    class="form-control combo-box"
+                    data-placeholder="Select an employee"
+                    required
+                >
+
+                    <option value="">
+                        Select an employee
+                    </option>
+
+
+                    {% for employee in employees %}
+
+                        <option value="{{ employee.pk }}">
+
+                            {{ employee }}
+
+                            {% if employee.department %}
+                                — {{ employee.department.name }}
+                            {% endif %}
+
+                            {% if employee.role %}
+                                — {{ employee.role.name }}
+                            {% endif %}
+
+                        </option>
+
+                    {% endfor %}
+
+                </select>
+
+
+                {% if not employees %}
+
+                    <p class="return-jobs-warning">
+                        No active employees are available.
+                    </p>
+
+                {% endif %}
+
+            </div>
+
+        </section>
+
+
+        {# ================================================= #}
+        {# Submit                                             #}
+        {# ================================================= #}
+
+        <div class="return-jobs-submit-wrap">
+
+            <button
+                type="submit"
+                class="
+                    btn
+                    btn-primary
+                    return-jobs-submit
+                "
+                {% if not employees %}
+                    disabled
+                {% endif %}
+            >
+                Assign Jobs
+            </button>
+
+        </div>
+
+    </form>
+
 </div>
 
-<form method="post" class="form-card">
-  {% csrf_token %}
 
-  <div class="form-group">
-    <label for="id_employee">Assign To</label>
-    <select name="employee" id="id_employee" required>
-      <option value="">Choose employee...</option>
+{# One shared camera-scanner overlay for all scan buttons. #}
+{% if not selected_job %}
+    {% include "includes/barcode_scanner.html" with overlay_only=True %}
+{% endif %}
 
-      {% if managers %}
-        <optgroup label="Managers">
-          {% for employee in managers %}
-            <option value="{{ employee.id }}">
-              {{ employee.user.first_name }} {{ employee.user.last_name }}
-            </option>
-          {% endfor %}
-        </optgroup>
-      {% endif %}
+{% endblock content %}
 
-      {% if employees %}
-        <optgroup label="Employees">
-          {% for employee in employees %}
-            <option value="{{ employee.id }}">
-              {{ employee.user.first_name }} {{ employee.user.last_name }}
-            </option>
-          {% endfor %}
-        </optgroup>
-      {% endif %}
-    </select>
-  </div>
 
-  <div class="form-group">
-      <label>
-          {% if selected_job %}
-              Selected Job
-          {% else %}
-              Scan Job Barcodes
-          {% endif %}
-      </label>
+{% block extra_js %}
 
-      <div id="job-scan-fields">
-          {% if selected_job %}
-              <input
-                  type="hidden"
-                  name="job_id"
-                  value="{{ selected_job.pk }}"
-              >
-
-              <input
-                  type="text"
-                  value="{{ selected_job.stock_num }}"
-                  readonly
-              >
-
-              <p class="form-help-text">
-                  Barcode: {{ selected_job.barcode }}
-              </p>
-          {% else %}
-              <input
-                  name="job"
-                  type="text"
-                  class="scan-input"
-                  placeholder="Scan job barcode"
-                  autocomplete="off"
-                  required
-              >
-
-              <input
-                  name="job"
-                  type="text"
-                  class="scan-input"
-                  placeholder="Scan job barcode"
-                  autocomplete="off"
-              >
-
-              <input
-                  name="job"
-                  type="text"
-                  class="scan-input"
-                  placeholder="Scan job barcode"
-                  autocomplete="off"
-              >
-          {% endif %}
-      </div>
-
-      {% if not selected_job %}
-          <button
-              type="button"
-              class="btn btn-secondary"
-              id="add-job-field"
-          >
-              + Add Job
-          </button>
-      {% endif %}
-  </div>
-
-  <button
-    type="submit"
-    class="btn btn-primary"
-    onclick="return confirm('Assign all scanned jobs to this employee?');"
-  >
-    Assign Jobs
-  </button>
-</form>
+{% if not selected_job %}
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-    const container = document.getElementById("job-scan-fields");
-    const addButton = document.getElementById("add-job-field");
+    const linesContainer = document.getElementById(
+        "assign-job-lines"
+    );
 
-    if (!container || !addButton) {
+    const addLineButton = document.getElementById(
+        "add-assign-job-line"
+    );
+
+    if (!linesContainer || !addLineButton) {
         return;
     }
 
-    addButton.addEventListener("click", function () {
-        const input = document.createElement("input");
 
-        input.type = "text";
-        input.name = "job";
-        input.className = "scan-input";
-        input.placeholder = "Scan job barcode";
-        input.autocomplete = "off";
+    let nextLineNumber = (
+        linesContainer.querySelectorAll(
+            ".return-job-line"
+        ).length + 1
+    );
 
-        container.appendChild(input);
-        input.focus();
-    });
+
+    function updateLineLabels() {
+        const lines = linesContainer.querySelectorAll(
+            ".return-job-line"
+        );
+
+        lines.forEach(function (line, index) {
+            const label = line.querySelector(
+                ".return-job-label"
+            );
+
+            if (label) {
+                label.textContent = `Job ${index + 1}`;
+            }
+        });
+    }
+
+
+    function createAssignJobLine() {
+        const line = document.createElement("div");
+        const inputId = `assign-job-${nextLineNumber}`;
+
+        line.className = "return-job-line";
+
+        line.innerHTML = `
+            <label
+                for="${inputId}"
+                class="return-job-label"
+            >
+                Job ${nextLineNumber}
+            </label>
+
+            <div class="return-job-controls">
+
+                <input
+                    type="text"
+                    inputmode="numeric"
+                    pattern="[0-9]*"
+                    name="jobs"
+                    id="${inputId}"
+                    class="return-job-input"
+                    placeholder="Scan or enter barcode"
+                    autocomplete="off"
+                >
+
+                <button
+                    type="button"
+                    class="btn btn-outline-secondary culet-scanner-btn js-culet-scanner-btn"
+                    data-target="${inputId}"
+                    data-auto-submit="false"
+                >
+                    📷 Scan
+                </button>
+
+                <button
+                    type="button"
+                    class="
+                        btn
+                        btn-outline-danger
+                        return-job-remove
+                        js-remove-assign-line
+                    "
+                    aria-label="Remove this job line"
+                >
+                    Remove
+                </button>
+
+            </div>
+        `;
+
+        linesContainer.appendChild(line);
+
+        nextLineNumber += 1;
+
+        const newInput = line.querySelector(
+            ".return-job-input"
+        );
+
+        if (newInput) {
+            newInput.focus();
+        }
+
+        updateLineLabels();
+    }
+
+
+    addLineButton.addEventListener(
+        "click",
+        function () {
+            createAssignJobLine();
+        }
+    );
+
+
+    linesContainer.addEventListener(
+        "click",
+        function (event) {
+            const removeButton = event.target.closest(
+                ".js-remove-assign-line"
+            );
+
+            if (!removeButton) {
+                return;
+            }
+
+            const currentLines = (
+                linesContainer.querySelectorAll(
+                    ".return-job-line"
+                )
+            );
+
+            if (currentLines.length === 1) {
+                const onlyInput = (
+                    currentLines[0].querySelector(
+                        ".return-job-input"
+                    )
+                );
+
+                if (onlyInput) {
+                    onlyInput.value = "";
+                    onlyInput.focus();
+                }
+
+                return;
+            }
+
+            const line = removeButton.closest(
+                ".return-job-line"
+            );
+
+            if (line) {
+                line.remove();
+                updateLineLabels();
+            }
+        }
+    );
+
+
+    linesContainer.addEventListener(
+        "keydown",
+        function (event) {
+            if (
+                event.key !== "Enter" ||
+                !event.target.matches(
+                    ".return-job-input"
+                )
+            ) {
+                return;
+            }
+
+            event.preventDefault();
+
+            const inputs = Array.from(
+                linesContainer.querySelectorAll(
+                    ".return-job-input"
+                )
+            );
+
+            const currentIndex = inputs.indexOf(
+                event.target
+            );
+
+            const nextInput = inputs[
+                currentIndex + 1
+            ];
+
+            if (nextInput) {
+                nextInput.focus();
+                return;
+            }
+
+            if (event.target.value.trim()) {
+                createAssignJobLine();
+            }
+        }
+    );
 });
 </script>
 
-{% endblock %}
+{% endif %}
+
+{% endblock extra_js %}

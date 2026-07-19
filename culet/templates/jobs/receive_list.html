@@ -6,10 +6,7 @@
 
     {% if receive_list %}
         
-        {% if  %}
-            
-        {% endif %}
-            
+        {% if culet_perms.is_department_head %}
             <form
                 method="post"
                 action="{% url 'culet:receive_all' %}"
@@ -22,7 +19,7 @@
                     Receive All Jobs
                 </button>
             </form>
-
+        {% endif %}
 
         {# Desktop/tablet table #}
         <div class="table-wrap job-desktop-table">
