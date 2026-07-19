@@ -7,21 +7,29 @@
     <div class="page-header">
         <div>
             <h1>Print Job Envelopes</h1>
+
             <p class="page-subtitle">
-                Print one job envelope, a range of job envelopes, or all jobs created today.
+                Print one envelope, a range of envelopes,
+                today's jobs, or selected recent jobs.
             </p>
         </div>
     </div>
 
+
     <div class="form-card">
+
+        {# ================================================= #}
+        {# Print by stock number                             #}
+        {# ================================================= #}
 
         <section class="form-section">
 
             <h2>Print by Stock Number</h2>
 
             <p class="form-help-text">
-                Enter one stock number to print a single envelope. To print a range,
-                enter both the starting and ending stock numbers.
+                Enter one stock number to print a single
+                envelope. To print a range, enter both the
+                starting and ending stock numbers.
             </p>
 
             <form
@@ -29,11 +37,17 @@
                 action="{% url 'culet:job_envelope_print_batch' %}"
                 target="_blank"
             >
-                <input type="hidden" name="mode" value="range">
+
+                <input
+                    type="hidden"
+                    name="mode"
+                    value="range"
+                >
 
                 <div class="form-row">
 
                     <div class="form-group">
+
                         <label for="id_start_stock_num">
                             Starting Stock Number
                         </label>
@@ -49,11 +63,15 @@
                         >
 
                         <small class="form-text">
-                            Required. Leave the ending stock number blank to print only this job.
+                            Required. Leave the ending stock
+                            number blank to print only this job.
                         </small>
+
                     </div>
 
+
                     <div class="form-group">
+
                         <label for="id_end_stock_num">
                             Ending Stock Number
                         </label>
@@ -68,29 +86,45 @@
                         >
 
                         <small class="form-text">
-                            Optional. Enter this only when printing a range.
+                            Optional. Enter this only when
+                            printing a range.
                         </small>
+
                     </div>
 
                 </div>
 
+
                 <div class="form-actions">
-                    <button class="btn btn-primary" type="submit">
+
+                    <button
+                        class="btn btn-primary"
+                        type="submit"
+                    >
                         Print Envelope(s)
                     </button>
+
                 </div>
+
             </form>
 
         </section>
 
+
         <hr>
+
+
+        {# ================================================= #}
+        {# Print today's jobs                                #}
+        {# ================================================= #}
 
         <section class="form-section">
 
             <h2>Print Jobs Created Today</h2>
 
             <p class="form-help-text">
-                Print one envelope for every job created today, ordered by barcode.
+                Print one envelope for every job created today,
+                ordered by barcode.
             </p>
 
             <form
@@ -98,19 +132,274 @@
                 action="{% url 'culet:job_envelope_print_batch' %}"
                 target="_blank"
             >
-                <input type="hidden" name="mode" value="today">
+
+                <input
+                    type="hidden"
+                    name="mode"
+                    value="today"
+                >
 
                 <div class="form-actions">
-                    <button class="btn btn-secondary" type="submit">
+
+                    <button
+                        class="btn btn-secondary"
+                        type="submit"
+                    >
                         Print Today's Jobs
                     </button>
+
                 </div>
+
             </form>
+
+        </section>
+
+
+        <hr>
+
+
+        {# ================================================= #}
+        {# Select recent jobs                                #}
+        {# ================================================= #}
+
+        <section class="form-section">
+
+            <div class="recent-jobs-heading">
+
+                <div>
+                    <h2>Select Recent Jobs</h2>
+
+                    <p class="form-help-text">
+                        Select one or more of the 25 most
+                        recently created jobs.
+                    </p>
+                </div>
+
+
+                {% if recent_jobs %}
+
+                    <div class="recent-job-selection-actions">
+
+                        <button
+                            type="button"
+                            class="btn btn-secondary btn-small"
+                            id="select-all-recent-jobs"
+                        >
+                            Select All
+                        </button>
+
+                        <button
+                            type="button"
+                            class="btn btn-secondary btn-small"
+                            id="clear-all-recent-jobs"
+                        >
+                            Clear All
+                        </button>
+
+                    </div>
+
+                {% endif %}
+
+            </div>
+
+
+            {% if recent_jobs %}
+
+                <form
+                    method="get"
+                    action="{% url 'culet:job_envelope_print_batch' %}"
+                    target="_blank"
+                    id="recent-job-envelope-form"
+                >
+
+                    <input
+                        type="hidden"
+                        name="mode"
+                        value="selected"
+                    >
+
+
+                    <div class="recent-job-list">
+
+                        {% for job in recent_jobs %}
+
+                            <label class="recent-job-option">
+
+                                <span class="recent-job-checkbox">
+
+                                    <input
+                                        type="checkbox"
+                                        name="job_ids"
+                                        value="{{ job.pk }}"
+                                        class="recent-job-checkbox-input"
+                                    >
+
+                                </span>
+
+
+                                <span class="recent-job-main">
+
+                                    <span class="recent-job-stock">
+                                        {{ job.stock_num }}
+                                    </span>
+
+                                    <span class="recent-job-style">
+                                        {{ job.style|default:"No style" }}
+                                    </span>
+
+                                </span>
+
+
+                                <span class="recent-job-details">
+
+                                    <span>
+                                        {{ job.customer|default:"No customer" }}
+                                    </span>
+
+                                    <span>
+                                        Created
+                                        {{ job.created|date:"M j, Y g:i A" }}
+                                    </span>
+
+                                </span>
+
+                            </label>
+
+                        {% endfor %}
+
+                    </div>
+
+
+                    <div class="recent-job-print-bar">
+
+                        <span
+                            class="recent-job-selected-count"
+                            id="recent-job-selected-count"
+                        >
+                            0 jobs selected
+                        </span>
+
+                        <button
+                            class="btn btn-primary"
+                            type="submit"
+                        >
+                            Print Selected Envelopes
+                        </button>
+
+                    </div>
+
+                </form>
+
+            {% else %}
+
+                <div class="empty-state">
+                    No recent jobs were found.
+                </div>
+
+            {% endif %}
 
         </section>
 
     </div>
 
 </div>
+
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const form = document.getElementById(
+            "recent-job-envelope-form"
+        );
+
+        if (!form) {
+            return;
+        }
+
+        const checkboxes = Array.from(
+            form.querySelectorAll(
+                ".recent-job-checkbox-input"
+            )
+        );
+
+        const selectAllButton = document.getElementById(
+            "select-all-recent-jobs"
+        );
+
+        const clearAllButton = document.getElementById(
+            "clear-all-recent-jobs"
+        );
+
+        const selectedCount = document.getElementById(
+            "recent-job-selected-count"
+        );
+
+
+        function updateSelectedCount() {
+            const count = checkboxes.filter(
+                checkbox => checkbox.checked
+            ).length;
+
+            selectedCount.textContent = (
+                count === 1
+                    ? "1 job selected"
+                    : `${count} jobs selected`
+            );
+        }
+
+
+        checkboxes.forEach(function (checkbox) {
+            checkbox.addEventListener(
+                "change",
+                updateSelectedCount
+            );
+        });
+
+
+        if (selectAllButton) {
+            selectAllButton.addEventListener(
+                "click",
+                function () {
+                    checkboxes.forEach(function (checkbox) {
+                        checkbox.checked = true;
+                    });
+
+                    updateSelectedCount();
+                }
+            );
+        }
+
+
+        if (clearAllButton) {
+            clearAllButton.addEventListener(
+                "click",
+                function () {
+                    checkboxes.forEach(function (checkbox) {
+                        checkbox.checked = false;
+                    });
+
+                    updateSelectedCount();
+                }
+            );
+        }
+
+
+        form.addEventListener("submit", function (event) {
+            const hasSelection = checkboxes.some(
+                checkbox => checkbox.checked
+            );
+
+            if (!hasSelection) {
+                event.preventDefault();
+
+                alert(
+                    "Select at least one job to print."
+                );
+            }
+        });
+
+
+        updateSelectedCount();
+    });
+</script>
 
 {% endblock content %}

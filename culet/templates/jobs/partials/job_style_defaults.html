@@ -94,165 +94,363 @@
     </div>
   </div>
 
-  <div class="job-section-card">
-    <h2 class="job-section-title">Metal Requirements</h2>
+<div class="job-section-card">
+    <h2 class="job-section-title">
+        Metal Requirements
+    </h2>
 
     {{ metal_formset.management_form }}
 
-    {% if metal_formset.forms %}
-      <div class="job-table-wrap">
+    <div class="job-table-wrap">
         <table class="job-table">
-          <thead>
-            <tr>
-              <th>Part</th>
-              <th>Qty Required</th>
-              <th>Weight Required</th>
-              <th>Metal Type</th>
-              <th class="delete-cell">Delete</th>
-            </tr>
-          </thead>
+            <thead>
+                <tr>
+                    <th>Part</th>
+                    <th>Qty Required</th>
+                    <th>Weight Required</th>
+                    <th>Metal Type</th>
 
-          <tbody>
-            {% for f in metal_formset %}
-              <tr>
-                <td>
-                  {{ f.id }}
-                  {{ f.part }}
-                  {{ f.part.errors }}
-                </td>
+                    <th class="formset-remove-cell">
+                        <span class="visually-hidden">
+                            Remove
+                        </span>
+                    </th>
+                </tr>
+            </thead>
 
-                <td>
-                  {{ f.qty_req }}
-                  {{ f.qty_req.errors }}
-                </td>
+            <tbody id="job-metal-formset-body">
+                {% for f in metal_formset %}
+                    <tr class="job-metal-form-row">
+                        <td>
+                            {{ f.id }}
+                            {{ f.part }}
+                            {{ f.part.errors }}
+                        </td>
 
-                <td>
-                  {{ f.weight_req }}
-                  {{ f.weight_req.errors }}
-                </td>
+                        <td>
+                            {{ f.qty_req }}
+                            {{ f.qty_req.errors }}
+                        </td>
 
-                <td>
-                  {{ f.metal_type }}
-                  {{ f.metal_type.errors }}
-                </td>
+                        <td>
+                            {{ f.weight_req }}
+                            {{ f.weight_req.errors }}
+                        </td>
 
-                <td class="delete-cell">
-                  {% if f.DELETE %}{{ f.DELETE }}{% endif %}
-                </td>
-              </tr>
-            {% endfor %}
-          </tbody>
+                        <td>
+                            {{ f.metal_type }}
+                            {{ f.metal_type.errors }}
+                        </td>
+
+                        <td class="formset-remove-cell">
+                            {% if f.DELETE %}
+                                <div class="formset-delete-field">
+                                    {{ f.DELETE }}
+                                </div>
+                            {% endif %}
+
+                            <button
+                                type="button"
+                                class="formset-remove-row"
+                                aria-label="Remove metal requirement"
+                                title="Remove line"
+                            >
+                                &times;
+                            </button>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
         </table>
-      </div>
-    {% else %}
-      <p>No metal requirements found for this style.</p>
-    {% endif %}
-  </div>
+    </div>
 
-  <div class="job-section-card">
-    <h2 class="job-section-title">Stone Requirements</h2>
+    <template id="job-metal-empty-form">
+        <tr class="job-metal-form-row">
+            <td>
+                {{ metal_formset.empty_form.id }}
+                {{ metal_formset.empty_form.part }}
+            </td>
+
+            <td>
+                {{ metal_formset.empty_form.qty_req }}
+            </td>
+
+            <td>
+                {{ metal_formset.empty_form.weight_req }}
+            </td>
+
+            <td>
+                {{ metal_formset.empty_form.metal_type }}
+            </td>
+
+            <td class="formset-remove-cell">
+                {% if metal_formset.empty_form.DELETE %}
+                    <div class="formset-delete-field">
+                        {{ metal_formset.empty_form.DELETE }}
+                    </div>
+                {% endif %}
+
+                <button
+                    type="button"
+                    class="formset-remove-row"
+                    aria-label="Remove metal requirement"
+                    title="Remove line"
+                >
+                    &times;
+                </button>
+            </td>
+        </tr>
+    </template>
+
+    <div class="formset-add-action">
+        <button
+            type="button"
+            class="formset-add-btn"
+            data-formset-add
+            data-table-body-id="job-metal-formset-body"
+            data-total-forms-id="id_metals-TOTAL_FORMS"
+            data-empty-template-id="job-metal-empty-form"
+        >
+            <span aria-hidden="true">+</span>
+            Add Metal
+        </button>
+    </div>
+</div>
+
+<div class="job-section-card">
+    <h2 class="job-section-title">
+        Stone Requirements
+    </h2>
 
     {{ stone_formset.management_form }}
 
-    {% if stone_formset.forms %}
-      <div class="job-table-wrap">
+    <div class="job-table-wrap">
         <table class="job-table">
-          <thead>
-            <tr>
-              <th>Stone Type</th>
-              <th>Shape</th>
-              <th>Size</th>
-              <th>Qty Required</th>
-              <th class="delete-cell">Delete</th>
-            </tr>
-          </thead>
+            <thead>
+                <tr>
+                    <th>Stone Type</th>
+                    <th>Shape</th>
+                    <th>Size</th>
+                    <th>Qty Required</th>
 
-          <tbody>
-            {% for f in stone_formset %}
-              <tr>
-                <td>
-                  {{ f.id }}
-                  {{ f.stone_type }}
-                  {{ f.stone_type.errors }}
-                </td>
+                    <th class="formset-remove-cell">
+                        <span class="visually-hidden">
+                            Remove
+                        </span>
+                    </th>
+                </tr>
+            </thead>
 
-                <td>
-                  {{ f.stone_shape }}
-                  {{ f.stone_shape.errors }}
-                </td>
+            <tbody id="job-stone-formset-body">
+                {% for f in stone_formset %}
+                    <tr class="job-stone-form-row">
+                        <td>
+                            {{ f.id }}
+                            {{ f.stone_type }}
+                            {{ f.stone_type.errors }}
+                        </td>
 
-                <td>
-                  {{ f.stone_size }}
-                  {{ f.stone_size.errors }}
-                </td>
+                        <td>
+                            {{ f.stone_shape }}
+                            {{ f.stone_shape.errors }}
+                        </td>
 
-                <td>
-                  {{ f.qty_req }}
-                  {{ f.qty_req.errors }}
-                </td>
+                        <td>
+                            {{ f.stone_size }}
+                            {{ f.stone_size.errors }}
+                        </td>
 
-                <td class="delete-cell">
-                  {% if f.DELETE %}{{ f.DELETE }}{% endif %}
-                </td>
-              </tr>
-            {% endfor %}
-          </tbody>
+                        <td>
+                            {{ f.qty_req }}
+                            {{ f.qty_req.errors }}
+                        </td>
+
+                        <td class="formset-remove-cell">
+                            {% if f.DELETE %}
+                                <div class="formset-delete-field">
+                                    {{ f.DELETE }}
+                                </div>
+                            {% endif %}
+
+                            <button
+                                type="button"
+                                class="formset-remove-row"
+                                aria-label="Remove stone requirement"
+                                title="Remove line"
+                            >
+                                &times;
+                            </button>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
         </table>
-      </div>
-    {% else %}
-      <p>No stone requirements found for this style.</p>
-    {% endif %}
-  </div>
+    </div>
+
+    <template id="job-stone-empty-form">
+        <tr class="job-stone-form-row">
+            <td>
+                {{ stone_formset.empty_form.id }}
+                {{ stone_formset.empty_form.stone_type }}
+            </td>
+
+            <td>
+                {{ stone_formset.empty_form.stone_shape }}
+            </td>
+
+            <td>
+                {{ stone_formset.empty_form.stone_size }}
+            </td>
+
+            <td>
+                {{ stone_formset.empty_form.qty_req }}
+            </td>
+
+            <td class="formset-remove-cell">
+                {% if stone_formset.empty_form.DELETE %}
+                    <div class="formset-delete-field">
+                        {{ stone_formset.empty_form.DELETE }}
+                    </div>
+                {% endif %}
+
+                <button
+                    type="button"
+                    class="formset-remove-row"
+                    aria-label="Remove stone requirement"
+                    title="Remove line"
+                >
+                    &times;
+                </button>
+            </td>
+        </tr>
+    </template>
+
+    <div class="formset-add-action">
+        <button
+            type="button"
+            class="formset-add-btn"
+            data-formset-add
+            data-table-body-id="job-stone-formset-body"
+            data-total-forms-id="id_stones-TOTAL_FORMS"
+            data-empty-template-id="job-stone-empty-form"
+        >
+            <span aria-hidden="true">+</span>
+            Add Stone
+        </button>
+    </div>
+</div>
 
 <div class="job-section-card">
-    <h2 class="job-section-title">Finding Requirements</h2>
+    <h2 class="job-section-title">
+        Finding Requirements
+    </h2>
 
     {{ finding_formset.management_form }}
 
-    {% if finding_formset.forms %}
-        <div class="job-table-wrap">
-            <table class="job-table">
-                <thead>
-                    <tr>
-                        <th>Finding</th>
-                        <th>Qty Required</th>
-                        <th>Qty Used</th>
-                        <th class="delete-cell">Delete</th>
-                    </tr>
-                </thead>
+    <div class="job-table-wrap">
+        <table class="job-table">
+            <thead>
+                <tr>
+                    <th>Finding</th>
+                    <th>Qty Required</th>
+                    <th>Qty Used</th>
 
-                <tbody>
-                    {% for f in finding_formset %}
-                        <tr>
-                            <td>
-                                {{ f.id }}
-                                {{ f.finding }}
-                                {{ f.finding.errors }}
-                            </td>
+                    <th class="formset-remove-cell">
+                        <span class="visually-hidden">
+                            Remove
+                        </span>
+                    </th>
+                </tr>
+            </thead>
 
-                            <td>
-                                {{ f.qty_req }}
-                                {{ f.qty_req.errors }}
-                            </td>
+            <tbody id="job-finding-formset-body">
+                {% for f in finding_formset %}
+                    <tr class="job-finding-form-row">
+                        <td>
+                            {{ f.id }}
+                            {{ f.finding }}
+                            {{ f.finding.errors }}
+                        </td>
 
-                            <td>
-                                {{ f.qty_used }}
-                                {{ f.qty_used.errors }}
-                            </td>
+                        <td>
+                            {{ f.qty_req }}
+                            {{ f.qty_req.errors }}
+                        </td>
 
-                            <td class="delete-cell">
-                                {% if f.DELETE %}
+                        <td>
+                            {{ f.qty_used }}
+                            {{ f.qty_used.errors }}
+                        </td>
+
+                        <td class="formset-remove-cell">
+                            {% if f.DELETE %}
+                                <div class="formset-delete-field">
                                     {{ f.DELETE }}
-                                {% endif %}
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    {% else %}
-        <p>No finding requirements found for this style.</p>
-    {% endif %}
+                                </div>
+                            {% endif %}
+
+                            <button
+                                type="button"
+                                class="formset-remove-row"
+                                aria-label="Remove finding requirement"
+                                title="Remove line"
+                            >
+                                &times;
+                            </button>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <template id="job-finding-empty-form">
+        <tr class="job-finding-form-row">
+            <td>
+                {{ finding_formset.empty_form.id }}
+                {{ finding_formset.empty_form.finding }}
+            </td>
+
+            <td>
+                {{ finding_formset.empty_form.qty_req }}
+            </td>
+
+            <td>
+                {{ finding_formset.empty_form.qty_used }}
+            </td>
+
+            <td class="formset-remove-cell">
+                {% if finding_formset.empty_form.DELETE %}
+                    <div class="formset-delete-field">
+                        {{ finding_formset.empty_form.DELETE }}
+                    </div>
+                {% endif %}
+
+                <button
+                    type="button"
+                    class="formset-remove-row"
+                    aria-label="Remove finding requirement"
+                    title="Remove line"
+                >
+                    &times;
+                </button>
+            </td>
+        </tr>
+    </template>
+
+    <div class="formset-add-action">
+        <button
+            type="button"
+            class="formset-add-btn"
+            data-formset-add
+            data-table-body-id="job-finding-formset-body"
+            data-total-forms-id="id_findings-TOTAL_FORMS"
+            data-empty-template-id="job-finding-empty-form"
+        >
+            <span aria-hidden="true">+</span>
+            Add Finding
+        </button>
+    </div>
 </div>
 
 <div class="job-actions">

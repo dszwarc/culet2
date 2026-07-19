@@ -241,7 +241,7 @@ class JobForm(forms.ModelForm):
         widgets = {
             "repair_reasons": forms.CheckboxSelectMultiple(),
             "customer": select_widget(),
-            "stock_num": number_widget("Stock #", min_value="0"),
+            "stock_num": text_widget("Stock #"),
             "style": forms.HiddenInput(),
             "size": text_widget("Size"),
             "stamp": text_widget("Stamp / hallmark"),
@@ -286,7 +286,12 @@ class JobMetalForm(forms.ModelForm):
         model = JobMetal
         fields = ["part", "qty_req", "weight_req", "metal_type"]
         widgets = {
-            "part": table_select_widget(),
+            "part": forms.Select(
+                    attrs={
+                        "class": "form-control job-input combo-box",
+                        "data-placeholder": "Select or search for a metal part",
+                    }
+                ),
             "qty_req": table_number_widget(min_value="0", placeholder="Qty"),
             "weight_req": table_number_widget(step="0.001", min_value="0", placeholder="Weight"),
             "metal_type": table_select_widget(),
@@ -295,6 +300,12 @@ class JobMetalForm(forms.ModelForm):
             "qty_req": "Qty Required",
             "weight_req": "Weight Required",
         }
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+
+            self.fields["part"].empty_label = (
+                "Select or search for a metal part"
+            )
 
 
 class JobStoneForm(forms.ModelForm):
@@ -302,7 +313,12 @@ class JobStoneForm(forms.ModelForm):
         model = JobStone
         fields = ["stone_type", "stone_shape", "stone_size", "qty_req"]
         widgets = {
-            "stone_type": table_select_widget(),
+            "stone_type":forms.Select(
+                    attrs={
+                        "class": "form-control job-input combo-box",
+                        "data-placeholder": "Select or search for a stone type",
+                    }
+                ),
             "stone_shape": table_select_widget(),
             "stone_size": table_text_widget("e.g. 2.5mm"),
             "qty_req": table_number_widget(min_value="0", placeholder="Qty"),
@@ -310,7 +326,12 @@ class JobStoneForm(forms.ModelForm):
         labels = {
             "qty_req": "Qty Required",
         }
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
 
+            self.fields["stone_type"].empty_label = (
+                "Select or search for a stone type"
+            )
 
 class JobMetalLotForm(forms.ModelForm):
     class Meta:
@@ -384,7 +405,8 @@ class StyleForm(forms.ModelForm):
             ),
             "customer": forms.Select(
                 attrs={
-                    "class": "form-control job-input",
+                    "class": "form-control job-input combo-box",
+                    "data-placeholder": "Select or search for a customer",
                 }
             ),
             "stamp": forms.TextInput(
@@ -428,7 +450,7 @@ class StyleForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
 
         self.fields["customer"].required = False
-        self.fields["customer"].empty_label = "Select a customer"
+        self.fields["customer"].empty_label = "Select or search for a customer"
         
     def clean_photo(self):
         photo = self.cleaned_data.get("photo")
@@ -727,10 +749,21 @@ class JobFindingForm(forms.ModelForm):
         model = JobFinding
         fields = ["finding", "qty_req", "qty_used"]
         widgets = {
-            "finding": table_select_widget(),
+            "finding": forms.Select(
+                attrs={
+                    "class":"form-control job-input combo-box",
+                    "data-placeholder": "Select finding from list",
+                }
+            ),
             "qty_req": table_number_widget(min_value="0", placeholder="Qty required"),
             "qty_used": table_number_widget(min_value="0", placeholder="Qty used"),
         }
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.fields["finding"].empty_label = (
+            "Select or search for a finding"
+        )
 
 JobFindingFormSet = inlineformset_factory(
     Job,

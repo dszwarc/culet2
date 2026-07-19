@@ -5,13 +5,17 @@
 
     <div class="page-header">
         <div>
-            <h1>Stock Number:  {{ job.stock_num }}</h1>
+            <h1>{{ job.stock_num }}</h1>
             <p class="page-subtitle">
                 {{ job.customer }}{% if job.style %} &middot; {{ job.style }}{% endif %}
             </p>
         </div>
 
         <div class="page-actions">
+            <a  class="btn btn-success"
+                href="{% url 'culet:job_envelope_print' job.pk %}">
+                Print Envelope
+            </a>
             <a
                 href="{% url 'culet:assign_job' %}?job_id={{ job.pk }}"
                 class="btn btn-primary"
@@ -24,13 +28,6 @@
                 class="btn btn-secondary"
             >
                 Edit Job
-            </a>
-
-            <a
-                href="{% url 'culet:index_job' %}"
-                class="btn btn-outline-secondary"
-            >
-                Back to Jobs
             </a>
         </div>
     </div>

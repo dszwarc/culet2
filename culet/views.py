@@ -1483,112 +1483,195 @@ class StyleUpdateView(LoginRequiredMixin, generic.UpdateView):
             kwargs={"pk": self.object.pk},
         )
 
-class AssignJobView(LoginRequiredMixin, generic.TemplateView):
+class AssignJobView(
+    LoginRequiredMixin,
+    generic.TemplateView,
+):
     template_name = "jobs/assign.html"
+
+    def get_employees(self):
+        return (
+            Employee.objects
+            .filter(user__is_active=True)
+            .select_related(
+                "user",
+                "department",
+                "role",
+            )
+            .order_by(
+                "user__last_name",
+                "user__first_name",
+            )
+        )
+
+    def get_selected_job(self):
+        job_id = self.request.GET.get("job_id", "").strip()
+
+        if not job_id:
+            return None
+
+        return (
+            Job.objects
+            .select_related(
+                "style",
+                "customer",
+            )
+            .filter(pk=job_id)
+            .first()
+        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        context["employees"] = Employee.objects.all().order_by(
-            "user__last_name",
-            "user__first_name",
-        )
-
-        job_id = self.request.GET.get("job_id")
-        selected_job = None
-
-        if job_id:
-            selected_job = Job.objects.filter(pk=job_id).first()
-
-        context["selected_job"] = selected_job
+        context["employees"] = self.get_employees()
+        context["selected_job"] = self.get_selected_job()
 
         return context
 
     def post(self, request, *args, **kwargs):
-        employee_id = request.POST.get("employee")
-        job_id = request.POST.get("job_id")
+        employee_id = request.POST.get(
+            "employee",
+            "",
+        ).strip()
 
-        barcodes = [
-            value.strip()
-            for value in request.POST.getlist("job")
-            if value.strip()
+        selected_job_id = request.POST.get(
+            "job_id",
+            "",
+        ).strip()
+
+        submitted_barcodes = [
+            barcode.strip()
+            for barcode in request.POST.getlist("jobs")
+            if barcode.strip()
         ]
 
+        redirect_url = reverse("culet:assign_job")
+
+        if selected_job_id:
+            redirect_url = (
+                f"{redirect_url}?job_id={selected_job_id}"
+            )
+
         if not employee_id:
-            messages.error(request, "Please select an employee.")
-
-            if job_id:
-                return redirect(
-                    f"{reverse('culet:assign_job')}?job_id={job_id}"
-                )
-
-            return redirect("culet:assign_job")
-
-        try:
-            employee = Employee.objects.get(pk=employee_id)
-        except Employee.DoesNotExist:
             messages.error(
                 request,
-                "The selected employee could not be found.",
+                "Please select the employee receiving these jobs.",
             )
-            return redirect("culet:assign_job")
+            return redirect(redirect_url)
 
-        jobs = []
+        employee = get_object_or_404(
+            self.get_employees(),
+            pk=employee_id,
+        )
 
-        # Assignment started from a Job Detail page.
-        if job_id:
-            job = Job.objects.filter(pk=job_id).first()
+        # Assignment opened from a Job Detail page.
+        if selected_job_id:
+            selected_job = (
+                Job.objects
+                .select_related("style")
+                .filter(pk=selected_job_id)
+                .first()
+            )
 
-            if not job:
-                messages.error(request, "The selected job could not be found.")
-                return redirect("culet:index_job")
-
-            jobs.append(job)
-
-        # Assignment started by scanning or entering barcodes.
-        else:
-            if not barcodes:
+            if not selected_job:
                 messages.error(
                     request,
-                    "Please enter or scan at least one barcode.",
+                    "The selected job could not be found.",
+                )
+                return redirect("culet:index_job")
+
+            jobs = [selected_job]
+
+        # Assignment using scanned or manually entered barcodes.
+        else:
+            if not submitted_barcodes:
+                messages.error(
+                    request,
+                    "Please enter or scan at least one job barcode.",
                 )
                 return redirect("culet:assign_job")
 
-            for barcode in barcodes:
-                try:
-                    job = Job.objects.get(barcode=barcode)
-                except (Job.DoesNotExist, ValueError):
-                    messages.error(
-                        request,
-                        f"Barcode not found: {barcode}",
-                    )
-                    return redirect("culet:assign_job")
+            duplicate_barcodes = sorted({
+                barcode
+                for barcode in submitted_barcodes
+                if submitted_barcodes.count(barcode) > 1
+            })
 
-                if job not in jobs:
-                    jobs.append(job)
+            if duplicate_barcodes:
+                barcode_word = (
+                    "barcode"
+                    if len(duplicate_barcodes) == 1
+                    else "barcodes"
+                )
 
-        for job in jobs:
-            job.assigned_to = employee
-            job.save(update_fields=["assigned_to", "last_updated"])
+                messages.error(
+                    request,
+                    f"The following {barcode_word} "
+                    f"were entered more than once: "
+                    + ", ".join(duplicate_barcodes),
+                )
+                return redirect("culet:assign_job")
 
-        if len(jobs) == 1:
-            messages.success(
-                request,
-                f"Job {jobs[0]} has been assigned to {employee}.",
+            matching_jobs = list(
+                Job.objects
+                .filter(
+                    barcode__in=submitted_barcodes,
+                )
+                .select_related("style")
             )
 
+            jobs_by_barcode = {
+                str(job.barcode): job
+                for job in matching_jobs
+            }
+
+            missing_barcodes = [
+                barcode
+                for barcode in submitted_barcodes
+                if barcode not in jobs_by_barcode
+            ]
+
+            if missing_barcodes:
+                messages.error(
+                    request,
+                    "No job was found for the following "
+                    "barcode(s): "
+                    + ", ".join(missing_barcodes),
+                )
+                return redirect("culet:assign_job")
+
+            # Keep the same order in which the jobs were scanned.
+            jobs = [
+                jobs_by_barcode[barcode]
+                for barcode in submitted_barcodes
+            ]
+
+        with transaction.atomic():
+            for job in jobs:
+                job.assigned_to = employee
+
+                job.save(
+                    update_fields=[
+                        "assigned_to",
+                        "last_updated",
+                    ]
+                )
+
+        job_word = "job" if len(jobs) == 1 else "jobs"
+
+        messages.success(
+            request,
+            f"{len(jobs)} {job_word} assigned to {employee}.",
+        )
+
+        if len(jobs) == 1:
             return redirect(
                 "culet:job_detail",
                 pk=jobs[0].pk,
             )
 
-        messages.success(
-            request,
-            f"{len(jobs)} jobs have been assigned to {employee}.",
-        )
-
         return redirect("culet:index_job")
-
+    
 class ReturnJobView(LoginRequiredMixin, generic.TemplateView):
     template_name = "jobs/return.html"
 
@@ -2995,11 +3078,33 @@ class JobEnvelopePrintView(LoginRequiredMixin, generic.DetailView):
         return context
 
 
-class JobEnvelopePrintFormView(LoginRequiredMixin, generic.TemplateView):
+class JobEnvelopePrintFormView(
+    LoginRequiredMixin,
+    generic.TemplateView
+):
     template_name = "jobs/print_envelope_form.html"
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
 
-class JobEnvelopePrintBatchView(LoginRequiredMixin, generic.TemplateView):
+        context["recent_jobs"] = (
+            Job.objects
+            .select_related(
+                "style",
+                "customer",
+            )
+            .order_by(
+                "-created",
+                "-pk",
+            )[:25]
+        )
+
+        return context
+
+class JobEnvelopePrintBatchView(
+    LoginRequiredMixin,
+    generic.TemplateView
+):
     template_name = "jobs/print_envelopes.html"
 
     def get_context_data(self, **kwargs):
@@ -3010,65 +3115,133 @@ class JobEnvelopePrintBatchView(LoginRequiredMixin, generic.TemplateView):
         error_message = None
 
         if mode == "range":
-            start_stock_num = self.request.GET.get("start", "").strip()
-            end_stock_num = self.request.GET.get("end", "").strip()
+            start_stock_num = (
+                self.request.GET
+                .get("start", "")
+                .strip()
+            )
+
+            end_stock_num = (
+                self.request.GET
+                .get("end", "")
+                .strip()
+            )
 
             if not start_stock_num:
                 error_message = "Enter a stock number."
+
             else:
                 try:
                     start_job = Job.objects.get(
                         stock_num=start_stock_num
                     )
+
                 except Job.DoesNotExist:
                     error_message = (
                         f'No job was found with stock number '
                         f'"{start_stock_num}".'
                     )
+
                 except Job.MultipleObjectsReturned:
                     error_message = (
                         f'More than one job uses stock number '
                         f'"{start_stock_num}".'
                     )
+
                 else:
                     if not end_stock_num:
-                        jobs = Job.objects.filter(pk=start_job.pk)
+                        jobs = Job.objects.filter(
+                            pk=start_job.pk
+                        )
+
                     else:
                         try:
                             end_job = Job.objects.get(
                                 stock_num=end_stock_num
                             )
+
                         except Job.DoesNotExist:
                             error_message = (
                                 f'No job was found with stock number '
                                 f'"{end_stock_num}".'
                             )
+
                         except Job.MultipleObjectsReturned:
                             error_message = (
                                 f'More than one job uses stock number '
                                 f'"{end_stock_num}".'
                             )
+
                         else:
                             lower_barcode, upper_barcode = sorted(
-                                [start_job.barcode, end_job.barcode]
+                                [
+                                    start_job.barcode,
+                                    end_job.barcode,
+                                ]
                             )
 
-                            jobs = Job.objects.filter(
-                                barcode__gte=lower_barcode,
-                                barcode__lte=upper_barcode,
-                            ).order_by("barcode")
+                            jobs = (
+                                Job.objects
+                                .filter(
+                                    barcode__gte=lower_barcode,
+                                    barcode__lte=upper_barcode,
+                                )
+                                .order_by("barcode")
+                            )
 
         elif mode == "today":
             today = timezone.localdate()
 
-            jobs = Job.objects.filter(
-                created__date=today,
-            ).order_by("barcode")
+            jobs = (
+                Job.objects
+                .filter(
+                    created__date=today,
+                )
+                .order_by("barcode")
+            )
 
-        jobs = jobs.select_related(
+        elif mode == "selected":
+            selected_job_ids = self.request.GET.getlist(
+                "job_ids"
+            )
+
+            valid_job_ids = []
+
+            for job_id in selected_job_ids:
+                try:
+                    valid_job_ids.append(int(job_id))
+                except (TypeError, ValueError):
+                    continue
+
+            if not valid_job_ids:
+                error_message = (
+                    "Select at least one job to print."
+                )
+
+            else:
+                jobs = (
+                    Job.objects
+                    .filter(pk__in=valid_job_ids)
+                    .order_by("barcode")
+                )
+
+                if not jobs.exists():
+                    error_message = (
+                        "None of the selected jobs could be found."
+                    )
+
+        else:
+            error_message = (
+                "Choose a method for printing job envelopes."
+            )
+
+        jobs = (
+            jobs
+            .select_related(
                 "style",
                 "customer",
-            ).prefetch_related(
+            )
+            .prefetch_related(
                 "job_stones__stone_type",
                 "job_stones__stone_shape",
                 "job_metals__part",
@@ -3077,10 +3250,15 @@ class JobEnvelopePrintBatchView(LoginRequiredMixin, generic.TemplateView):
                 "job_findings__finding__metal_type",
                 "job_findings__finding__finding_type",
             )
+        )
 
         context["jobs"] = jobs
         context["error_message"] = error_message
-        context["auto_print"] = jobs.exists() and error_message is None
+        context["auto_print"] = (
+            jobs.exists()
+            and error_message is None
+        )
+
         return context
     
 class JobTransferMemoCreateView(LoginRequiredMixin, generic.FormView):
