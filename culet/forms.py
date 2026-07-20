@@ -918,29 +918,55 @@ class JobsByHolderReportForm(forms.Form):
 class JobTransferMemoForm(forms.ModelForm):
     scanned_jobs = forms.CharField(
         label="Scan Jobs",
-        widget=forms.Textarea(attrs={
-            "class": "form-control",
-            "rows": 10,
-            "placeholder": "Scan one barcode per line"
-        }),
-        help_text="Scan or enter one job barcode per line."
+        widget=forms.Textarea(
+            attrs={
+                "class": "form-control",
+                "rows": 10,
+                "placeholder": "Scan one barcode per line",
+            }
+        ),
+        help_text="Scan or enter one job barcode per line.",
     )
 
     class Meta:
         model = JobTransferMemo
-        fields = ["from_location", "to_location", "memo_to", "notes"]
-        widgets = {
-            "from_location": forms.Select(attrs={"class": "form-control"}),
-            "to_location": forms.Select(attrs={"class": "form-control"}),
-            "memo_to": forms.TextInput(attrs={
-                "class": "form-control",
-                "placeholder": "Customer, building, department, etc."
-            }),
-            "notes": forms.Textarea(attrs={
-                "class": "form-control",
-                "rows": 3
-            }),
+
+        fields = [
+            "assigned_to",
+            "notes",
+        ]
+
+        labels = {
+            "assigned_to": "Assign Jobs To",
         }
+
+        widgets = {
+            "assigned_to": forms.Select(
+                attrs={
+                    "class": "form-control",
+                }
+            ),
+            "notes": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "rows": 3,
+                    "placeholder": "Optional notes",
+                }
+            ),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.fields["assigned_to"].queryset = (
+            Employee.objects
+            .filter(active=True)
+            .select_related("user")
+            .order_by(
+                "user__last_name",
+                "user__first_name",
+            )
+        )
 
 class MetalPartInventoryFilterForm(forms.Form):
     q = forms.CharField(
@@ -1029,30 +1055,72 @@ class MemoFilterForm(forms.Form):
     memo_type = forms.ChoiceField(
         choices=MEMO_TYPE_CHOICES,
         required=False,
-        widget=forms.Select(attrs={"class": "form-control"}),
+        widget=forms.Select(
+            attrs={
+                "class": "form-control",
+            }
+        ),
     )
 
-    from_location = forms.ModelChoiceField(
-        queryset=Location.objects.all().order_by("name"),
+    assigned_to = forms.ModelChoiceField(
+        queryset=Employee.objects.none(),
         required=False,
-        widget=forms.Select(attrs={"class": "form-control"}),
+        label="Assigned To",
+        widget=forms.Select(
+            attrs={
+                "class": "form-control",
+            }
+        ),
     )
 
-    to_location = forms.ModelChoiceField(
-        queryset=Location.objects.all().order_by("name"),
+    created_by = forms.ModelChoiceField(
+        queryset=Employee.objects.none(),
         required=False,
-        widget=forms.Select(attrs={"class": "form-control"}),
+        label="Created By",
+        widget=forms.Select(
+            attrs={
+                "class": "form-control",
+            }
+        ),
     )
 
     created_start = forms.DateField(
         required=False,
-        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+        label="Created From",
+        widget=forms.DateInput(
+            attrs={
+                "type": "date",
+                "class": "form-control",
+            }
+        ),
     )
 
     created_end = forms.DateField(
         required=False,
-        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+        label="Created Through",
+        widget=forms.DateInput(
+            attrs={
+                "type": "date",
+                "class": "form-control",
+            }
+        ),
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        employee_queryset = (
+            Employee.objects
+            .filter(active=True)
+            .select_related("user")
+            .order_by(
+                "user__last_name",
+                "user__first_name",
+            )
+        )
+
+        self.fields["assigned_to"].queryset = employee_queryset
+        self.fields["created_by"].queryset = employee_queryset
 
 class QualityInspectionForm(forms.Form):
     class Meta:

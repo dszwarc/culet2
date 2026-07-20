@@ -855,45 +855,35 @@ class JobTransferMemoAdmin(admin.ModelAdmin):
         "memo_num",
         "created_at",
         "created_by",
-        "from_location",
-        "to_location",
-        "memo_to",
+        "assigned_to",
     )
+
+    list_filter = (
+        "created_at",
+    )
+
     search_fields = (
         "memo_num",
-        "memo_to",
         "created_by__user__first_name",
         "created_by__user__last_name",
-        "from_location__name",
-        "to_location__name",
+        "assigned_to__user__first_name",
+        "assigned_to__user__last_name",
         "notes",
-        "lines__job__stock_num",
-        "lines__job__barcode",
     )
-    list_filter = ("from_location", "to_location", "created_at")
-    autocomplete_fields = ("created_by", "from_location", "to_location")
-    date_hierarchy = "created_at"
-    ordering = ("-created_at", "-id")
-    list_select_related = ("created_by__user", "from_location", "to_location")
-    readonly_fields = ("memo_num", "created_at")
 
-
-@admin.register(JobTransferMemoLine)
-class JobTransferMemoLineAdmin(admin.ModelAdmin):
-    list_display = ("memo", "job", "from_location", "to_location")
-    search_fields = (
-        "memo__memo_num",
-        "memo__memo_to",
-        "job__stock_num",
-        "=job__barcode",
-        "job__style__name",
-        "from_location__name",
-        "to_location__name",
+    autocomplete_fields = (
+        "created_by",
+        "assigned_to",
     )
-    list_filter = ("from_location", "to_location", "memo__created_at")
-    autocomplete_fields = ("memo", "job", "from_location", "to_location")
-    ordering = ("-memo__created_at", "job__barcode")
-    list_select_related = ("memo", "job__style", "from_location", "to_location")
+
+    readonly_fields = (
+        "memo_num",
+        "created_at",
+    )
+
+    ordering = (
+        "-created_at",
+    )
 
 
 @admin.register(PieceworkMemo)

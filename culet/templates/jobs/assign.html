@@ -324,19 +324,7 @@
                                     {{ employee }}
                                 </span>
 
-                                <span class="assignment-option-detail">
 
-                                    {% if employee.department %}
-                                        {{ employee.department.name }}
-                                    {% else %}
-                                        No department
-                                    {% endif %}
-
-                                    {% if employee.role %}
-                                        · {{ employee.role.name }}
-                                    {% endif %}
-
-                                </span>
                             </button>
 
                         {% endfor %}

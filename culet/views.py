@@ -3704,86 +3704,146 @@ class JobEnvelopePrintBatchView(
 
         return context
     
-class JobTransferMemoCreateView(LoginRequiredMixin, generic.FormView):
+class JobTransferMemoCreateView(
+    LoginRequiredMixin,
+    generic.FormView,
+):
     template_name = "jobs/job_transfer_memo_form.html"
     form_class = JobTransferMemoForm
 
     def get_employee(self):
-        return Employee.objects.get(user=self.request.user)
+        return get_object_or_404(
+            Employee,
+            user=self.request.user,
+        )
 
     def form_valid(self, form):
-        employee = self.get_employee()
-
-        from_location = form.cleaned_data["from_location"]
-        to_location = form.cleaned_data["to_location"]
+        created_by = self.get_employee()
+        assigned_to = form.cleaned_data["assigned_to"]
 
         scanned_values = [
             value.strip()
-            for value in form.cleaned_data["scanned_jobs"].splitlines()
+            for value in (
+                form.cleaned_data["scanned_jobs"]
+                .splitlines()
+            )
             if value.strip()
         ]
 
         if not scanned_values:
-            form.add_error("scanned_jobs", "Please scan at least one job.")
+            form.add_error(
+                "scanned_jobs",
+                "Please scan at least one job.",
+            )
+
             return self.form_invalid(form)
 
-        found_jobs = []
-        missing_jobs = []
-        wrong_location_jobs = []
+        duplicate_scans = sorted({
+            value
+            for value in scanned_values
+            if scanned_values.count(value) > 1
+        })
 
-        for scanned_value in scanned_values:
-            try:
-                job = Job.objects.get(barcode=scanned_value, shipped=False)
-            except Job.DoesNotExist:
-                missing_jobs.append(scanned_value)
-                continue
+        if duplicate_scans:
+            form.add_error(
+                "scanned_jobs",
+                (
+                    "The following barcodes were scanned "
+                    "more than once: "
+                    + ", ".join(duplicate_scans)
+                ),
+            )
 
-            if job.location_id != from_location.id:
-                wrong_location_jobs.append(job)
+            return self.form_invalid(form)
 
-            found_jobs.append(job)
+        jobs = list(
+            Job.objects
+            .filter(
+                barcode__in=scanned_values,
+                shipped=False,
+            )
+            .select_related(
+                "assigned_to",
+                "holder",
+            )
+        )
+
+        jobs_by_barcode = {
+            job.barcode: job
+            for job in jobs
+        }
+
+        missing_jobs = [
+            scanned_value
+            for scanned_value in scanned_values
+            if scanned_value not in jobs_by_barcode
+        ]
 
         if missing_jobs:
             form.add_error(
                 "scanned_jobs",
-                "These scanned jobs were not found or are already shipped: "
-                + ", ".join(missing_jobs)
+                (
+                    "These scanned jobs were not found "
+                    "or are already shipped: "
+                    + ", ".join(missing_jobs)
+                ),
             )
+
             return self.form_invalid(form)
 
-        if wrong_location_jobs:
-            job_list = ", ".join(str(job) for job in wrong_location_jobs)
-            form.add_error(
-                "scanned_jobs",
-                f"These jobs are not currently in {from_location}: {job_list}"
-            )
-            return self.form_invalid(form)
+        assigned_count = 0
 
         with transaction.atomic():
-            memo = form.save(commit=False)
-            memo.created_by = employee
+            memo = form.save(
+                commit=False,
+            )
+
+            memo.created_by = created_by
             memo.save()
 
-            for job in found_jobs:
+            for scanned_value in scanned_values:
+                job = jobs_by_barcode[scanned_value]
+
                 JobTransferMemoLine.objects.create(
                     memo=memo,
                     job=job,
-                    from_location=from_location,
-                    to_location=to_location,
                 )
 
-                job.location = to_location
-                job.save(update_fields=["location", "last_updated"])
+                job, movement = move_job(
+                    job=job,
+                    movement_type="assigned",
+                    to_employee=assigned_to,
+                    performed_by=created_by,
+                )
+
+                if movement is not None:
+                    assigned_count += 1
+
+        job_count = len(scanned_values)
+        job_word = "job" if job_count == 1 else "jobs"
 
         messages.success(
             self.request,
-            f"Transfer Memo #{memo.pk} created. {len(found_jobs)} jobs moved to {to_location}."
+            (
+                f"{memo.memo_num} created with "
+                f"{job_count} {job_word} assigned to "
+                f"{assigned_to}. "
+                f"{assigned_count} assignment "
+                f"{'was' if assigned_count == 1 else 'changes were'} "
+                f"recorded."
+            ),
         )
 
-        return redirect("culet:job_transfer_memo_print", pk=memo.pk)
+        return redirect(
+            "culet:job_transfer_memo_print",
+            pk=memo.pk,
+        )
 
 
-class JobTransferMemoPrintView(LoginRequiredMixin, generic.DetailView):
+class JobTransferMemoPrintView(
+    LoginRequiredMixin,
+    generic.DetailView,
+):
     model = JobTransferMemo
     template_name = "memos/memo_print.html"
     context_object_name = "memo"
@@ -3794,8 +3854,8 @@ class JobTransferMemoPrintView(LoginRequiredMixin, generic.DetailView):
             .select_related(
                 "created_by",
                 "created_by__user",
-                "from_location",
-                "to_location",
+                "assigned_to",
+                "assigned_to__user",
             )
             .prefetch_related(
                 "lines__job",
@@ -3803,12 +3863,6 @@ class JobTransferMemoPrintView(LoginRequiredMixin, generic.DetailView):
                 "lines__job__customer",
             )
         )
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["memo_type"] = "transfer"
-        context["memo_title"] = "Transfer Memo"
-        return context
     
 class PieceworkPrintView(LoginRequiredMixin, generic.DetailView):
     model = PieceworkMemo
@@ -4400,8 +4454,9 @@ class MemoListView(LoginRequiredMixin, generic.TemplateView):
 
         transfer_memos = JobTransferMemo.objects.select_related(
             "created_by",
-            "from_location",
-            "to_location",
+            "created_by__user",
+            "assigned_to",
+            "assigned_to__user",
         )
 
         piecework_memos = PieceworkMemo.objects.select_related(

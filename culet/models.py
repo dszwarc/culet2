@@ -101,7 +101,7 @@ class Employee(models.Model):
 
     user = models.OneToOneField(User, on_delete=models.CASCADE)
 
-
+    active = models.BooleanField(default=True)
     department = models.ForeignKey(
     Department,
     on_delete=models.PROTECT,
@@ -773,75 +773,76 @@ class TimeClock(models.Model):
         return 0
     
 class JobTransferMemo(models.Model):
-    memo_num = models.CharField(max_length=20, unique=True, blank=True, editable=False)
-    created_at = models.DateTimeField(default=timezone.now, editable=False)
+    memo_num = models.CharField(
+        max_length=20,
+        unique=True,
+        blank=True,
+        editable=False,
+    )
+
+    created_at = models.DateTimeField(
+        default=timezone.now,
+        editable=False,
+    )
+
     created_by = models.ForeignKey(
         Employee,
         on_delete=models.PROTECT,
-        related_name="created_transfer_memos"
+        related_name="created_transfer_memos",
     )
 
-    from_location = models.ForeignKey(
-        Location,
+    assigned_to = models.ForeignKey(
+        Employee,
         on_delete=models.PROTECT,
-        related_name="transfer_memos_from"
+        related_name="assigned_transfer_memos",
+        null=True,
     )
 
-    to_location = models.ForeignKey(
-        Location,
-        on_delete=models.PROTECT,
-        related_name="transfer_memos_to"
-    )
-
-    memo_to = models.CharField(
-        max_length=120,
+    notes = models.TextField(
         blank=True,
-        help_text="Optional customer, building, department, or recipient name"
     )
-
-    notes = models.TextField(blank=True)
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
 
         if not self.memo_num:
             self.memo_num = f"TM-{self.pk:06d}"
-            super().save(update_fields=["memo_num"])
+
+            super().save(
+                update_fields=["memo_num"],
+            )
 
     def __str__(self):
-        return f"Transfer Memo #{self.pk}"
+        return self.memo_num or f"Transfer Memo #{self.pk}"
 
 
 class JobTransferMemoLine(models.Model):
     memo = models.ForeignKey(
         JobTransferMemo,
         on_delete=models.CASCADE,
-        related_name="lines"
+        related_name="lines",
     )
 
     job = models.ForeignKey(
         Job,
         on_delete=models.PROTECT,
-        related_name="transfer_memo_lines"
-    )
-
-    from_location = models.ForeignKey(
-        Location,
-        on_delete=models.PROTECT,
-        related_name="transfer_lines_from"
-    )
-
-    to_location = models.ForeignKey(
-        Location,
-        on_delete=models.PROTECT,
-        related_name="transfer_lines_to"
+        related_name="transfer_memo_lines",
     )
 
     class Meta:
-        unique_together = ("memo", "job")
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "memo",
+                    "job",
+                ],
+                name="unique_job_per_transfer_memo",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.memo} - {self.job}"
+
     
 class PieceworkMemo(models.Model):
     memo_num = models.CharField(max_length=20, unique=True, blank=True, editable=False)

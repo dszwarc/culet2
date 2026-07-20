@@ -17,9 +17,6 @@
             --surface: #ffffff;
         }
 
-        /*
-         * The larger bottom margin reserves space for the repeating footer.
-         */
         @page {
             size: letter portrait;
             margin: 0.45in 0.45in 0.72in;
@@ -251,20 +248,16 @@
             width: 18%;
         }
 
-        .column-barcode {
-            width: 17%;
-        }
-
         .column-description {
-            width: 29%;
+            width: 34%;
         }
 
         .column-customer {
-            width: 18%;
+            width: 25%;
         }
 
         .column-due {
-            width: 13%;
+            width: 18%;
         }
 
         .job-number {
@@ -329,10 +322,6 @@
             text-transform: uppercase;
         }
 
-        /*
-         * Fixed elements are repeated on each printed page by Chromium-based
-         * browsers, including Chrome.
-         */
         .print-footer {
             position: fixed;
             left: 0;
@@ -382,9 +371,6 @@
                 page-break-inside: avoid;
             }
 
-            /*
-             * Helps browsers preserve the blue and navy backgrounds.
-             */
             * {
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
@@ -466,23 +452,29 @@
                 </div>
             </div>
 
+            <div class="summary-item">
+                <div class="summary-label">Assigned To</div>
+
+                <div class="summary-value">
+                    {{ memo.assigned_to|default:"-" }}
+                </div>
+            </div>
+
+            <div class="summary-item">
+                <div class="summary-label">
+                    {% if memo_type == "piecework" %}
+                        Assigned By
+                    {% else %}
+                        Created By
+                    {% endif %}
+                </div>
+
+                <div class="summary-value">
+                    {{ memo.created_by|default:"-" }}
+                </div>
+            </div>
+
             {% if memo_type == "piecework" %}
-                <div class="summary-item">
-                    <div class="summary-label">Assigned To</div>
-
-                    <div class="summary-value">
-                        {{ memo.assigned_to|default:"-" }}
-                    </div>
-                </div>
-
-                <div class="summary-item">
-                    <div class="summary-label">Assigned By</div>
-
-                    <div class="summary-value">
-                        {{ memo.created_by|default:"-" }}
-                    </div>
-                </div>
-
                 <div class="summary-item">
                     <div class="summary-label">Due Back</div>
 
@@ -494,25 +486,23 @@
                         {% endif %}
                     </div>
                 </div>
+
+                <div class="summary-item">
+                    <div class="summary-label">From</div>
+
+                    <div class="summary-value">
+                        {{ memo.from_location|default:"-" }}
+                    </div>
+                </div>
+
+                <div class="summary-item">
+                    <div class="summary-label">To</div>
+
+                    <div class="summary-value">
+                        {{ memo.to_location|default:"-" }}
+                    </div>
+                </div>
             {% else %}
-                <div class="summary-item">
-                    <div class="summary-label">
-                        Recipient / Customer
-                    </div>
-
-                    <div class="summary-value">
-                        {{ memo.memo_to|default:"-" }}
-                    </div>
-                </div>
-
-                <div class="summary-item">
-                    <div class="summary-label">Created By</div>
-
-                    <div class="summary-value">
-                        {{ memo.created_by|default:"-" }}
-                    </div>
-                </div>
-
                 <div class="summary-item">
                     <div class="summary-label">Memo Number</div>
 
@@ -521,36 +511,28 @@
                     </div>
                 </div>
             {% endif %}
-
-            <div class="summary-item">
-                <div class="summary-label">From</div>
-
-                <div class="summary-value">
-                    {{ memo.from_location|default:"-" }}
-                </div>
-            </div>
-
-            <div class="summary-item">
-                <div class="summary-label">To</div>
-
-                <div class="summary-value">
-                    {{ memo.to_location|default:"-" }}
-                </div>
-            </div>
         </section>
 
         <section class="section">
             <h2 class="section-title">Instructions</h2>
 
             <p class="instructions">
-                The goods described and valued below are delivered to you for
-                examination, inspection, transport, or processing only and
-                remain the property of CEL Jewelry LLC, subject to our order.
-                The merchandise shall be returned to us upon demand. Until
-                returned to and actually received by CEL Jewelry LLC, the
-                merchandise remains at the recipient's risk from all hazards.
-                No right or authority is given to sell, pledge, transfer, or
-                otherwise dispose of this merchandise.
+                {% if memo_type == "piecework" %}
+                    The goods described below are delivered for processing
+                    only and remain the property of CEL Jewelry LLC. The
+                    merchandise shall be returned upon demand and remains at
+                    the recipient's risk until it is returned to and received
+                    by CEL Jewelry LLC. No authority is given to sell, pledge,
+                    transfer, or otherwise dispose of this merchandise.
+                {% else %}
+                    The jobs listed below are assigned to the named employee
+                    for transport and continued processing on behalf of
+                    CEL Jewelry LLC. The assigned employee acknowledges
+                    responsibility for maintaining possession and control of
+                    the listed jobs while transporting them between company
+                    facilities. This memorandum documents the assignment and
+                    transfer of responsibility for the listed jobs.
+                {% endif %}
             </p>
         </section>
 
@@ -571,9 +553,11 @@
                         <th class="column-number">#</th>
                         <th class="column-job">Stock Number</th>
                         <th class="column-description">Description</th>
+
                         {% if memo_type != "piecework" %}
-                        <th class="column-customer">Customer</th>
+                            <th class="column-customer">Customer</th>
                         {% endif %}
+
                         <th class="column-due">Due Date</th>
                     </tr>
                 </thead>
@@ -587,11 +571,7 @@
 
                             <td class="column-job">
                                 <div class="job-number">
-                                    {% if line.job.stock_num %}
-                                        {{ line.job.stock_num }}
-                                    {% else %}
-                                        -
-                                    {% endif %}
+                                    {{ line.job.stock_num|default:"-" }}
                                 </div>
                             </td>
 
@@ -600,12 +580,25 @@
                                     {{ line.job.name|default:"-" }}
                                 </div>
 
+                                {% if line.job.style %}
+                                    <div class="job-style">
+                                        Style:
+                                        {{ line.job.style.name|default:"-" }}
+                                    </div>
+                                {% endif %}
+
                                 {% if line.notes %}
                                     <div class="line-notes">
                                         {{ line.notes }}
                                     </div>
                                 {% endif %}
-                            </td>   
+                            </td>
+
+                            {% if memo_type != "piecework" %}
+                                <td class="column-customer">
+                                    {{ line.job.customer|default:"-" }}
+                                </td>
+                            {% endif %}
 
                             <td class="column-due">
                                 {% if line.job.due %}
@@ -617,7 +610,9 @@
                         </tr>
                     {% empty %}
                         <tr>
-                            <td colspan="6">
+                            <td
+                                colspan="{% if memo_type == 'piecework' %}4{% else %}5{% endif %}"
+                            >
                                 No jobs are included on this memo.
                             </td>
                         </tr>
@@ -628,8 +623,14 @@
 
         <section class="acceptance">
             <p class="acceptance-text">
-                I acknowledge receipt of the merchandise listed above and
-                accept the terms of this memorandum.
+                {% if memo_type == "piecework" %}
+                    I acknowledge receipt of the merchandise listed above
+                    and accept the terms of this memorandum.
+                {% else %}
+                    I acknowledge assignment of the jobs listed above and
+                    accept responsibility for transporting and maintaining
+                    control of them on behalf of CEL Jewelry LLC.
+                {% endif %}
             </p>
 
             <div class="signature-grid">
@@ -637,7 +638,7 @@
                     <div class="signature-line"></div>
 
                     <div class="signature-label">
-                        Recipient Signature
+                        Assigned Employee Signature
                     </div>
                 </div>
 
@@ -655,7 +656,7 @@
                     <div class="signature-line"></div>
 
                     <div class="signature-label">
-                        Released By
+                        Created / Released By
                     </div>
                 </div>
 
@@ -666,7 +667,7 @@
                         {% if memo_type == "piecework" %}
                             Returned To / Received By
                         {% else %}
-                            Received By
+                            Received At Destination By
                         {% endif %}
                     </div>
                 </div>
