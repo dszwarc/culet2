@@ -4,7 +4,7 @@ from django.template.loader import render_to_string
 import copy
 from django.db import transaction
 from django.db.models import F, Q, Max, OuterRef, Subquery, Sum, Count, Avg, ExpressionWrapper, DurationField
-from django.db.models.functions import TruncDate
+from django.db.models.functions import TruncDate, Coalesce
 from django.views import generic
 from django.urls import reverse_lazy, reverse
 from django.utils import timezone
@@ -12,7 +12,7 @@ from django.contrib import messages
 from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
-from .filters import JobFilter, ActivityFilter, StyleFilter
+from .filters import JobFilter, ActivityFilter, StyleFilter, JobReportFilter
 from datetime import timedelta, datetime, time, date
 from collections import defaultdict
 from decimal import Decimal
@@ -25,6 +25,7 @@ from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.forms import SetPasswordForm
 
 from .models import (
+    Department,
     ActivityStep,
     Step,
     JobMetalLot,
@@ -1552,11 +1553,31 @@ class AssignJobView(
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        context["employees"] = self.get_employees()
+        employees = self.get_employees()
+
+        department_ids = (
+            employees
+            .exclude(department__isnull=True)
+            .values_list("department_id", flat=True)
+            .distinct()
+        )
+
+        context["employees"] = employees
+        context["departments"] = (
+            Department.objects
+            .filter(pk__in=department_ids)
+            .order_by("name")
+        )
         context["selected_job"] = self.get_selected_job()
 
         return context
 
+        context = super().get_context_data(**kwargs)
+
+        context["employees"] = self.get_employees()
+        context["selected_job"] = self.get_selected_job()
+
+        return context
     def post(self, request, *args, **kwargs):
         employee_id = request.POST.get(
             "employee",
@@ -2410,39 +2431,150 @@ class JobWeightLookupView(LoginRequiredMixin, generic.FormView):
 class InactiveJobsReportView(LoginRequiredMixin, generic.TemplateView):
     template_name = "reports/inactive_jobs.html"
 
+    SORT_FIELDS = {
+        "stock_num": "stock_num",
+        "customer": "customer__name",
+        "style": "style__name",
+        "status": "status__sort_order",
+        "location": "location__name",
+        "assigned_to": "assigned_to__user__last_name",
+        "holder": "holder__user__last_name",
+        "last_activity": "inactive_since",
+        "days_inactive": "inactive_since",
+        "created": "created",
+    }
+
+    DEFAULT_SORT = "days_inactive"
+    DEFAULT_DIRECTION = "desc"
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        form = InactiveJobsReportForm(self.request.GET or None)
+        report_form = InactiveJobsReportForm(
+            self.request.GET or None
+        )
+
         jobs = Job.objects.none()
         cutoff = None
+        report_filter = None
 
-        if form.is_valid():
-            days = form.cleaned_data["days"]
+        sort = self.request.GET.get(
+            "sort",
+            self.DEFAULT_SORT,
+        )
+        direction = self.request.GET.get(
+            "direction",
+            self.DEFAULT_DIRECTION,
+        )
+
+        if sort not in self.SORT_FIELDS:
+            sort = self.DEFAULT_SORT
+
+        if direction not in ["asc", "desc"]:
+            direction = self.DEFAULT_DIRECTION
+
+        if report_form.is_valid():
+            days = report_form.cleaned_data["days"]
             cutoff = timezone.now() - timedelta(days=days)
 
             jobs = (
                 Job.objects
-                .filter(active=True, shipped=False)
-                .annotate(last_activity_start=Max("activity__start"))
                 .filter(
-                    Q(last_activity_start__lt=cutoff) |
-                    Q(last_activity_start__isnull=True, created__lt=cutoff)
+                    active=True,
+                    shipped=False,
+                )
+                .annotate(
+                    last_activity_start=Max(
+                        "activity__start"
+                    ),
+                )
+                .annotate(
+                    inactive_since=Coalesce(
+                        "last_activity_start",
+                        "created",
+                    ),
+                )
+                .filter(
+                    inactive_since__lt=cutoff,
                 )
                 .select_related(
                     "customer",
                     "style",
                     "assigned_to__user",
+                    "assigned_to__department",
                     "holder__user",
+                    "holder__department",
                     "status",
                     "location",
                 )
-                .order_by("last_activity_start", "created")
             )
 
-        context["form"] = form
+            report_filter = JobReportFilter(
+                self.request.GET,
+                queryset=jobs,
+            )
+
+            jobs = report_filter.qs
+
+            order_field = self.SORT_FIELDS[sort]
+
+            # A greater number of inactive days means an older
+            # inactive_since date. Reverse the date direction when
+            # sorting by the displayed days-inactive value.
+            if sort == "days_inactive":
+                if direction == "asc":
+                    order_field = f"-{order_field}"
+            elif direction == "desc":
+                order_field = f"-{order_field}"
+
+            jobs = jobs.order_by(
+                order_field,
+                "stock_num",
+            )
+
+            now = timezone.now()
+
+            for job in jobs:
+                inactive_since = job.inactive_since
+
+                if inactive_since:
+                    job.days_inactive = (
+                        now.date() -
+                        timezone.localtime(
+                            inactive_since
+                        ).date()
+                    ).days
+                else:
+                    job.days_inactive = 0
+
+        context["form"] = report_form
+        context["filter"] = report_filter
         context["jobs"] = jobs
         context["cutoff"] = cutoff
+        context["current_sort"] = sort
+        context["current_direction"] = direction
+
+        sort_links = {}
+
+        for key in self.SORT_FIELDS:
+            params = self.request.GET.copy()
+            params.pop("page", None)
+
+            next_direction = "asc"
+
+            if (
+                sort == key
+                and direction == "asc"
+            ):
+                next_direction = "desc"
+
+            params["sort"] = key
+            params["direction"] = next_direction
+
+            sort_links[key] = params.urlencode()
+
+        context["sort_links"] = sort_links
+
         return context
     
 class ClockedInIdleEmployeesReportView(LoginRequiredMixin, generic.TemplateView):
@@ -2802,13 +2934,29 @@ class TimeClockUpdateView(LoginRequiredMixin, generic.UpdateView):
     def get_success_url(self):
         return reverse("culet:report_time_clock")
     
+
 class LateJobsReportView(LoginRequiredMixin, generic.TemplateView):
     template_name = "reports/late_jobs.html"
+
+    SORT_FIELDS = {
+        "stock_num": "stock_num",
+        "customer": "customer__name",
+        "style": "style__name",
+        "due": "due",
+        "days_late": "due",
+        "status": "status__sort_order",
+        "location": "location__name",
+        "assigned_to": "assigned_to__user__last_name",
+        "holder": "holder__user__last_name",
+    }
+
+    DEFAULT_SORT = "days_late"
+    DEFAULT_DIRECTION = "desc"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        today = date.today()
+        today = timezone.localdate()
 
         jobs = (
             Job.objects
@@ -2821,25 +2969,87 @@ class LateJobsReportView(LoginRequiredMixin, generic.TemplateView):
                 "customer",
                 "style",
                 "assigned_to__user",
+                "assigned_to__department",
                 "holder__user",
+                "holder__department",
                 "status",
                 "location",
             )
-            .order_by("due", "barcode")
         )
 
-        job_rows = []
+        report_filter = JobReportFilter(
+            self.request.GET,
+            queryset=jobs,
+        )
 
-        for job in jobs:
-            job_rows.append({
+        jobs = report_filter.qs
+
+        sort = self.request.GET.get(
+            "sort",
+            self.DEFAULT_SORT,
+        )
+        direction = self.request.GET.get(
+            "direction",
+            self.DEFAULT_DIRECTION,
+        )
+
+        if sort not in self.SORT_FIELDS:
+            sort = self.DEFAULT_SORT
+
+        if direction not in ["asc", "desc"]:
+            direction = self.DEFAULT_DIRECTION
+
+        order_field = self.SORT_FIELDS[sort]
+
+        # More days late means an earlier due date, so the visible
+        # days-late direction is opposite the due-date direction.
+        if sort == "days_late":
+            if direction == "asc":
+                order_field = f"-{order_field}"
+        elif direction == "desc":
+            order_field = f"-{order_field}"
+
+        jobs = jobs.order_by(
+            order_field,
+            "stock_num",
+        )
+
+        job_rows = [
+            {
                 "job": job,
                 "days_late": (today - job.due).days,
-            })
+            }
+            for job in jobs
+        ]
+
+        sort_links = {}
+
+        for key in self.SORT_FIELDS:
+            params = self.request.GET.copy()
+            params.pop("page", None)
+
+            next_direction = "asc"
+
+            if (
+                sort == key
+                and direction == "asc"
+            ):
+                next_direction = "desc"
+
+            params["sort"] = key
+            params["direction"] = next_direction
+
+            sort_links[key] = params.urlencode()
 
         context["today"] = today
+        context["filter"] = report_filter
         context["job_rows"] = job_rows
+        context["current_sort"] = sort
+        context["current_direction"] = direction
+        context["sort_links"] = sort_links
+
         return context
-    
+
 class JobsByHolderReportView(LoginRequiredMixin, generic.TemplateView):
     template_name = "reports/jobs_by_holder.html"
 

@@ -2,50 +2,186 @@
 
 {% block content %}
 <div class="page-container">
-  <h1>Inactive Jobs Report</h1>
+    <h1>Inactive Jobs Report</h1>
 
-  <form method="get" class="job-card mb-4">
-    {{ form.as_p }}
-    <button type="submit" class="btn btn-primary">Run Report</button>
-  </form>
+    <div class="filter-panel">
+        <div class="filter-header">
+            <div>
+                <h2 class="filter-title">Report Settings</h2>
+                <p class="filter-subtitle">
+                    Choose the minimum inactive period, then optionally filter the results.
+                </p>
+            </div>
+        </div>
 
-  {% if form.is_valid %}
-    <h2>{{ jobs|length }} inactive jobs found</h2>
+        <form method="get" class="filter-form">
+            {% for field in form %}
+                <div class="filter-field">
+                    <label for="{{ field.id_for_label }}">
+                        {{ field.label }}
+                    </label>
 
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Job #</th>
-          <th>Customer</th>
-          <th>Style</th>
-          <th>Status</th>
-          <th>Location</th>
-          <th>Assigned To</th>
-          <th>Last Activity</th>
-          <th>Created</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for job in jobs %}
-          <tr>
-            <td>
-              <a href="{{ job.get_absolute_url }}">{{ job }}</a>
-            </td>
-            <td>{{ job.customer }}</td>
-            <td>{{ job.style }}</td>
-            <td>{{ job.status|default:"—" }}</td>
-            <td>{{ job.location|default:"—" }}</td>
-            <td>{{ job.assigned_to|default:"—" }}</td>
-            <td>{{ job.last_activity_start|date:"Y-m-d H:i"|default:"Never" }}</td>
-            <td>{{ job.created|date:"Y-m-d" }}</td>
-          </tr>
-        {% empty %}
-          <tr>
-            <td colspan="8">No inactive jobs found.</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  {% endif %}
+                    {{ field }}
+
+                    {% if field.errors %}
+                        <div class="field-error">
+                            {{ field.errors }}
+                        </div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+
+            {% if filter %}
+                {% for field in filter.form %}
+                    <div class="filter-field">
+                        <label for="{{ field.id_for_label }}">
+                            {{ field.label }}
+                        </label>
+
+                        {{ field }}
+
+                        {% if field.errors %}
+                            <div class="field-error">
+                                {{ field.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <div class="filter-actions">
+                <button type="submit" class="btn btn-primary">
+                    Apply Filters
+                </button>
+
+                <a
+                    href="{% url 'culet:report_inactive_jobs' %}"
+                    class="filter-clear"
+                >
+                    Clear
+                </a>
+            </div>
+        </form>
+    </div>
+
+    {% if form.is_valid %}
+        <div class="job-card">
+            <h2>{{ jobs|length }} inactive jobs found</h2>
+
+            {% if cutoff %}
+                <p>
+                    Showing jobs with no activity since
+                    {{ cutoff|date:"F j, Y" }}.
+                </p>
+            {% endif %}
+        </div>
+
+        <div class="table-wrap sticky-table-wrap">
+            <table class="index_table freeze-row">
+                <thead>
+                    <tr>
+                        <th class="{% if current_sort == 'stock_num' %}sorted-column{% endif %}">
+                            <a href="?{{ sort_links.stock_num }}">
+                                Stock #
+                                {% with field="stock_num" %}
+                                    {% include "includes/sort_arrow.html" %}
+                                {% endwith %}
+                            </a>
+                        </th>
+
+                        <th class="{% if current_sort == 'customer' %}sorted-column{% endif %}">
+                            <a href="?{{ sort_links.customer }}">
+                                Customer
+                                {% with field="customer" %}
+                                    {% include "includes/sort_arrow.html" %}
+                                {% endwith %}
+                            </a>
+                        </th>
+
+                        <th class="{% if current_sort == 'style' %}sorted-column{% endif %}">
+                            <a href="?{{ sort_links.style }}">
+                                Style
+                                {% with field="style" %}
+                                    {% include "includes/sort_arrow.html" %}
+                                {% endwith %}
+                            </a>
+                        </th>
+
+                        <th class="{% if current_sort == 'assigned_to' %}sorted-column{% endif %}">
+                            <a href="?{{ sort_links.assigned_to }}">
+                                Assigned To
+                                {% with field="assigned_to" %}
+                                    {% include "includes/sort_arrow.html" %}
+                                {% endwith %}
+                            </a>
+                        </th>
+
+                        <th class="{% if current_sort == 'holder' %}sorted-column{% endif %}">
+                            <a href="?{{ sort_links.holder }}">
+                                Holder
+                                {% with field="holder" %}
+                                    {% include "includes/sort_arrow.html" %}
+                                {% endwith %}
+                            </a>
+                        </th>
+
+                        <th class="{% if current_sort == 'last_activity' %}sorted-column{% endif %}">
+                            <a href="?{{ sort_links.last_activity }}">
+                                Last Activity
+                                {% with field="last_activity" %}
+                                    {% include "includes/sort_arrow.html" %}
+                                {% endwith %}
+                            </a>
+                        </th>
+
+                        <th class="{% if current_sort == 'days_inactive' %}sorted-column{% endif %}">
+                            <a href="?{{ sort_links.days_inactive }}">
+                                Days Inactive
+                                {% with field="days_inactive" %}
+                                    {% include "includes/sort_arrow.html" %}
+                                {% endwith %}
+                            </a>
+                        </th>
+
+                        <th class="{% if current_sort == 'created' %}sorted-column{% endif %}">
+                            <a href="?{{ sort_links.created }}">
+                                Created
+                                {% with field="created" %}
+                                    {% include "includes/sort_arrow.html" %}
+                                {% endwith %}
+                            </a>
+                        </th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for job in jobs %}
+                        <tr>
+                            <td>
+                                <a href="{{ job.get_absolute_url }}">
+                                    {{ job.stock_num|default:job.barcode }}
+                                </a>
+                            </td>
+                            <td>{{ job.customer }}</td>
+                            <td>{{ job.style }}</td>
+                            <td>{{ job.assigned_to|default:"—" }}</td>
+                            <td>{{ job.holder|default:"—" }}</td>
+                            <td>
+                                {{ job.last_activity_start|date:"Y-m-d H:i"|default:"Never" }}
+                            </td>
+                            <td>{{ job.days_inactive }}</td>
+                            <td>{{ job.created|date:"Y-m-d" }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="10">
+                                No inactive jobs found.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
 </div>
 {% endblock %}

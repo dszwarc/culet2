@@ -198,3 +198,184 @@ class StyleFilter(django_filters.FilterSet):
             "stamp",
             "description",
         ]
+
+class JobReportFilter(django_filters.FilterSet):
+    stock_num = django_filters.CharFilter(
+        label="Stock Number:",
+        field_name="stock_num",
+        lookup_expr="icontains",
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": "Search stock number",
+            }
+        ),
+    )
+
+    barcode = django_filters.CharFilter(
+        label="Barcode:",
+        field_name="barcode",
+        lookup_expr="icontains",
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": "Search barcode",
+            }
+        ),
+    )
+
+    customer = django_filters.ModelChoiceFilter(
+        label="Customer:",
+        field_name="customer",
+        queryset=Customer.objects.order_by("name"),
+        empty_label="All customers",
+        widget=forms.Select(
+            attrs={
+                "class": "combo-box",
+                "data-placeholder": "All customers",
+            }
+        ),
+    )
+
+    style = django_filters.ModelChoiceFilter(
+        label="Style:",
+        field_name="style",
+        queryset=Style.objects.order_by("name"),
+        empty_label="All styles",
+        widget=forms.Select(
+            attrs={
+                "class": "combo-box",
+                "data-placeholder": "All styles",
+            }
+        ),
+    )
+
+    status = django_filters.ModelChoiceFilter(
+        label="Status:",
+        field_name="status",
+        queryset=JobStatus.objects.filter(
+            active=True,
+        ).order_by(
+            "sort_order",
+            "name",
+        ),
+        empty_label="All statuses",
+        widget=forms.Select(
+            attrs={
+                "class": "combo-box",
+                "data-placeholder": "All statuses",
+            }
+        ),
+    )
+
+    assigned_to = django_filters.ModelChoiceFilter(
+        label="Assigned To:",
+        field_name="assigned_to",
+        queryset=(
+            Employee.objects
+            .select_related(
+                "user",
+                "department",
+            )
+            .filter(user__is_active=True)
+            .order_by(
+                "user__last_name",
+                "user__first_name",
+            )
+        ),
+        empty_label="All employees",
+        widget=forms.Select(
+            attrs={
+                "class": "combo-box",
+                "data-placeholder": "All employees",
+            }
+        ),
+    )
+
+    holder = django_filters.ModelChoiceFilter(
+        label="Holder:",
+        field_name="holder",
+        queryset=(
+            Employee.objects
+            .select_related(
+                "user",
+                "department",
+            )
+            .filter(user__is_active=True)
+            .order_by(
+                "user__last_name",
+                "user__first_name",
+            )
+        ),
+        empty_label="All holders",
+        widget=forms.Select(
+            attrs={
+                "class": "combo-box",
+                "data-placeholder": "All holders",
+            }
+        ),
+    )
+
+    holder_department = django_filters.ModelChoiceFilter(
+        label="Holder Department:",
+        field_name="holder__department",
+        queryset=Department.objects.filter(
+            active=True,
+        ).order_by("name"),
+        empty_label="All holder departments",
+        widget=forms.Select(
+            attrs={
+                "class": "combo-box",
+                "data-placeholder": "All holder departments",
+            }
+        ),
+    )
+
+    location = django_filters.ModelChoiceFilter(
+        label="Location:",
+        field_name="location",
+        queryset=Location.objects.order_by("name"),
+        empty_label="All locations",
+        widget=forms.Select(
+            attrs={
+                "class": "combo-box",
+                "data-placeholder": "All locations",
+            }
+        ),
+    )
+
+    due_before = django_filters.DateFilter(
+        label="Due Before:",
+        field_name="due",
+        lookup_expr="lte",
+        widget=forms.DateInput(
+            attrs={
+                "type": "date",
+            }
+        ),
+    )
+
+    due_after = django_filters.DateFilter(
+        label="Due After:",
+        field_name="due",
+        lookup_expr="gte",
+        widget=forms.DateInput(
+            attrs={
+                "type": "date",
+            }
+        ),
+    )
+
+    class Meta:
+        model = Job
+        fields = [
+            "stock_num",
+            "barcode",
+            "customer",
+            "style",
+            "status",
+            "assigned_to",
+            "holder",
+            "holder_department",
+            "location",
+            "due_before",
+            "due_after",
+        ]

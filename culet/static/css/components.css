@@ -1072,3 +1072,153 @@ form:not(td form) {
         display: none;
     }
 }
+
+/* =========================================================
+   Assignment department and employee picker
+   ========================================================= */
+
+.assignment-selection-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.assignment-picker-group {
+    min-width: 0;
+}
+
+.assignment-picker-header {
+    margin-bottom: 0.75rem;
+}
+
+.assignment-picker-header h2 {
+    margin: 0 0 0.2rem;
+    font-size: 1.05rem;
+}
+
+.assignment-picker-header p {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.assignment-option-grid {
+    display: grid;
+    grid-template-columns: repeat(
+        auto-fit,
+        minmax(180px, 1fr)
+    );
+    gap: 0.65rem;
+}
+
+.assignment-option-button {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    width: 100%;
+    min-height: 58px;
+    margin: 0;
+    padding: 0.75rem 0.9rem;
+    color: var(--text);
+    text-align: left;
+    font: inherit;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition:
+        color 0.15s ease,
+        background-color 0.15s ease,
+        border-color 0.15s ease,
+        box-shadow 0.15s ease,
+        transform 0.15s ease;
+}
+
+.assignment-option-button:hover {
+    border-color: var(--primary);
+    transform: translateY(-1px);
+}
+
+.assignment-option-button:focus-visible {
+    outline: 3px solid rgba(37, 99, 235, 0.22);
+    outline-offset: 2px;
+}
+
+.assignment-option-button.is-selected {
+    color: #fff;
+    background: var(--primary);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 1px var(--primary);
+}
+
+.assignment-option-name {
+    display: block;
+    font-weight: 600;
+    line-height: 1.25;
+}
+
+.assignment-option-detail {
+    display: block;
+    margin-top: 0.2rem;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    line-height: 1.25;
+}
+
+.assignment-option-button.is-selected
+.assignment-option-detail {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.employee-option-button[hidden] {
+    display: none;
+}
+
+.assignment-empty-message {
+    margin: 0.75rem 0 0;
+    padding: 0.75rem;
+    color: var(--text-muted);
+    background: var(--surface-muted);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+}
+
+.assignment-selected-message {
+    margin: 0.75rem 0 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.assignment-selected-message.has-error {
+    color: var(--danger, #b42318);
+}
+
+@media (max-width: 600px) {
+    .assignment-option-grid {
+        grid-template-columns: repeat(
+            2,
+            minmax(0, 1fr)
+        );
+        gap: 0.5rem;
+    }
+
+    .assignment-option-button {
+        min-height: 62px;
+        padding: 0.65rem;
+    }
+
+    .assignment-option-name {
+        font-size: 0.9rem;
+    }
+
+    .assignment-option-detail {
+        font-size: 0.75rem;
+    }
+}
+
+@media (max-width: 380px) {
+    .assignment-option-grid {
+        grid-template-columns: 1fr;
+    }
+}
