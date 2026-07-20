@@ -157,7 +157,7 @@ class Command(BaseImportCommand):
         due_date = self.coerce_due_date(row.get("date_due"), created_at)
 
         barcode, barcode_message = self.prepare_barcode(
-            row.get("rfid"),
+            row.get("id"),
             old_id=old_id,
         )
         stock_num, stock_message = self.prepare_stock_num(
