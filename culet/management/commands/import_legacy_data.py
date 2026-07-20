@@ -1,12 +1,17 @@
 from django.core.management import call_command
 from django.core.management.base import BaseCommand
-from django.db import transaction
 
 
 IMPORT_COMMANDS = [
+    # Application reference data
     "seed_reference_data",
     "verify_reference_data",
 
+    # People
+    "import_employees",
+    "upload_employee_credentials",
+
+    # Master data
     "import_customers",
     "import_vendors",
     "import_metal_types",
@@ -19,28 +24,30 @@ IMPORT_COMMANDS = [
     "infer_style_findings",
     "import_style_findings",
 
+    # Jobs
     "import_jobs",
     "import_job_metals",
     "import_job_stones",
     "import_job_findings",
 
+    # Derived data
     "populate_job_requirements",
 
+    # Final verification
     "verify_migration",
 ]
 
 
 class Command(BaseCommand):
     help = (
-        "Import all legacy Culet data into a fresh Culet database."
+        "Import all legacy Culet data into the new Culet database."
     )
 
-    @transaction.atomic
     def handle(self, *args, **options):
         self.stdout.write("")
         self.stdout.write(
             self.style.MIGRATE_HEADING(
-                "Beginning legacy import"
+                "Beginning legacy Culet import"
             )
         )
 
@@ -50,14 +57,15 @@ class Command(BaseCommand):
             self.stdout.write("")
             self.stdout.write(
                 self.style.HTTP_INFO(
-                    f"[{index}/{total}] {command}"
+                    f"[{index}/{total}] Running {command}"
                 )
             )
+
             call_command(command)
 
         self.stdout.write("")
         self.stdout.write(
             self.style.SUCCESS(
-                "Legacy import completed successfully."
+                "Legacy Culet import completed successfully."
             )
         )
