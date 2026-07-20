@@ -1,78 +1,113 @@
 {% extends "base.html" %}
 
 {% block content %}
+
 <div class="container">
     <h1>Quality Inspection</h1>
 
-    <form method="post" class="form-card">
-        {% csrf_token %}
+```
+<form method="post" class="form-card">
+    {% csrf_token %}
 
-        {{ form.non_field_errors }}
+    {{ form.non_field_errors }}
 
-        <div class="form-group">
-            {{ form.barcode.label_tag }}
+    <div class="form-group">
+        {{ form.barcode.label_tag }}
 
-            <div class="input-group">
-                {{ form.barcode }}
-            </div>
-
-            <div class="mt-2">
-                {% include "includes/barcode_scanner.html" with input_id="id_barcode" auto_submit="false" button_text="Scan Job" %}
-            </div>
-
-            {{ form.barcode.errors }}
+        <div class="input-group">
+            {{ form.barcode }}
         </div>
 
-        <p>
-            {{ form.result.label_tag }}
-            {{ form.result }}
-            {{ form.result.errors }}
-        </p>
-
-        <div id="failure-types-row">
-            <label>Failure Type(s)</label>
-            {{ form.failure_types }}
-            {{ form.failure_types.errors }}
+        <div class="mt-2">
+            {% include "includes/barcode_scanner.html" with input_id="id_barcode" auto_submit="false" button_text="Scan Job" %}
         </div>
 
-        <p>
-            {{ form.notes.label_tag }}
-            {{ form.notes }}
-            {{ form.notes.errors }}
-        </p>
+        {{ form.barcode.errors }}
+    </div>
 
-        <div id="failure-types-row">
-            <label>Duration (Minutes)</label>
-            {{ form.inspection_duration_minutes }}
-            {{ form.inspection_duration_minutes.errors }}
+    <div class="form-group">
+        {{ form.result.label_tag }}
+        {{ form.result }}
+        {{ form.result.errors }}
+    </div>
+
+    <div id="failure-types-section" class="failure-section">
+        <span class="failure-section-label">
+            Failure Type(s)
+        </span>
+
+        <div class="failure-grid">
+            {% for checkbox in form.failure_types %}
+                <div class="failure-option">
+                    {{ checkbox.tag }}
+                    <label for="{{ checkbox.id_for_label }}">
+                        {{ checkbox.choice_label }}
+                    </label>
+                </div>
+            {% endfor %}
         </div>
 
-        <button type="submit" class="btn btn-primary">
-            Submit Inspection
-        </button>
-    </form>
+        {{ form.failure_types.errors }}
+    </div>
+
+    <div class="form-group">
+        {{ form.notes.label_tag }}
+        {{ form.notes }}
+        {{ form.notes.errors }}
+    </div>
+
+    <div class="form-group">
+        {{ form.inspection_duration_minutes.label_tag }}
+        {{ form.inspection_duration_minutes }}
+        {{ form.inspection_duration_minutes.errors }}
+    </div>
+
+    <button type="submit" class="btn btn-primary">
+        Submit Inspection
+    </button>
+</form>
+```
+
 </div>
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
     const resultSelect = document.getElementById("id_result");
-    const failureRow = document.getElementById("failure-types-row");
+    const failureSection = document.getElementById(
+        "failure-types-section"
+    );
     const barcodeInput = document.getElementById("id_barcode");
+    const failureCheckboxes = failureSection
+        ? failureSection.querySelectorAll('input[type="checkbox"]')
+        : [];
 
     function toggleFailureTypes() {
-        if (resultSelect.value === "fail") {
-            failureRow.style.display = "block";
-        } else {
-            failureRow.style.display = "none";
+        if (!resultSelect || !failureSection) {
+            return;
         }
+
+        const inspectionFailed = resultSelect.value === "fail";
+
+        failureSection.hidden = !inspectionFailed;
+
+        failureCheckboxes.forEach(function (checkbox) {
+            checkbox.disabled = !inspectionFailed;
+
+            if (!inspectionFailed) {
+                checkbox.checked = false;
+            }
+        });
     }
 
-    resultSelect.addEventListener("change", toggleFailureTypes);
-    toggleFailureTypes();
+    if (resultSelect) {
+        resultSelect.addEventListener("change", toggleFailureTypes);
+        toggleFailureTypes();
+    }
 
     if (barcodeInput) {
         barcodeInput.focus();
     }
 });
 </script>
+
 {% endblock %}
