@@ -18,13 +18,22 @@ from collections import defaultdict
 from decimal import Decimal
 from itertools import chain
 from operator import itemgetter
+from django.core.exceptions import ValidationError
 import re
 from django.contrib.auth.views import PasswordChangeView
-from .services import clock_in_employee, clock_out_employee, stop_activity
+from .services import (
+    clock_in_employee,
+    clock_out_employee,
+    move_job,
+    stop_activity,
+    sync_job_in_work,
+)
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.forms import SetPasswordForm
 
 from .models import (
+    JobMovement,
+    MovementType,
     Department,
     ActivityStep,
     Step,
@@ -110,6 +119,7 @@ from django.contrib import messages
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.contrib.auth import logout as auth_logout
+
 
 @login_required
 def culet_logout(request):
@@ -468,7 +478,6 @@ class ReceiveListView(LoginRequiredMixin, generic.ListView):
 
 
 class ReceiveJobView(LoginRequiredMixin, generic.View):
-    @transaction.atomic
     def post(self, request, *args, **kwargs):
         employee = request.user.employee
 
@@ -477,112 +486,158 @@ class ReceiveJobView(LoginRequiredMixin, generic.View):
             pk=request.POST.get("job_id"),
         )
 
-        job.holder = employee
-        job.save()
+        job, movement = move_job(
+            job=job,
+            movement_type="received",
+            to_employee=employee,
+            performed_by=employee,
+        )
 
-        messages.success(request, f"Job {job.barcode} received.")
+        if movement is None:
+            messages.info(
+                request,
+                f"Job {job.barcode} was already received.",
+            )
+        else:
+            messages.success(
+                request,
+                f"Job {job.barcode} received.",
+            )
+
         return redirect("culet:receive_list")
 
 
-class ReceiveAllJobsView(LoginRequiredMixin, generic.View):
+class ReceiveAllJobsView(
+    LoginRequiredMixin,
+    generic.View,
+):
     @transaction.atomic
     def post(self, request, *args, **kwargs):
         employee = request.user.employee
 
-        jobs = get_receivable_jobs_for_employee(employee)
-        count = jobs.update(holder=employee)
-
-        messages.success(request, f"{count} job(s) received.")
-        return redirect("culet:my_jobs")
-
-class ReceiveAndAssignJobsView(LoginRequiredMixin, generic.TemplateView):
-    template_name = "jobs/receive_and_assign.html"
-
-    def get_assignable_employees(self):
-        current_employee = self.request.user.employee
-
-        employees = (
-            Employee.objects
-            .select_related("user", "department", "role")
-            .order_by(
-                "role__name",
-                "user__last_name",
-                "user__first_name",
-            )
-            .exclude(id=current_employee.id)
+        jobs = list(
+            get_receivable_jobs_for_employee(employee)
+            .select_related("holder")
         )
 
-        role_name = current_employee.role.name if current_employee.role else ""
+        received_count = 0
 
-        if role_name == "Super":
-            return employees
-
-        if role_name == "Manager":
-            return employees.filter(
-                department=current_employee.department
+        for job in jobs:
+            job, movement = move_job(
+                job=job,
+                movement_type="received",
+                to_employee=employee,
+                performed_by=employee,
             )
 
-        return Employee.objects.none()
+            if movement is not None:
+                received_count += 1
 
-    def get(self, request, *args, **kwargs):
-        employees = self.get_assignable_employees()
+        if received_count:
+            job_word = (
+                "job"
+                if received_count == 1
+                else "jobs"
+            )
 
-        return render(request, self.template_name, {
-            "managers": employees.filter(role__name="Manager") | employees.filter(role__name="Super"),
-            "employees": employees.exclude(role__name="Manager").exclude(role__name="Super"),
-        })
-
-    @transaction.atomic
-    def post(self, request, *args, **kwargs):
-        current_employee = request.user.employee
-        employees = self.get_assignable_employees()
-
-        receiving_employee = get_object_or_404(
-            employees,
-            id=request.POST.get("employee")
-        )
-
-        scanned_jobs = [
-            barcode.strip()
-            for barcode in request.POST.getlist("job")
-            if barcode.strip()
-        ]
-
-        if not scanned_jobs:
-            messages.error(request, "Please scan at least one job.")
-            return redirect("culet:receive_and_assign_jobs")
-
-        assigned_count = 0
-        missing_jobs = []
-
-        for barcode in scanned_jobs:
-            try:
-                job = Job.objects.get(barcode=barcode)
-
-                job.holder = receiving_employee
-                job.assigned_to = receiving_employee
-                job.save()
-
-                assigned_count += 1
-
-            except Job.DoesNotExist:
-                missing_jobs.append(barcode)
-
-        if assigned_count:
             messages.success(
                 request,
-                f"{assigned_count} job(s) received and assigned to {receiving_employee}."
+                f"{received_count} {job_word} received.",
             )
-
-        if missing_jobs:
-            messages.error(
+        else:
+            messages.info(
                 request,
-                f"These jobs were not found: {', '.join(missing_jobs)}"
+                "There are no jobs waiting to be received.",
             )
 
-        return redirect("culet:receive_and_assign_jobs")
+        return redirect("culet:my_jobs")
 
-from datetime import timedelta
+# class ReceiveAndAssignJobsView(LoginRequiredMixin, generic.TemplateView):
+#     template_name = "jobs/receive_and_assign.html"
+
+#     def get_assignable_employees(self):
+#         current_employee = self.request.user.employee
+
+#         employees = (
+#             Employee.objects
+#             .select_related("user", "department", "role")
+#             .order_by(
+#                 "role__name",
+#                 "user__last_name",
+#                 "user__first_name",
+#             )
+#             .exclude(id=current_employee.id)
+#         )
+
+#         role_name = current_employee.role.name if current_employee.role else ""
+
+#         if role_name == "Super":
+#             return employees
+
+#         if role_name == "Manager":
+#             return employees.filter(
+#                 department=current_employee.department
+#             )
+
+#         return Employee.objects.none()
+
+#     def get(self, request, *args, **kwargs):
+#         employees = self.get_assignable_employees()
+
+#         return render(request, self.template_name, {
+#             "managers": employees.filter(role__name="Manager") | employees.filter(role__name="Super"),
+#             "employees": employees.exclude(role__name="Manager").exclude(role__name="Super"),
+#         })
+
+#     @transaction.atomic
+#     def post(self, request, *args, **kwargs):
+#         current_employee = request.user.employee
+#         employees = self.get_assignable_employees()
+
+#         receiving_employee = get_object_or_404(
+#             employees,
+#             id=request.POST.get("employee")
+#         )
+
+#         scanned_jobs = [
+#             barcode.strip()
+#             for barcode in request.POST.getlist("job")
+#             if barcode.strip()
+#         ]
+
+#         if not scanned_jobs:
+#             messages.error(request, "Please scan at least one job.")
+#             return redirect("culet:receive_and_assign_jobs")
+
+#         assigned_count = 0
+#         missing_jobs = []
+
+#         for barcode in scanned_jobs:
+#             try:
+#                 job = Job.objects.get(barcode=barcode)
+
+#                 job.holder = receiving_employee
+#                 job.assigned_to = receiving_employee
+#                 job.save()
+
+#                 assigned_count += 1
+
+#             except Job.DoesNotExist:
+#                 missing_jobs.append(barcode)
+
+#         if assigned_count:
+#             messages.success(
+#                 request,
+#                 f"{assigned_count} job(s) received and assigned to {receiving_employee}."
+#             )
+
+#         if missing_jobs:
+#             messages.error(
+#                 request,
+#                 f"These jobs were not found: {', '.join(missing_jobs)}"
+#             )
+
+#         return redirect("culet:receive_and_assign_jobs")
 
 class ReportingListView(LoginRequiredMixin, generic.ListView):
     model = Activity
@@ -1553,31 +1608,11 @@ class AssignJobView(
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        employees = self.get_employees()
-
-        department_ids = (
-            employees
-            .exclude(department__isnull=True)
-            .values_list("department_id", flat=True)
-            .distinct()
-        )
-
-        context["employees"] = employees
-        context["departments"] = (
-            Department.objects
-            .filter(pk__in=department_ids)
-            .order_by("name")
-        )
-        context["selected_job"] = self.get_selected_job()
-
-        return context
-
-        context = super().get_context_data(**kwargs)
-
         context["employees"] = self.get_employees()
         context["selected_job"] = self.get_selected_job()
 
         return context
+
     def post(self, request, *args, **kwargs):
         employee_id = request.POST.get(
             "employee",
@@ -1605,7 +1640,7 @@ class AssignJobView(
         if not employee_id:
             messages.error(
                 request,
-                "Please select the employee receiving these jobs.",
+                "Please select the employee to assign these jobs to.",
             )
             return redirect(redirect_url)
 
@@ -1690,29 +1725,38 @@ class AssignJobView(
                 )
                 return redirect("culet:assign_job")
 
-            # Keep the same order in which the jobs were scanned.
+            # Keep the same order in which jobs were submitted.
             jobs = [
                 jobs_by_barcode[barcode]
                 for barcode in submitted_barcodes
             ]
 
+        assigned_count = 0
+
         with transaction.atomic():
             for job in jobs:
-                job.assigned_to = employee
-
-                job.save(
-                    update_fields=[
-                        "assigned_to",
-                        "last_updated",
-                    ]
+                job, movement = move_job(
+                    job=job,
+                    movement_type="assigned",
+                    to_employee=employee,
+                    performed_by=request.user.employee,
                 )
 
-        job_word = "job" if len(jobs) == 1 else "jobs"
+                if movement is not None:
+                    assigned_count += 1
 
-        messages.success(
-            request,
-            f"{len(jobs)} {job_word} assigned to {employee}.",
-        )
+        if assigned_count:
+            job_word = "job" if assigned_count == 1 else "jobs"
+
+            messages.success(
+                request,
+                f"{assigned_count} {job_word} assigned to {employee}.",
+            )
+        else:
+            messages.info(
+                request,
+                f"The selected job(s) were already assigned to {employee}.",
+            )
 
         if len(jobs) == 1:
             return redirect(
@@ -1722,17 +1766,27 @@ class AssignJobView(
 
         return redirect("culet:index_job")
     
-class ReturnJobView(LoginRequiredMixin, generic.TemplateView):
+class ReturnJobView(
+    LoginRequiredMixin,
+    generic.TemplateView,
+):
     template_name = "jobs/return.html"
 
     def get_managers(self):
         return (
             Employee.objects
             .filter(
-                role__name__in=["Manager", "Super"],
+                role__name__in=[
+                    "Manager",
+                    "Super",
+                ],
                 user__is_active=True,
             )
-            .select_related("user", "department", "role")
+            .select_related(
+                "user",
+                "department",
+                "role",
+            )
             .order_by(
                 "user__last_name",
                 "user__first_name",
@@ -1741,7 +1795,9 @@ class ReturnJobView(LoginRequiredMixin, generic.TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+
         context["managers"] = self.get_managers()
+
         return context
 
     def post(self, request, *args, **kwargs):
@@ -1751,7 +1807,10 @@ class ReturnJobView(LoginRequiredMixin, generic.TemplateView):
             if barcode.strip()
         ]
 
-        employee_id = request.POST.get("employee", "").strip()
+        employee_id = request.POST.get(
+            "employee",
+            "",
+        ).strip()
 
         if not submitted_barcodes:
             messages.error(
@@ -1775,9 +1834,16 @@ class ReturnJobView(LoginRequiredMixin, generic.TemplateView):
         })
 
         if duplicate_barcodes:
+            barcode_word = (
+                "barcode"
+                if len(duplicate_barcodes) == 1
+                else "barcodes"
+            )
+
             messages.error(
                 request,
-                "The following barcode was entered more than once: "
+                f"The following {barcode_word} "
+                "were entered more than once: "
                 + ", ".join(duplicate_barcodes),
             )
             return redirect("culet:return_job")
@@ -1789,8 +1855,13 @@ class ReturnJobView(LoginRequiredMixin, generic.TemplateView):
 
         jobs = list(
             Job.objects
-            .filter(barcode__in=submitted_barcodes)
-            .select_related("style")
+            .filter(
+                barcode__in=submitted_barcodes,
+            )
+            .select_related(
+                "style",
+                "assigned_to",
+            )
         )
 
         jobs_by_barcode = {
@@ -1812,127 +1883,140 @@ class ReturnJobView(LoginRequiredMixin, generic.TemplateView):
             )
             return redirect("culet:return_job")
 
+        returned_count = 0
+
         with transaction.atomic():
             for barcode in submitted_barcodes:
                 job = jobs_by_barcode[barcode]
-                job.assigned_to = manager
-                job.save(update_fields=["assigned_to", "last_updated"])
 
-        job_word = "job" if len(jobs) == 1 else "jobs"
+                job, movement = move_job(
+                    job=job,
+                    movement_type="returned-to-manager",
+                    to_employee=manager,
+                    performed_by=request.user.employee,
+                )
 
-        messages.success(
-            request,
-            f"{len(jobs)} {job_word} returned to {manager}.",
-        )
+                if movement is not None:
+                    returned_count += 1
+
+        if returned_count:
+            job_word = (
+                "job"
+                if returned_count == 1
+                else "jobs"
+            )
+
+            messages.success(
+                request,
+                f"{returned_count} {job_word} returned to {manager}.",
+            )
+        else:
+            messages.info(
+                request,
+                f"The selected job(s) were already assigned to {manager}.",
+            )
 
         return redirect("culet:return_job")
 
 
-@login_required
-def startWork(request):
-    if request.method != "POST":
-        return redirect("culet:my_jobs")
-
-    employee = request.user.employee
-
-    if employee.clocked_in == False:
-        messages.error(request, f"Activity could not be started, please clock in first")
-        return redirect("culet:my_jobs")
-
-    job = get_object_or_404(
-        Job,
-        id=request.POST.get("job_id"),
-        assigned_to=employee,
-        holder=employee,
-    )
-
-    if job.in_work:
-        messages.error(request, f"Job {job.barcode} could not be started. Activity already started.")
-        return redirect("culet:my_jobs")
-
-    form = ActivityStartForm(request.POST, employee=employee)
-
-    if not form.is_valid():
-        messages.error(request, "Please choose a valid activity step.")
-        return redirect("culet:my_jobs")
-
-    activity = form.save(commit=False)
-    activity.employee = employee
-    activity.job = job
-    activity.start = timezone.now()
-    activity.name = activity.step.name
-    activity.save()
-
-    job.in_work = True
-    job.assigned_to = employee
-    job.holder = employee
-    job.save()
-
-    messages.success(request, f"Job {job.barcode} has been started. ({activity.step.name})")
-    return redirect("culet:my_jobs")
-
-class StartWorkView(LoginRequiredMixin, generic.View):
+class StartWorkView(
+    LoginRequiredMixin,
+    generic.View,
+):
     template_name = "jobs/start_work.html"
+
+    def get_job(self, pk):
+        return get_object_or_404(
+            Job.objects.select_related(
+                "assigned_to",
+                "holder",
+            ),
+            pk=pk,
+        )
+
+    def validate_job(self, request, job, employee):
+        if not job.active:
+            messages.error(
+                request,
+                "This job is inactive and cannot be started.",
+            )
+            return False
+
+        if job.shipped:
+            messages.error(
+                request,
+                "This job has already been shipped.",
+            )
+            return False
+
+        if job.is_piecework:
+            messages.error(
+                request,
+                (
+                    "This job is currently assigned as piecework "
+                    "and cannot be started here."
+                ),
+            )
+            return False
+
+        if job.assigned_to != employee:
+            messages.error(
+                request,
+                "You can only start jobs assigned to you.",
+            )
+            return False
+
+        if job.holder != employee:
+            messages.error(
+                request,
+                (
+                    "You must receive this job before starting work."
+                ),
+            )
+            return False
+
+        if not employee.clocked_in:
+            messages.error(
+                request,
+                "Please clock in before starting work.",
+            )
+            return False
+
+        return True
 
     def get(self, request, pk):
         employee = request.user.employee
-        job = get_object_or_404(Job, pk=pk)
+        job = self.get_job(pk)
 
-        if not job.active:
-            messages.error(request, "This job is inactive and cannot be started.")
+        if not self.validate_job(
+            request,
+            job,
+            employee,
+        ):
             return redirect("culet:my_jobs")
 
-        if job.shipped:
-            messages.error(request, "This job has already been shipped.")
-            return redirect("culet:my_jobs")
+        form = StartWorkForm(
+            employee=employee,
+        )
 
-        if job.is_piecework:
-            messages.error(
-                request,
-                "This job is currently assigned as piecework and cannot be started here."
-            )
-            return redirect("culet:my_jobs")
-
-        if job.assigned_to != employee:
-            messages.error(request, "You can only start jobs assigned to you.")
-            return redirect("culet:my_jobs")
-
-        if not employee.clocked_in:
-            messages.error(request, "Please clock in before starting work.")
-            return redirect("culet:my_jobs")
-
-        form = StartWorkForm(employee=employee)
-
-        return render(request, self.template_name, {
-            "job": job,
-            "form": form,
-        })
+        return render(
+            request,
+            self.template_name,
+            {
+                "job": job,
+                "form": form,
+            },
+        )
 
     def post(self, request, pk):
         employee = request.user.employee
-        job = get_object_or_404(Job, pk=pk)
+        job = self.get_job(pk)
 
-        if job.assigned_to != employee:
-            messages.error(request, "You can only start jobs assigned to you.")
-            return redirect("culet:my_jobs")
-
-        if not job.active:
-            messages.error(request, "This job is inactive and cannot be started.")
-            return redirect("culet:my_jobs")
-
-        if job.shipped:
-            messages.error(request, "This job has already been shipped.")
-            return redirect("culet:my_jobs")
-
-        if job.is_piecework:
-            messages.error(
-                request,
-                "This job is currently assigned as piecework and cannot be started here."
-            )
-            return redirect("culet:my_jobs")
-
-        if not employee.clocked_in:
-            messages.error(request, "Please clock in before starting work.")
+        if not self.validate_job(
+            request,
+            job,
+            employee,
+        ):
             return redirect("culet:my_jobs")
 
         has_open_activity = Activity.objects.filter(
@@ -1944,19 +2028,37 @@ class StartWorkView(LoginRequiredMixin, generic.View):
         if has_open_activity:
             if not job.in_work:
                 job.in_work = True
-                job.save(update_fields=["in_work", "last_updated"])
+                job.save(
+                    update_fields=[
+                        "in_work",
+                        "last_updated",
+                    ],
+                )
 
             messages.error(
                 request,
-                f"Job {job.barcode} is already in work."
+                f"Job {job.barcode} is already in work.",
             )
             return redirect("culet:my_jobs")
 
-        form = StartWorkForm(employee=employee, data=request.POST)
+        form = StartWorkForm(
+            employee=employee,
+            data=request.POST,
+        )
 
-        if form.is_valid():
-            step = form.cleaned_data["step"]
+        if not form.is_valid():
+            return render(
+                request,
+                self.template_name,
+                {
+                    "job": job,
+                    "form": form,
+                },
+            )
 
+        step = form.cleaned_data["step"]
+
+        with transaction.atomic():
             Activity.objects.create(
                 job=job,
                 employee=employee,
@@ -1965,16 +2067,19 @@ class StartWorkView(LoginRequiredMixin, generic.View):
             )
 
             job.in_work = True
-            job.holder = employee
-            job.save()
+            job.save(
+                update_fields=[
+                    "in_work",
+                    "last_updated",
+                ],
+            )
 
-            messages.success(request, f"Started {step} on job {job.barcode}.")
-            return redirect("culet:my_jobs")
+        messages.success(
+            request,
+            f"Started {step} on job {job.barcode}.",
+        )
 
-        return render(request, self.template_name, {
-            "job": job,
-            "form": form,
-        })
+        return redirect("culet:my_jobs")
 
 @login_required
 def stopWork(request, pk, job_id):
@@ -3136,33 +3241,64 @@ class JobsByHolderReportView(LoginRequiredMixin, generic.TemplateView):
         context["total_jobs"] = Job.objects.filter(holder__isnull=False,active=True,shipped=False,).count()
         return context
     
-class BulkJobShipView(LoginRequiredMixin, generic.TemplateView):
+class BulkJobShipView(
+    LoginRequiredMixin,
+    generic.TemplateView,
+):
     template_name = "jobs/job_ship_bulk.html"
     success_url = reverse_lazy("culet:job_ship_bulk")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["form"] = BulkJobShipForm()
-        context["formset"] = JobShipLineFormSet(prefix="ship_lines")
+
+        context["form"] = kwargs.get(
+            "form",
+            BulkJobShipForm(),
+        )
+
+        context["formset"] = kwargs.get(
+            "formset",
+            JobShipLineFormSet(
+                prefix="ship_lines",
+            ),
+        )
+
         return context
 
     def post(self, request, *args, **kwargs):
-        form = BulkJobShipForm(request.POST)
-        formset = JobShipLineFormSet(request.POST, prefix="ship_lines")
+        form = BulkJobShipForm(
+            request.POST,
+        )
+
+        formset = JobShipLineFormSet(
+            request.POST,
+            prefix="ship_lines",
+        )
 
         if not form.is_valid() or not formset.is_valid():
-            return self.render_to_response({
-                "form": form,
-                "formset": formset,
-            })
+            return self.render_to_response(
+                self.get_context_data(
+                    form=form,
+                    formset=formset,
+                )
+            )
 
-        employee = get_object_or_404(Employee, user=request.user)
-        notes = form.cleaned_data.get("notes", "")
+        employee = get_object_or_404(
+            Employee,
+            user=request.user,
+        )
+
+        notes = form.cleaned_data.get(
+            "notes",
+            "",
+        )
 
         barcodes = []
 
         for line_form in formset:
-            barcode = line_form.cleaned_data.get("barcode")
+            barcode = line_form.cleaned_data.get(
+                "barcode",
+            )
 
             if barcode:
                 barcode = (
@@ -3177,43 +3313,67 @@ class BulkJobShipView(LoginRequiredMixin, generic.TemplateView):
                 barcodes.append(barcode)
 
         if not barcodes:
-            messages.error(request, "Scan at least one barcode.")
-            return self.render_to_response({
-                "form": form,
-                "formset": formset,
-            })
+            messages.error(
+                request,
+                "Scan at least one barcode.",
+            )
 
-        duplicate_barcodes = {
-            barcode for barcode in barcodes
+            return self.render_to_response(
+                self.get_context_data(
+                    form=form,
+                    formset=formset,
+                )
+            )
+
+        duplicate_barcodes = sorted({
+            barcode
+            for barcode in barcodes
             if barcodes.count(barcode) > 1
-        }
+        })
 
         if duplicate_barcodes:
             messages.error(
                 request,
-                f"Duplicate barcode(s): {', '.join(duplicate_barcodes)}"
+                (
+                    "Duplicate barcode(s): "
+                    + ", ".join(duplicate_barcodes)
+                ),
             )
-            return self.render_to_response({
-                "form": form,
-                "formset": formset,
-            })
+
+            return self.render_to_response(
+                self.get_context_data(
+                    form=form,
+                    formset=formset,
+                )
+            )
 
         jobs_by_barcode = {}
+
         missing_barcodes = []
         already_shipped_barcodes = []
         in_work_barcodes = []
 
         for barcode in barcodes:
-            job = Job.objects.filter(
-                barcode__iexact=barcode,
-            ).first()
+            job = (
+                Job.objects
+                .select_related(
+                    "assigned_to",
+                    "holder",
+                )
+                .filter(
+                    barcode__iexact=barcode,
+                )
+                .first()
+            )
 
             if not job:
                 missing_barcodes.append(barcode)
                 continue
 
             if job.shipped:
-                already_shipped_barcodes.append(barcode)
+                already_shipped_barcodes.append(
+                    barcode,
+                )
                 continue
 
             has_open_activity = Activity.objects.filter(
@@ -3231,50 +3391,86 @@ class BulkJobShipView(LoginRequiredMixin, generic.TemplateView):
         if missing_barcodes:
             messages.error(
                 request,
-                f"No job found for barcode(s): {', '.join(missing_barcodes)}"
+                (
+                    "No job found for barcode(s): "
+                    + ", ".join(missing_barcodes)
+                ),
             )
-            return self.render_to_response({
-                "form": form,
-                "formset": formset,
-            })
+
+            return self.render_to_response(
+                self.get_context_data(
+                    form=form,
+                    formset=formset,
+                )
+            )
 
         if already_shipped_barcodes:
             messages.error(
                 request,
-                f"Already shipped barcode(s): {', '.join(already_shipped_barcodes)}"
+                (
+                    "Already shipped barcode(s): "
+                    + ", ".join(
+                        already_shipped_barcodes
+                    )
+                ),
             )
-            return self.render_to_response({
-                "form": form,
-                "formset": formset,
-            })
+
+            return self.render_to_response(
+                self.get_context_data(
+                    form=form,
+                    formset=formset,
+                )
+            )
 
         if in_work_barcodes:
             messages.error(
                 request,
                 (
-                    "These jobs are currently being worked on and must be "
-                    "stopped before shipping: "
+                    "These jobs are currently being worked on "
+                    "and must be stopped before shipping: "
                     + ", ".join(in_work_barcodes)
                 ),
             )
-            return self.render_to_response({
-                "form": form,
-                "formset": formset,
-            })
+
+            return self.render_to_response(
+                self.get_context_data(
+                    form=form,
+                    formset=formset,
+                )
+            )
+
+        shipped_count = 0
 
         with transaction.atomic():
             for barcode in barcodes:
                 job = jobs_by_barcode[barcode]
 
+                # Clear the job's assignment.
+                job, assignment_movement = move_job(
+                    job=job,
+                    movement_type="shipped-unassigned",
+                    to_employee=None,
+                    performed_by=employee,
+                )
+
+                # Clear physical possession of the job.
+                job, holder_movement = move_job(
+                    job=job,
+                    movement_type="shipped-released",
+                    to_employee=None,
+                    performed_by=employee,
+                )
+
                 job.shipped = True
                 job.in_work = False
-                job.holder = employee
-                job.save(update_fields=[
-                    "shipped",
-                    "in_work",
-                    "holder",
-                    "last_updated",
-                ])
+
+                job.save(
+                    update_fields=[
+                        "shipped",
+                        "in_work",
+                        "last_updated",
+                    ],
+                )
 
                 JobShip.objects.create(
                     job=job,
@@ -3282,9 +3478,17 @@ class BulkJobShipView(LoginRequiredMixin, generic.TemplateView):
                     notes=notes,
                 )
 
+                shipped_count += 1
+
+        job_word = (
+            "job"
+            if shipped_count == 1
+            else "jobs"
+        )
+
         messages.success(
             request,
-            f"Shipped {len(barcodes)} job(s)."
+            f"Shipped {shipped_count} {job_word}.",
         )
 
         return redirect(self.success_url)
@@ -3750,7 +3954,10 @@ class StyleStepTimeReportView(LoginRequiredMixin, generic.TemplateView):
 
         return context
     
-class PieceworkCreateView(LoginRequiredMixin, generic.TemplateView):
+class PieceworkCreateView(
+    LoginRequiredMixin,
+    generic.TemplateView,
+):
     template_name = "piecework/create.html"
 
     def get(self, request, *args, **kwargs):
@@ -3765,10 +3972,18 @@ class PieceworkCreateView(LoginRequiredMixin, generic.TemplateView):
 
     @transaction.atomic
     def post(self, request, *args, **kwargs):
-        memo_form = PieceworkMemoCreateForm(request.POST)
-        scan_form = PieceworkScanForm(request.POST)
+        memo_form = PieceworkMemoCreateForm(
+            request.POST,
+        )
 
-        if not memo_form.is_valid() or not scan_form.is_valid():
+        scan_form = PieceworkScanForm(
+            request.POST,
+        )
+
+        if (
+            not memo_form.is_valid()
+            or not scan_form.is_valid()
+        ):
             return render(
                 request,
                 self.template_name,
@@ -3778,74 +3993,130 @@ class PieceworkCreateView(LoginRequiredMixin, generic.TemplateView):
                 },
             )
 
-        creator = get_employee(request.user)
+        creator = get_employee(
+            request.user,
+        )
 
         scans = [
             line.strip()
-            for line in scan_form.cleaned_data["scans"].splitlines()
+            for line in (
+                scan_form
+                .cleaned_data["scans"]
+                .splitlines()
+            )
             if line.strip()
         ]
 
         if not scans:
-            messages.error(request, "Please scan at least one job.")
-            return redirect("culet:piecework_create")
+            messages.error(
+                request,
+                "Please scan at least one job.",
+            )
 
-        piecework_location, created = Location.objects.get_or_create(
-            name="Piecework",
-            defaults={"active": True},
+            return redirect(
+                "culet:piecework_create",
+            )
+
+        piecework_location, created = (
+            Location.objects.get_or_create(
+                name="Piecework",
+                defaults={
+                    "active": True,
+                },
+            )
         )
 
-        from_location, created = Location.objects.get_or_create(
-            name="Office",
-            defaults={"active": True},
+        from_location, created = (
+            Location.objects.get_or_create(
+                name="Office",
+                defaults={
+                    "active": True,
+                },
+            )
         )
-
-        memo = memo_form.save(commit=False)
-        memo.created_by = creator
-        memo.from_location = from_location
-        memo.to_location = piecework_location
-        memo.save()
 
         found_jobs = []
         missing_scans = []
+        seen_job_ids = set()
 
         for scan in scans:
             job = find_job_by_scan(scan)
 
             if not job:
-                missing_scans.append(f"{scan} - job not found")
+                missing_scans.append(
+                    f"{scan} - job not found",
+                )
                 continue
 
+            if job.pk in seen_job_ids:
+                missing_scans.append(
+                    f"{scan} - duplicate scan",
+                )
+                continue
+
+            seen_job_ids.add(job.pk)
+
             if not job.active:
-                missing_scans.append(f"{scan} - inactive")
+                missing_scans.append(
+                    f"{scan} - inactive",
+                )
                 continue
 
             if job.shipped:
-                missing_scans.append(f"{scan} - already shipped")
+                missing_scans.append(
+                    f"{scan} - already shipped",
+                )
                 continue
 
             if job.is_piecework:
-                missing_scans.append(f"{scan} - already assigned to piecework")
+                missing_scans.append(
+                    (
+                        f"{scan} - already assigned "
+                        f"to piecework"
+                    ),
+                )
                 continue
 
-            has_open_activity = Activity.objects.filter(
-                job=job,
-                active=True,
-                end__isnull=True,
-            ).exists()
+            has_open_activity = (
+                Activity.objects.filter(
+                    job=job,
+                    active=True,
+                    end__isnull=True,
+                )
+                .exists()
+            )
 
             if has_open_activity:
                 missing_scans.append(
-                    f"{scan} - currently being worked on"
+                    (
+                        f"{scan} - currently being "
+                        f"worked on"
+                    ),
                 )
                 continue
 
             found_jobs.append(job)
 
         if not found_jobs:
-            memo.delete()
-            messages.error(request, "No valid jobs were found.")
-            return redirect("culet:piecework_create")
+            messages.error(
+                request,
+                "No valid jobs were found.",
+            )
+
+            return redirect(
+                "culet:piecework_create",
+            )
+
+        memo = memo_form.save(
+            commit=False,
+        )
+
+        memo.created_by = creator
+        memo.from_location = from_location
+        memo.to_location = piecework_location
+        memo.save()
+
+        assigned_at = timezone.now()
 
         for job in found_jobs:
             PieceworkMemoLine.objects.create(
@@ -3853,25 +4124,67 @@ class PieceworkCreateView(LoginRequiredMixin, generic.TemplateView):
                 job=job,
             )
 
-            job.assigned_to = memo.assigned_to
+            # Piecework assignment changes the employee
+            # responsible for the job.
+            job, assignment_movement = move_job(
+                job=job,
+                movement_type="assigned",
+                to_employee=memo.assigned_to,
+                performed_by=creator,
+            )
 
-            if hasattr(job, "holder"):
-                job.holder = memo.assigned_to
+            # The pieceworker also physically receives
+            # possession of the job.
+            job, holder_movement = move_job(
+                job=job,
+                movement_type="received",
+                to_employee=memo.assigned_to,
+                performed_by=creator,
+            )
 
             job.location = piecework_location
             job.in_work = False
             job.is_piecework = True
-            job.piecework_assigned_at = timezone.now()
-            job.save()
+            job.piecework_assigned_at = assigned_at
+
+            job.save(
+                update_fields=[
+                    "location",
+                    "in_work",
+                    "is_piecework",
+                    "piecework_assigned_at",
+                    "last_updated",
+                ],
+            )
 
         if missing_scans:
             messages.warning(
                 request,
-                "Some scans were skipped: " + ", ".join(missing_scans),
+                (
+                    "Some scans were skipped: "
+                    + ", ".join(missing_scans)
+                ),
             )
 
-        messages.success(request, "Piecework memo created.")
-        return redirect("culet:piecework_print", pk=memo.pk)
+        job_count = len(found_jobs)
+        job_word = (
+            "job"
+            if job_count == 1
+            else "jobs"
+        )
+
+        messages.success(
+            request,
+            (
+                f"Piecework memo created with "
+                f"{job_count} {job_word}."
+            ),
+        )
+
+        return redirect(
+            "culet:piecework_print",
+            pk=memo.pk,
+        )
 
 
 class PieceworkOpenListView(LoginRequiredMixin, generic.ListView):
@@ -3896,32 +4209,108 @@ class PieceworkOpenListView(LoginRequiredMixin, generic.ListView):
         )
 
 
-class PieceworkReturnView(LoginRequiredMixin, generic.DetailView):
+class PieceworkReturnView(
+    LoginRequiredMixin,
+    generic.DetailView,
+):
     model = PieceworkMemo
     template_name = "piecework/return.html"
     context_object_name = "memo"
 
+    def get_queryset(self):
+        return (
+            PieceworkMemo.objects
+            .select_related(
+                "assigned_to",
+                "created_by",
+                "returned_by",
+                "from_location",
+                "to_location",
+            )
+            .prefetch_related(
+                "lines__job",
+            )
+        )
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["locations"] = Location.objects.filter(active=True).order_by("name")
+
+        context["locations"] = (
+            Location.objects
+            .filter(active=True)
+            .order_by("name")
+        )
+
         return context
 
     @transaction.atomic
     def post(self, request, *args, **kwargs):
-        piecework_step = ActivityStep.objects.get(code="piecework")
         memo = self.get_object()
-        return_location_id = request.POST.get("return_location")
 
-        return_location = get_object_or_404(Location, pk=return_location_id)
-        returned_by = get_employee(request.user)
+        if memo.returned_at:
+            messages.info(
+                request,
+                (
+                    f"Piecework memo {memo.memo_num} "
+                    f"has already been returned."
+                ),
+            )
 
-        # Capture one timestamp for the entire return operation
+            return redirect(
+                "culet:piecework_open",
+            )
+
+        return_location_id = request.POST.get(
+            "return_location",
+        )
+
+        if not return_location_id:
+            messages.error(
+                request,
+                "Please select a return location.",
+            )
+
+            return self.render_to_response(
+                self.get_context_data(
+                    object=memo,
+                )
+            )
+
+        return_location = get_object_or_404(
+            Location,
+            pk=return_location_id,
+            active=True,
+        )
+
+        returned_by = get_employee(
+            request.user,
+        )
+
+        piecework_step = get_object_or_404(
+            ActivityStep,
+            code="piecework",
+        )
+
         returned_at = timezone.now()
+        returned_count = 0
 
-        for line in memo.lines.select_related("job"):
+        lines = (
+            memo.lines
+            .select_related(
+                "job",
+                "job__assigned_to",
+                "job__holder",
+            )
+            .all()
+        )
+
+        for line in lines:
             job = line.job
 
-            piecework_start = job.piecework_assigned_at or memo.created_at
+            piecework_start = (
+                job.piecework_assigned_at
+                or memo.created_at
+            )
 
             Activity.objects.create(
                 job=job,
@@ -3929,26 +4318,77 @@ class PieceworkReturnView(LoginRequiredMixin, generic.DetailView):
                 step=piecework_step,
                 start=piecework_start,
                 end=returned_at,
-                duration=returned_at - piecework_start,
+                duration=(
+                    returned_at
+                    - piecework_start
+                ),
                 is_piecework=True,
                 active=False,
             )
 
+            # Responsibility returns to the employee
+            # processing the piecework return.
+            job, assignment_movement = move_job(
+                job=job,
+                movement_type="returned-to-manager",
+                to_employee=returned_by,
+                performed_by=returned_by,
+            )
+
+            # Physical possession also returns to that
+            # employee.
+            job, holder_movement = move_job(
+                job=job,
+                movement_type="returned",
+                to_employee=returned_by,
+                performed_by=returned_by,
+            )
+
             job.location = return_location
             job.is_piecework = False
+            job.in_work = False
             job.piecework_assigned_at = None
 
-            if hasattr(job, "holder"):
-                job.holder = returned_by
+            job.save(
+                update_fields=[
+                    "location",
+                    "is_piecework",
+                    "in_work",
+                    "piecework_assigned_at",
+                    "last_updated",
+                ],
+            )
 
-            job.save()
+            returned_count += 1
 
         memo.returned_at = returned_at
         memo.returned_by = returned_by
-        memo.save()
 
-        messages.success(request, "Piecework memo marked as returned.")
-        return redirect("culet:piecework_open")
+        memo.save(
+            update_fields=[
+                "returned_at",
+                "returned_by",
+            ],
+        )
+
+        job_word = (
+            "job"
+            if returned_count == 1
+            else "jobs"
+        )
+
+        messages.success(
+            request,
+            (
+                f"Piecework memo {memo.memo_num} "
+                f"was returned with "
+                f"{returned_count} {job_word}."
+            ),
+        )
+
+        return redirect(
+            "culet:piecework_open",
+        )
     
 class MemoListView(LoginRequiredMixin, generic.TemplateView):
     template_name = "memos/memo_list.html"

@@ -684,16 +684,74 @@ class Activity(models.Model):
     def __str__(self):
         step_name = self.step.name if self.step else self.name
         return f"{self.job.barcode} {step_name}"
+    
 class MovementType(models.Model):
-    name=models.CharField(max_length=80,default='Assign',unique=True)
-    code = models.SlugField(max_length=50,unique=True)
+    class JobField(models.TextChoices):
+        ASSIGNED_TO = "assigned_to", "Assigned To"
+        HOLDER = "holder", "Holder"
+
+    name = models.CharField(
+        max_length=80,
+        unique=True,
+    )
+
+    code = models.SlugField(
+        max_length=50,
+        unique=True,
+    )
+
+    job_field = models.CharField(
+        max_length=20,
+        choices=JobField.choices,
+    )
+
+    def __str__(self):
+        return self.name
+    
 class JobMovement(models.Model):
-    job = models.ForeignKey(Job,on_delete=models.CASCADE, related_name="movements")
-    from_employee = models.ForeignKey(Employee, on_delete=models.SET_NULL, related_name="job_movements_from",null=True,blank=True)
-    to_employee = models.ForeignKey(Employee, on_delete=models.SET_NULL,related_name="job_movements_to",null=True,blank=True)
-    performed_by = models.ForeignKey(Employee, on_delete=models.SET_NULL,related_name="job_movements_performed",null=True,blank=True)
-    movement_type = models.ForeignKey(MovementType, on_delete=models.PROTECT, related_name="job_movement_type")
+    job = models.ForeignKey(
+        Job,
+        on_delete=models.CASCADE,
+        related_name="movements",
+    )
+
+    from_employee = models.ForeignKey(
+        Employee,
+        on_delete=models.SET_NULL,
+        related_name="job_movements_from",
+        null=True,
+        blank=True,
+    )
+
+    to_employee = models.ForeignKey(
+        Employee,
+        on_delete=models.SET_NULL,
+        related_name="job_movements_to",
+        null=True,
+        blank=True,
+    )
+
+    performed_by = models.ForeignKey(
+        Employee,
+        on_delete=models.SET_NULL,
+        related_name="job_movements_performed",
+        null=True,
+        blank=True,
+    )
+
+    movement_type = models.ForeignKey(
+        MovementType,
+        on_delete=models.PROTECT,
+        related_name="job_movements",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+
+    def __str__(self):
+        return f"{self.job} — {self.movement_type}"
 
 class TimeClock(models.Model):
     clock_in = models.DateTimeField(null=True)
