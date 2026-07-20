@@ -1,6 +1,8 @@
 from django.contrib import admin
 
 from .models import (
+    MovementType,
+    JobMovement,
     Activity,
     ActivityStep,
     Customer,
@@ -368,6 +370,65 @@ class JobAdmin(admin.ModelAdmin):
     )
     readonly_fields = ("created", "last_updated")
 
+@admin.register(MovementType)
+class MovementTypeAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "code",
+    )
+
+    search_fields = (
+        "name",
+        "code",
+    )
+    prepopulated_fields = {
+        "code": ("name",),
+    }
+    ordering = (
+        "name",
+    )
+@admin.register(JobMovement)
+class JobMovementAdmin(admin.ModelAdmin):
+    list_display = (
+        "job",
+        "movement_type",
+        "from_employee",
+        "to_employee",
+        "performed_by",
+        "created_at",
+    )
+    list_filter = (
+        "movement_type",
+        "created_at",
+    )
+    search_fields = (
+        "job__stock_num",
+        "job__barcode",
+        "movement_type__code"
+        "movement_type__nane",
+        "from_employee__user__first_name",
+        "from_employee__user__last_name",
+        "to_employee__user__first_name",
+        "to_employee__user__last_name",
+        "performed_by__user__first_name",
+        "performed_by__user__last_name",
+    )
+    autocomplete_fields = (
+        "job",
+        "from_employee",
+        "to_employee",
+        "performed_by",
+    )
+    list_select_related = (
+        "job",
+        "movement_type",
+        "from_employee__user",
+        "to_employee__user",
+        "performed_by__user",
+    )
+    date_hierarchy = "created_at"
+    ordering = ("-created_at",)
+    readonly_fields = ("created_at",)
 
 @admin.register(Activity)
 class ActivityAdmin(admin.ModelAdmin):
