@@ -1,46 +1,103 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container mt-4">
-    <h1>Create Transfer Memo</h1>
+<div class="job-page">
+    <div class="job-page-header">
+        <div>
+            <h1>Create Assignment Memo</h1>
+            <p class="job-page-subtitle">
+                Assign one or more jobs to an employee.
+            </p>
+        </div>
+    </div>
 
-    <form method="post">
+    <form method="post" class="job-form">
         {% csrf_token %}
 
-        <div class="form-group">
-            <label>{{ form.from_location.label }}</label>
-            {{ form.from_location }}
-            {{ form.from_location.errors }}
-        </div>
+        {% if form.non_field_errors %}
+            <div class="alert alert-danger">
+                {{ form.non_field_errors }}
+            </div>
+        {% endif %}
 
-        <div class="form-group">
-            <label>{{ form.to_location.label }}</label>
-            {{ form.to_location }}
-            {{ form.to_location.errors }}
-        </div>
+        <section class="job-section-card">
+            <h2 class="job-section-title">
+                Assignment
+            </h2>
 
-        <div class="form-group">
-            <label>{{ form.memo_to.label }}</label>
-            {{ form.memo_to }}
-            {{ form.memo_to.errors }}
-        </div>
+            <div class="job-form-grid">
+                <div class="job-field job-field-full">
+                    <label for="{{ form.assigned_to.id_for_label }}">
+                        {{ form.assigned_to.label }}
+                    </label>
 
-        <div class="form-group">
-            <label>{{ form.scanned_jobs.label }}</label>
-            {{ form.scanned_jobs }}
-            <small>{{ form.scanned_jobs.help_text }}</small>
-            {{ form.scanned_jobs.errors }}
-        </div>
+                    {{ form.assigned_to }}
 
-        <div class="form-group">
-            <label>{{ form.notes.label }}</label>
-            {{ form.notes }}
-            {{ form.notes.errors }}
-        </div>
+                    {% if form.assigned_to.errors %}
+                        <div class="field-errors">
+                            {{ form.assigned_to.errors }}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </section>
 
-        <button type="submit" class="btn btn-primary">
-            Create Memo and Move Jobs
-        </button>
+        <section class="job-section-card">
+            <h2 class="job-section-title">
+                Jobs
+            </h2>
+
+            <div class="job-field job-field-full">
+                <label for="{{ form.scanned_jobs.id_for_label }}">
+                    {{ form.scanned_jobs.label }}
+                </label>
+
+                {{ form.scanned_jobs }}
+
+                {% if form.scanned_jobs.help_text %}
+                    <small class="form-help-text">
+                        {{ form.scanned_jobs.help_text }}
+                    </small>
+                {% endif %}
+
+                {% if form.scanned_jobs.errors %}
+                    <div class="field-errors">
+                        {{ form.scanned_jobs.errors }}
+                    </div>
+                {% endif %}
+            </div>
+        </section>
+
+        <section class="job-section-card">
+            <h2 class="job-section-title">
+                Notes
+            </h2>
+
+            <div class="job-field job-field-full">
+                <label for="{{ form.notes.id_for_label }}">
+                    {{ form.notes.label }}
+                </label>
+
+                {{ form.notes }}
+
+                {% if form.notes.errors %}
+                    <div class="field-errors">
+                        {{ form.notes.errors }}
+                    </div>
+                {% endif %}
+            </div>
+        </section>
+
+        <div class="job-form-actions">
+            <button type="submit" class="btn btn-primary">
+                Create Memo and Assign Jobs
+            </button>
+
+            <a href="{% url 'culet:memo_list' %}"
+               class="btn btn-secondary">
+                Cancel
+            </a>
+        </div>
     </form>
 </div>
 {% endblock %}

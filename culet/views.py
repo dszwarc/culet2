@@ -725,6 +725,13 @@ class JobDetailView(LoginRequiredMixin, generic.DetailView):
             .order_by("-start")
         )
 
+        context["job_weights"] = (
+            JobWeight.objects
+            .filter(job=self.object)
+            .select_related("step", "recorded_by")
+            .order_by("-created_at", "-id")
+        )
+
         return context
 
 class JobCreateView(LoginRequiredMixin, generic.CreateView):
@@ -4824,7 +4831,7 @@ class RepairLookupView(LoginRequiredMixin, generic.FormView):
 
         if not original_job:
             messages.error(self.request, f"No job found for {scanned_value}.")
-            return redirect("culet:create_repair_lookup")
+            return redirect("culet:create_repair")
 
         return redirect(
             f"{reverse('culet:job_create')}?repair_from={original_job.pk}"

@@ -6,6 +6,36 @@ from culet.models import JobStatus
 
 JOB_STATUS_DEFINITIONS = [
     {
+        "name": "Waiting on Melee",
+        "sort_order": 0,
+        "active": True,
+    },
+    {
+        "name": "Waiting on Center",
+        "sort_order": 0,
+        "active": True,
+    },
+    {
+        "name": "Waiting on Findings",
+        "sort_order": 0,
+        "active": True,
+    },
+    {
+        "name": "Waiting on Castings",
+        "sort_order": 0,
+        "active": True,
+    },
+    {
+        "name": "Waiting on Overissue",
+        "sort_order": 0,
+        "active": True,
+    },
+    {
+        "name": "Waiting on Recast",
+        "sort_order": 0,
+        "active": True,
+    },
+    {
         "name": "Waiting on Metal",
         "sort_order": 0,
         "active": True,

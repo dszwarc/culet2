@@ -13,6 +13,7 @@ IMPORT_COMMANDS = [
 
     # Master data
     "import_customers",
+    "import_metal_parts",
     "import_vendors",
     "import_metal_types",
     "import_stone_shapes",

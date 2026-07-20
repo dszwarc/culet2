@@ -1,18 +1,47 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h1>Add Weight for Job {{ job }}</h1>
+<div class="container job-detail-page">
+    <div class="page-header">
+        <div>
+            <h1>Record Weight</h1>
+            <p class="page-subtitle">
+                Job {{ job.stock_num }}{% if job.style %} &middot; {{ job.style }}{% endif %}
+            </p>
+        </div>
 
-<p><strong>Name:</strong> {{ job.name }}</p>
-<p><strong>Style:</strong> {{ job.style }}</p>
+        <div class="page-actions">
+            <a
+                href="{% url 'culet:job_detail' job.pk %}"
+                class="btn btn-secondary"
+            >
+                Back to Job
+            </a>
+        </div>
+    </div>
 
-<form method="post">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">Save Weight</button>
-</form>
+    <section class="job-section-card">
+        <div class="job-section-header">
+            <h2 class="job-section-title">New Weight Entry</h2>
+        </div>
 
-<p>
-    <a href="{% url 'culet:job_detail' job.pk %}">Back to Job</a>
-</p>
-{% endblock %}
+        <form method="post">
+            {% csrf_token %}
+            {{ form.as_p }}
+
+            <div class="page-actions">
+                <button type="submit" class="btn btn-primary">
+                    Save Weight
+                </button>
+
+                <a
+                    href="{% url 'culet:job_detail' job.pk %}"
+                    class="btn btn-secondary"
+                >
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </section>
+</div>
+{% endblock content %}

@@ -6,6 +6,22 @@ from culet.models import Department
 
 DEPARTMENT_DEFINITIONS = [
     {
+        "name": "Contractor",
+        "active": True,
+    },
+    {
+        "name": "Setting 37",
+        "active": True,
+    },
+    {
+        "name": "Polishing 37",
+        "active": True,
+    },
+    {
+        "name": "SUPER",
+        "active": True,
+    },
+    {
         "name": "Polishing",
         "active": True,
     },

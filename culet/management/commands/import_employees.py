@@ -1,115 +1,17 @@
-import os
-import re
-import secrets
-import string
-import unicodedata
 from pathlib import Path
 
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.management.base import CommandError
-from django.db import IntegrityError, transaction
+from django.db import transaction
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
 
 from culet.importer.base import BaseImportCommand
-from culet.importer.database import fetch_old_rows
-from culet.importer.utils import clean_text
-from culet.models import Employee, LegacyRecordMap, Role
+from culet.models import Department, Employee, LegacyRecordMap, Role
 
 
-EMPLOYEE_SQL = """
-    SELECT
-        id,
-        first_name,
-        last_name,
-        is_active
-    FROM employee
-    WHERE is_active = 'Y'
-    ORDER BY id
-"""
-
-# Known duplicate/test record:
-# 1229: Darek (makeup) Szumski
-IGNORED_EMPLOYEE_IDS = {
-    1229: 'Duplicate "makeup" employee record.',
-}
-
-TEMP_PASSWORD_ADJECTIVES = (
-    "Amber",
-    "Bright",
-    "Calm",
-    "Clear",
-    "Copper",
-    "Coral",
-    "Golden",
-    "Grand",
-    "Green",
-    "Happy",
-    "Ivory",
-    "Lucky",
-    "Maple",
-    "Merry",
-    "Noble",
-    "Ocean",
-    "Orange",
-    "Purple",
-    "Quick",
-    "Quiet",
-    "Rapid",
-    "Red",
-    "Royal",
-    "Silver",
-    "Smooth",
-    "Sunny",
-    "Swift",
-    "Velvet",
-    "Warm",
-    "White",
-    "Wild",
-    "Yellow",
-)
-
-TEMP_PASSWORD_NOUNS = (
-    "Apple",
-    "Badger",
-    "Beacon",
-    "Bear",
-    "Canyon",
-    "Cedar",
-    "Cherry",
-    "Comet",
-    "Eagle",
-    "Falcon",
-    "Forest",
-    "Garden",
-    "Hammer",
-    "Harbor",
-    "Hawk",
-    "Island",
-    "Jasper",
-    "Lantern",
-    "Lemon",
-    "Meadow",
-    "Mountain",
-    "Otter",
-    "Panther",
-    "Pearl",
-    "Pine",
-    "Planet",
-    "Rabbit",
-    "River",
-    "Rocket",
-    "Sparrow",
-    "Stone",
-    "Tiger",
-    "Train",
-    "Valley",
-    "Willow",
-    "Wolf",
-)
-
-TEMP_PASSWORD_SYMBOLS = "!@#$%"
+TEMP_PASSWORD = "temppassword"
 
 REAL_CREDENTIAL_PATH = (
     Path(settings.BASE_DIR)
@@ -124,395 +26,327 @@ DRY_RUN_CREDENTIAL_PATH = (
 )
 
 
+# Reviewed employee/login list from the July 19, 2026 Culet login sheet.
+# Rows marked REMOVE are intentionally skipped.
+# Rows marked Status are seeded by seed_job_statuses and are not employees.
+# Rows marked TBD are imported as employees with no department.
+EMPLOYEE_DEFINITIONS = [
+    (1005, "Kleber", "Torres", "ktorres", "Jewelry", "Hourly"),
+    (1008, "Darek", "Szumski", "dszumski", "Jewelry", "Hourly"),
+    (1011, "Salvatore", "Aquino", "saquino", "Polishing", "Department Head"),
+    (1015, "Jose", "Guevara", "jguevara", "Polishing", "Hourly"),
+    (1018, "Ania", "Wasielewska", "awasielewska", "Quality Control", "Department Head"),
+    (1024, "Andy", "Tester", "atester", "REMOVE", ""),
+    (1025, "Greg", "Dusik", "gdusik", "Jewelry", "Manager"),
+    (1029, "Agatha", "Szwarc", "aszwarc", "SUPER", "SUPER"),
+    (1033, "Jaime", "Roa", "jroa", "Setting", "Hourly"),
+    (1035, "Lenin", "Cordova", "lcordova", "Setting", "Hourly"),
+    (1054, "Mach", "Ha", "mha", "Polishing", "Hourly"),
+    (1095, "Marco", "Zumba", "mzumba", "Jewelry 37", "Hourly"),
+    (1102, "Main", "Office 48", "moffice48", "REMOVE", ""),
+    (1103, "Main", "Office 37", "moffice37", "REMOVE", ""),
+    (1107, "Jennifer", "Mendez", "jmendez", "Setting", "Hourly"),
+    (1110, "Robert", "Zandrowicz", "rzandrowicz", "Setting 37", "Hourly"),
+    (1113, "Carlos", "Picon", "cpicon", "Jewelry", "Hourly"),
+    (1115, "Jorge", "Garces", "jgarces", "Polishing", "Hourly"),
+    (1117, "Cassandra", "Ferrone", "cferrone", "Office", "Manager"),
+    (1119, "Peter", "Chen", "pchen", "Jewelry 37", "Hourly"),
+    (1120, "Carlos", "Matute", "cmatute", "Jewelry", "Hourly"),
+    (1124, "Diego", "Torres", "dtorres", "Setting", "Hourly"),
+    (1132, "Luca", "Lombardi", "llombardi", "Jewelry", "Hourly"),
+    (1136, "Hoa", "Mach", "hmach", "Polishing", "Hourly"),
+    (1140, "Grigory", "Michnik", "gmichnik", "Contractor", ""),
+    (1142, "Maria", "Barbosa", "mbarbosa", "Jewelry", "Hourly"),
+    (1144, "Slawek", "Wieczorek", "swieczorek", "Setting 37", "Hourly"),
+    (1151, "Nestor", "Vega", "nvega", "Jewelry 37", "Hourly"),
+    (1155, "ALEX", "RBC", "arbc", "Contractor", ""),
+    (1156, "RICARDO", "PASAN", "rpasan", "Polishing", "Hourly"),
+    (1158, "Marek", "Kowalik", "mkowalik", "Contractor", ""),
+    (1159, "WAITING ON", "MELEE", "wmelee", "Status", ""),
+    (1160, "WAITING ON", "CENTER", "wcenter", "Status", ""),
+    (1161, "WAITING ON", "FINDINGS", "wfindings", "Status", ""),
+    (1162, "WAITING ON", "CASTINGS", "wcastings", "Status", ""),
+    (1163, "Jake", "Kornecki", "jkornecki", "Jewelry", "Manager"),
+    (1165, "Jose", "Andrade", "jandrade", "Polishing 37", "Hourly"),
+    (1168, "WAITING ON", "OVERISSUE", "woverissue", "Status", ""),
+    (1169, "CESAR", "FLORES", "cflores", "Jewelry", "Hourly"),
+    (1171, "ARCHIL", "Molashkhia", "amolashkhia", "Polishing 37", "Department Head"),
+    (1178, "Diego", "Granda", "dgranda", "Polishing", "Hourly"),
+    (1183, "Edgar F", "Flores", "eflores", "Setting", "Hourly"),
+    (1184, "Santiago", "Hungria", "shungria", "Polishing", "Hourly"),
+    (1185, "ADAM", "MURPHY", "amurphy", "REMOVE", ""),
+    (1187, "Cesar", "Garcia", "cgarcia", "REMOVE", ""),
+    (1188, "Jose", "Garcia", "jgarcia", "REMOVE", ""),
+    (1189, "Angel", "Mendez", "amendez", "REMOVE", ""),
+    (1190, "Nohelia", "Punina", "npunina", "Polishing", "Hourly"),
+    (1193, "Argentina", "Guevara", "aguevara", "Polishing", "Hourly"),
+    (1195, "Oleg", "Selivanchikov", "oselivanchikov", "REMOVE", ""),
+    (1206, "Luis", "Gonzalez", "lgonzalez", "Polishing", "Hourly"),
+    (1207, "Edison", "Paredes", "eparedes", "Setting", "Hourly"),
+    (1208, "Yackson", "Garcia", "ygarcia", "Polishing", "Hourly"),
+    (1209, "Kris", "Kornecki", "kkornecki", "Jewelry 37", "Department Head"),
+    (1210, "SAFE 3", "(Management Room)", "s3managementroom", "TBD", ""),
+    (1211, "Safe 2", "(Office Near Entrance)", "s2officenearentrance", "TBD", ""),
+    (1212, "Safe 1", "(Office Far Side)", "s1officefarside", "TBD", ""),
+    (1214, "WAITING ON", "RECAST", "wrecast", "Status", ""),
+    (1215, "Daniel", "Szwarc", "dszwarc", "SUPER", "super"),
+    (1216, "Gregory", "Pestillo", "gpestillo", "Jewelry", "Hourly"),
+    (1219, "Zurab", "Potskhverashvili", "zpotskhverashvili", "REMOVE", ""),
+    (1221, "Larry", "Paredes", "lparedes", "Setting", "Hourly"),
+    (1226, "Aly", "Niasse", "aniasse", "Jewelry", "Hourly"),
+    (1227, "Paulina", "Mejia", "pmejia", "Quality Control", "Department Head"),
+    (1228, "SAFE 4", "(POLISHING ROOM)", "s4polishingroom", "TBD", ""),
+    (1230, "Shanna", "Matai", "smatai", "Office", "Manager"),
+    (1231, "Diego", "Granda (LASER)", "dgrandalaser", "Jewelry", "Hourly"),
+]
+
+
+ROLE_NAME_MAP = {
+    "hourly": "Hourly",
+    "department head": "Department Head",
+    "manager": "Manager",
+    "super": "Super",
+}
+
+
 class Command(BaseImportCommand):
     help = (
-        "Import active employees from old Culet, create Django users, "
-        "and generate temporary login credentials."
+        "Import the reviewed Culet employee/login list with departments, "
+        "roles, and first-login password resets."
     )
 
-    def run_import(self, *args, **options):
-        hourly_role = Role.objects.filter(
-            name="Hourly",
-            active=True,
-        ).first()
-
-        if hourly_role is None:
-            raise CommandError(
-                'The active role "Hourly" does not exist. '
-                "Run `python manage.py seed_roles` first."
-            )
-
-        rows = fetch_old_rows(EMPLOYEE_SQL)
-        total = len(rows)
-
-        self.stdout.write(
-            f"Found {total:,} active old employee rows."
+    def add_arguments(self, parser):
+        super().add_arguments(parser)
+        parser.add_argument(
+            "--reset-existing-passwords",
+            action="store_true",
+            help=(
+                "Also reset mapped/existing users to 'temppassword'. "
+                "Without this flag, only newly created users receive it."
+            ),
         )
 
-        self.generated_credentials = []
-        self.generated_passwords = set()
-        for index, row in enumerate(rows, start=1):
+    def run_import(self, *args, **options):
+        self.reset_existing_passwords = options["reset_existing_passwords"]
+        self.credentials = []
+
+        roles = {
+            role.name.casefold(): role
+            for role in Role.objects.filter(active=True)
+        }
+        departments = {
+            department.name.casefold(): department
+            for department in Department.objects.filter(active=True)
+        }
+
+        missing_roles = sorted(
+            set(ROLE_NAME_MAP.values())
+            - {role.name for role in roles.values()}
+        )
+        if missing_roles:
+            raise CommandError(
+                "Missing required roles: "
+                + ", ".join(missing_roles)
+                + ". Run `python manage.py seed_roles` first."
+            )
+
+        required_departments = {
+            department_name
+            for _, _, _, _, department_name, _ in EMPLOYEE_DEFINITIONS
+            if department_name not in {"REMOVE", "Status", "TBD"}
+        }
+        missing_departments = sorted(
+            name
+            for name in required_departments
+            if name.casefold() not in departments
+        )
+        if missing_departments:
+            raise CommandError(
+                "Missing required departments: "
+                + ", ".join(missing_departments)
+                + ". Run `python manage.py seed_departments` first."
+            )
+
+        total = len(EMPLOYEE_DEFINITIONS)
+        for index, definition in enumerate(EMPLOYEE_DEFINITIONS, start=1):
             self.stats.processed += 1
-
-            try:
-                self.import_employee(
-                    row=row,
-                    hourly_role=hourly_role,
-                )
-            except Exception as exc:
-                self.record_error(
-                    f"Employee row {row.get('id')} could not be imported",
-                    exc,
-                )
-
+            self.import_definition(
+                definition=definition,
+                roles=roles,
+                departments=departments,
+            )
             self.print_progress(index, total, "Employees")
 
+        path = (
+            DRY_RUN_CREDENTIAL_PATH
+            if self.dry_run
+            else REAL_CREDENTIAL_PATH
+        )
+        credentials = list(self.credentials)
+
         if self.dry_run:
-            # This workbook is only a preview. Its passwords will not work
-            # because all dry-run database changes are rolled back.
             self.write_credentials_workbook(
-                path=DRY_RUN_CREDENTIAL_PATH,
-                credentials=self.generated_credentials,
+                path=path,
+                credentials=credentials,
                 dry_run=True,
             )
         else:
-            # Write credentials only after the PostgreSQL transaction commits.
-            credentials = list(self.generated_credentials)
-
             transaction.on_commit(
                 lambda: self.write_credentials_workbook(
-                    path=REAL_CREDENTIAL_PATH,
+                    path=path,
                     credentials=credentials,
                     dry_run=False,
                 ),
                 using="default",
             )
 
-    def import_employee(self, *, row, hourly_role):
-        old_id = row["id"]
-
-        if old_id in IGNORED_EMPLOYEE_IDS:
-            reason = IGNORED_EMPLOYEE_IDS[old_id]
-
-            self.stats.skipped += 1
-
-            self.record_skipped(
-                legacy_table="employee",
-                legacy_id=old_id,
-                message=reason,
-            )
-
-            self.row_message(
-                f"SKIP old employee {old_id}: {reason}"
-            )
-            return
-
-        first_name = clean_text(row["first_name"])
-        last_name = clean_text(row["last_name"])
-
-        if not first_name or not last_name:
-            reason = "First name or last name was blank."
-
-            self.stats.skipped += 1
-
-            self.record_skipped(
-                legacy_table="employee",
-                legacy_id=old_id,
-                message=reason,
-            )
-
-            self.row_message(
-                f"SKIP old employee {old_id}: {reason}"
-            )
-            return
-
-        first_name = self.truncate_for_user_field(
+    def import_definition(self, *, definition, roles, departments):
+        (
+            old_id,
             first_name,
-            "first_name",
-        )
-        last_name = self.truncate_for_user_field(
             last_name,
-            "last_name",
-        )
+            username,
+            department_label,
+            level_label,
+        ) = definition
 
-        try:
-            with transaction.atomic(using="default"):
-                employee = self.get_mapped_object(
-                    legacy_table="employee",
-                    legacy_id=old_id,
-                    model_class=Employee,
-                )
+        if department_label == "REMOVE":
+            self.stats.skipped += 1
+            self.record_skipped(
+                legacy_table="employee",
+                legacy_id=old_id,
+                message="Employee marked REMOVE in reviewed login sheet.",
+            )
+            self.row_message(f"SKIP employee {old_id}: marked REMOVE")
+            return
 
-                if employee is None:
-                    self.create_employee(
-                        old_id=old_id,
-                        first_name=first_name,
-                        last_name=last_name,
-                        hourly_role=hourly_role,
-                    )
-                    return
+        if department_label == "Status":
+            self.stats.skipped += 1
+            self.record_skipped(
+                legacy_table="employee",
+                legacy_id=old_id,
+                message=(
+                    "Row represents a JobStatus and is handled by "
+                    "seed_job_statuses."
+                ),
+            )
+            self.row_message(f"SKIP employee {old_id}: status row")
+            return
 
-                self.update_existing_employee(
-                    old_id=old_id,
-                    employee=employee,
+        department = None
+        if department_label != "TBD":
+            department = departments[department_label.casefold()]
+
+        normalized_level = level_label.strip().casefold()
+        role_name = ROLE_NAME_MAP.get(normalized_level, "Hourly")
+        role = roles[role_name.casefold()]
+
+        with transaction.atomic(using="default"):
+            employee = self.get_mapped_object(
+                legacy_table="employee",
+                legacy_id=old_id,
+                model_class=Employee,
+            )
+
+            if employee is None:
+                employee = Employee.objects.select_related("user").filter(
+                    user__username__iexact=username
+                ).first()
+
+            created = employee is None
+            if created:
+                user = User.objects.create_user(
+                    username=username,
+                    password=TEMP_PASSWORD,
                     first_name=first_name,
                     last_name=last_name,
+                    email="",
+                    is_active=True,
                 )
+                employee = Employee.objects.create(
+                    user=user,
+                    department=department,
+                    role=role,
+                    clocked_in=False,
+                    must_change_password=True,
+                )
+                action = LegacyRecordMap.ACTION_CREATED
+                self.stats.created += 1
+            else:
+                user = employee.user
+                changed = False
 
-        except IntegrityError as exc:
-            raise ValueError(
-                f"Integrity error importing employee {old_id}: "
-                f"{first_name} {last_name}"
-            ) from exc
+                user_values = {
+                    "username": username,
+                    "first_name": first_name,
+                    "last_name": last_name,
+                    "is_active": True,
+                }
+                user_changed_fields = []
+                for field_name, desired_value in user_values.items():
+                    if getattr(user, field_name) != desired_value:
+                        setattr(user, field_name, desired_value)
+                        user_changed_fields.append(field_name)
 
-    def create_employee(
-        self,
-        *,
-        old_id,
-        first_name,
-        last_name,
-        hourly_role,
-    ):
-        username = self.generate_unique_username(
-            first_name=first_name,
-            last_name=last_name,
-        )
-        temporary_password = self.generate_temporary_password()
+                if self.reset_existing_passwords:
+                    user.set_password(TEMP_PASSWORD)
+                    user_changed_fields.append("password")
 
-        user = User(
-            username=username,
-            first_name=first_name,
-            last_name=last_name,
-            email="",
-            is_active=True,
-            is_staff=False,
-            is_superuser=False,
-        )
-        user.set_password(temporary_password)
-        user.save()
+                if user_changed_fields:
+                    user.save(update_fields=list(dict.fromkeys(user_changed_fields)))
+                    changed = True
 
-        employee = Employee.objects.create(
-            user=user,
-            department=None,
-            role=hourly_role,
-            clocked_in=False,
-            must_change_password=True,
-        )
+                employee_changed_fields = []
+                if employee.department_id != (department.id if department else None):
+                    employee.department = department
+                    employee_changed_fields.append("department")
+                if employee.role_id != role.id:
+                    employee.role = role
+                    employee_changed_fields.append("role")
+                if self.reset_existing_passwords and not employee.must_change_password:
+                    employee.must_change_password = True
+                    employee_changed_fields.append("must_change_password")
 
-        self.record_mapping(
-            legacy_table="employee",
-            legacy_id=old_id,
-            target=employee,
-            action=LegacyRecordMap.ACTION_CREATED,
-        )
+                if employee_changed_fields:
+                    employee.save(update_fields=employee_changed_fields)
+                    changed = True
 
-        self.generated_credentials.append(
-            {
-                "legacy_id": old_id,
-                "first_name": first_name,
-                "last_name": last_name,
-                "username": username,
-                "temporary_password": temporary_password,
-            }
-        )
+                if changed:
+                    action = LegacyRecordMap.ACTION_UPDATED
+                    self.stats.updated += 1
+                else:
+                    action = LegacyRecordMap.ACTION_UNCHANGED
+                    self.stats.unchanged += 1
 
-        self.stats.created += 1
+            self.record_mapping(
+                legacy_table="employee",
+                legacy_id=old_id,
+                target=employee,
+                action=action,
+            )
 
-        # Do not print the password to the console.
-        self.row_message(
-            f"CREATE old employee {old_id}: "
-            f"{first_name} {last_name} → {username}"
-        )
+            self.credentials.append(
+                {
+                    "legacy_id": old_id,
+                    "first_name": first_name,
+                    "last_name": last_name,
+                    "username": username,
+                    "temporary_password": TEMP_PASSWORD,
+                    "department": department.name if department else "",
+                    "role": role.name,
+                }
+            )
 
-    def update_existing_employee(
-        self,
-        *,
-        old_id,
-        employee,
-        first_name,
-        last_name,
-    ):
-        user = employee.user
-        user_changed_fields = []
-
-        if user.first_name != first_name:
-            user.first_name = first_name
-            user_changed_fields.append("first_name")
-
-        if user.last_name != last_name:
-            user.last_name = last_name
-            user_changed_fields.append("last_name")
-
-        if not user.is_active:
-            user.is_active = True
-            user_changed_fields.append("is_active")
-
-        if user_changed_fields:
-            user.save(update_fields=user_changed_fields)
-
-            self.stats.updated += 1
-            action = LegacyRecordMap.ACTION_UPDATED
-
+            verb = "CREATE" if created else action.upper()
             self.row_message(
-                f"UPDATE old employee {old_id}: "
-                f"{user.get_full_name()} "
-                f"({', '.join(user_changed_fields)})"
+                f"{verb} employee {old_id}: {first_name} {last_name} "
+                f"→ {username} / {role.name} / "
+                f"{department.name if department else 'No department'}"
             )
-        else:
-            self.stats.unchanged += 1
-            action = LegacyRecordMap.ACTION_UNCHANGED
-
-            self.row_message(
-                f"UNCHANGED old employee {old_id}: "
-                f"{user.get_full_name()} → {user.username}"
-            )
-
-        # On reruns, deliberately preserve:
-        # - username
-        # - password
-        # - must_change_password
-        # - department
-        # - role
-        #
-        # This prevents a migration rerun from undoing manual changes.
-        self.record_mapping(
-            legacy_table="employee",
-            legacy_id=old_id,
-            target=employee,
-            action=action,
-        )
-
-    def generate_unique_username(
-        self,
-        *,
-        first_name,
-        last_name,
-    ):
-        first_initial = self.normalize_username_text(
-            first_name
-        )[:1]
-        normalized_last_name = self.normalize_username_text(
-            last_name
-        )
-
-        base = f"{first_initial}{normalized_last_name}"
-
-        if not base:
-            base = "employee"
-
-        max_length = User._meta.get_field("username").max_length
-        base = base[:max_length]
-
-        username = base
-        suffix = 2
-
-        while User.objects.filter(
-            username__iexact=username
-        ).exists():
-            suffix_text = str(suffix)
-            available_length = max_length - len(suffix_text)
-
-            username = (
-                f"{base[:available_length]}{suffix_text}"
-            )
-            suffix += 1
-
-        return username
 
     @staticmethod
-    def normalize_username_text(value):
-        """
-        Convert names to lowercase ASCII letters/numbers only.
-
-        Examples:
-            O'Brien      -> obrien
-            Smith-Jones  -> smithjones
-            José         -> jose
-            (makeup)     -> makeup
-        """
-        normalized = unicodedata.normalize(
-            "NFKD",
-            clean_text(value),
-        )
-        ascii_value = normalized.encode(
-            "ascii",
-            "ignore",
-        ).decode("ascii")
-
-        return re.sub(
-            r"[^a-z0-9]",
-            "",
-            ascii_value.lower(),
-        )
-
-    def generate_temporary_password(self):
-        """
-        Generate a readable temporary password.
-
-        Example:
-            Silver-Tiger-River-482!
-
-        The password contains:
-        - one adjective
-        - two nouns
-        - a three-digit number
-        - a symbol
-
-        Confusing characters such as lowercase L, uppercase I,
-        uppercase O, and zero are avoided in the word portion.
-        """
-
-        while True:
-            adjective = secrets.choice(
-                TEMP_PASSWORD_ADJECTIVES
-            )
-            first_noun = secrets.choice(
-                TEMP_PASSWORD_NOUNS
-            )
-            second_noun = secrets.choice(
-                TEMP_PASSWORD_NOUNS
-            )
-
-            # Avoid passwords such as Tiger-Tiger.
-            if first_noun == second_noun:
-                continue
-
-            number = secrets.randbelow(900) + 100
-            symbol = secrets.choice(
-                TEMP_PASSWORD_SYMBOLS
-            )
-
-            password = (
-                f"{adjective}-"
-                f"{first_noun}-"
-                f"{second_noun}-"
-                f"{number}"
-                f"{symbol}"
-            )
-
-            if password not in self.generated_passwords:
-                self.generated_passwords.add(password)
-                return password
-
-    @staticmethod
-    def truncate_for_user_field(value, field_name):
-        max_length = User._meta.get_field(
-            field_name
-        ).max_length
-
-        return value[:max_length]
-
-    def write_credentials_workbook(
-        self,
-        *,
-        path,
-        credentials,
-        dry_run,
-    ):
-        path.parent.mkdir(
-            parents=True,
-            exist_ok=True,
-        )
+    def write_credentials_workbook(*, path, credentials, dry_run):
+        path.parent.mkdir(parents=True, exist_ok=True)
 
         workbook = Workbook()
         worksheet = workbook.active
@@ -523,14 +357,9 @@ class Command(BaseImportCommand):
             if dry_run
             else "Imported Employee Temporary Credentials"
         )
-
-        worksheet.merge_cells("A1:E1")
+        worksheet.merge_cells("A1:G1")
         worksheet["A1"] = title
-        worksheet["A1"].font = Font(
-            bold=True,
-            color="FFFFFF",
-            size=14,
-        )
+        worksheet["A1"].font = Font(bold=True, color="FFFFFF", size=14)
         worksheet["A1"].fill = PatternFill(
             fill_type="solid",
             fgColor="C00000" if dry_run else "1F4E78",
@@ -544,6 +373,8 @@ class Command(BaseImportCommand):
                 "Last Name",
                 "Username",
                 "Temporary Password",
+                "Department",
+                "Role",
             ]
         )
 
@@ -555,46 +386,28 @@ class Command(BaseImportCommand):
                     credential["last_name"],
                     credential["username"],
                     credential["temporary_password"],
+                    credential["department"],
+                    credential["role"],
                 ]
             )
 
         for cell in worksheet[3]:
-            cell.font = Font(
-                bold=True,
-                color="FFFFFF",
-            )
-            cell.fill = PatternFill(
-                fill_type="solid",
-                fgColor="5B9BD5",
-            )
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.fill = PatternFill(fill_type="solid", fgColor="5B9BD5")
 
         worksheet.freeze_panes = "A4"
-        worksheet.auto_filter.ref = (
-            f"A3:E{worksheet.max_row}"
-        )
+        worksheet.auto_filter.ref = f"A3:G{worksheet.max_row}"
 
-        worksheet.column_dimensions["A"].width = 20
-        worksheet.column_dimensions["B"].width = 22
-        worksheet.column_dimensions["C"].width = 24
-        worksheet.column_dimensions["D"].width = 24
-        worksheet.column_dimensions["E"].width = 24
+        widths = {
+            "A": 20,
+            "B": 22,
+            "C": 26,
+            "D": 24,
+            "E": 22,
+            "F": 22,
+            "G": 20,
+        }
+        for column, width in widths.items():
+            worksheet.column_dimensions[column].width = width
 
         workbook.save(path)
-
-        # Restrict the workbook to the current operating-system user.
-        try:
-            os.chmod(path, 0o600)
-        except OSError:
-            pass
-
-        label = (
-            "Dry-run credential preview"
-            if dry_run
-            else "Employee credential workbook"
-        )
-
-        self.stdout.write(
-            self.style.SUCCESS(
-                f"{label} written to: {path}"
-            )
-        )

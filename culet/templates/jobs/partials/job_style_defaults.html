@@ -28,12 +28,38 @@
     {{ finding_formset.non_form_errors }}
   </div>
 {% endif %}
-{% if job_form.repair_reasons %}
-    <div class="job-field job-field-full">
-        {{ job_form.repair_reasons.label_tag }}
-        {{ job_form.repair_reasons }}
-        {{ job_form.repair_reasons.errors }}
+{% if repair_original_job %}
+    <div class="job-section-card">
+        <h2 class="job-section-title">
+            Repair Reasons
+        </h2>
+
+        <div class="failure-section">
+            <span class="failure-section-label">
+                Select one or more reasons for this repair
+            </span>
+
+            <div class="failure-grid">
+                {% for checkbox in job_form.repair_reasons %}
+                    <div class="failure-option">
+                        {{ checkbox.tag }}
+
+                        <label for="{{ checkbox.id_for_label }}">
+                            {{ checkbox.choice_label }}
+                        </label>
+                    </div>
+                {% endfor %}
+            </div>
+
+            {% if job_form.repair_reasons.errors %}
+                <div class="field-errors">
+                    {{ job_form.repair_reasons.errors }}
+                </div>
+            {% endif %}
+        </div>
     </div>
+{% else %}
+    {{ job_form.repair_reasons }}
 {% endif %}
 
   <div class="job-section-card">

@@ -1,14 +1,11 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 
 {% block title %}
-    
-
-{% if repair_from %}
-    Create Repair
-{% else %}
-    Create Job
-{% endif %}
-
+    {% if repair_from %}
+        Create Repair
+    {% else %}
+        Create Job
+    {% endif %}
 {% endblock title %}
 
 {% block content %}
@@ -16,71 +13,105 @@
     <div class="job-create-card">
         <div class="job-create-header">
             <div>
-                <p class="job-create-eyebrow">Production</p>
+                <p class="job-create-eyebrow">
+                    Production
+                </p>
+
                 <h1 class="job-create-title">
-                    
-                {% if repair_from %}
-                    Create Repair
-                {% else %}
-                    Create Job
-                {% endif %}
-                
-                </h1>
-                <p class="job-create-subtitle">
-                    
                     {% if repair_from %}
-                        Choose reasons for repair
+                        Create Repair
                     {% else %}
-                        Choose a style to prefill the job, metal requirements, and stone requirements.
+                        Create Job
+                    {% endif %}
+                </h1>
+
+                <p class="job-create-subtitle">
+                    {% if repair_from %}
+                        Choose reasons for repair.
+                    {% else %}
+                        Choose a style to prefill the job,
+                        metal requirements, and stone requirements.
                     {% endif %}
                 </p>
             </div>
         </div>
 
         {% if original_repair_job %}
-                <div class="job-style-picker-wrap">
-                    <label class="job-label">Style</label>
-                    <div class="form-control form-control-lg job-style-picker">
-                        {{ original_repair_job.style }}
-                    </div>
-                </div>
+            <div class="job-style-picker-wrap">
+                <label class="job-label">
+                    Style
+                </label>
 
                 <div
-                    hx-get="{% url 'culet:job_style_defaults_htmx' %}"
-                    hx-trigger="load"
-                    hx-target="#job-style-content"
-                    hx-swap="innerHTML"
-                    hx-vals='{
-                        "style_id": "{{ original_repair_job.style_id }}",
-                        "repair_from": "{{ original_repair_job.pk }}"
-                    }'>
+                    class="
+                        form-control
+                        form-control-lg
+                        job-style-picker
+                        job-style-display
+                    "
+                >
+                    {{ original_repair_job.style }}
                 </div>
-            {% else %}
-                <div class="job-style-picker-wrap">
-                    <label for="style-picker" class="job-label">Style</label>
-                    <select
-                        id="style-picker"
-                        name="style_id"
-                        class="form-control form-control-lg job-style-picker"
-                        hx-get="{% url 'culet:job_style_defaults_htmx' %}"
-                        hx-trigger="change"
-                        hx-target="#job-style-content"
-                        hx-swap="innerHTML">
-                        <option value="">Select a style</option>
-                        {% for style in form.fields.style.queryset %}
-                            <option value="{{ style.pk }}">{{ style }}</option>
-                        {% endfor %}
-                    </select>
+            </div>
+
+            <div
+                hx-get="{% url 'culet:job_style_defaults_htmx' %}"
+                hx-trigger="load"
+                hx-target="#job-style-content"
+                hx-swap="innerHTML"
+                hx-vals='{
+                    "style_id": "{{ original_repair_job.style_id }}",
+                    "repair_from": "{{ original_repair_job.pk }}"
+                }'
+            >
+            </div>
+        {% else %}
+            <div class="job-style-picker-wrap">
+                <label
+                    for="style-picker"
+                    class="job-label"
+                >
+                    Style
+                </label>
+
+                <select
+                    id="style-picker"
+                    class="
+                        form-control
+                        form-control-lg
+                        job-style-picker
+                        combo-box
+                    "
+                    data-placeholder="Select or search for a style"
+                    data-style-url="{% url 'culet:job_style_defaults_htmx' %}"
+                >
+                    <option value=""></option>
+
+                    {% for style in form.fields.style.queryset %}
+                        <option value="{{ style.pk }}">
+                            {{ style }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+        {% endif %}
+
+        <div
+            id="job-style-content"
+            class="job-style-content"
+        >
+            {% if not original_repair_job %}
+                <div class="job-empty-state">
+                    <h3>
+                        Start with a style
+                    </h3>
+
+                    <p>
+                        Once you select a style, the job details
+                        and requirement rows will appear here.
+                    </p>
                 </div>
             {% endif %}
-
-        <div id="job-style-content" class="job-style-content">
-            <div class="job-empty-state">
-                <h3>Start with a style</h3>
-                <p>
-                    Once you select a style, the job details and requirement rows will appear here.
-                </p>
-            </div>
         </div>
     </div>
 </div>
@@ -153,6 +184,12 @@
     border-color: #111827;
 }
 
+.job-style-display {
+    display: flex;
+    align-items: center;
+    background: #f9fafb;
+}
+
 .job-style-content {
     margin-top: 1rem;
 }
@@ -167,8 +204,12 @@
 }
 
 .job-empty-state h3 {
-    margin-bottom: .5rem;
+    margin: 0 0 .5rem;
     color: #111827;
+}
+
+.job-empty-state p {
+    margin: 0;
 }
 
 .job-section-card {
@@ -290,6 +331,47 @@
     padding-left: 1rem;
 }
 
+.job-style-picker-wrap .select2-container {
+    width: 100% !important;
+}
+
+.job-style-picker-wrap
+.select2-container
+.select2-selection--single {
+    min-height: 48px;
+    border: 1px solid #d5d9e0;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+}
+
+.job-style-picker-wrap
+.select2-container
+.select2-selection--single
+.select2-selection__rendered {
+    width: 100%;
+    padding-left: .9rem;
+    padding-right: 2.5rem;
+    line-height: normal;
+}
+
+.job-style-picker-wrap
+.select2-container
+.select2-selection--single
+.select2-selection__arrow {
+    height: 46px;
+    right: .5rem;
+}
+
+.job-style-picker-wrap
+.select2-container--focus
+.select2-selection--single,
+.job-style-picker-wrap
+.select2-container--open
+.select2-selection--single {
+    border-color: #111827;
+}
+
 @media (max-width: 900px) {
     .job-grid {
         grid-template-columns: 1fr;
@@ -309,3 +391,92 @@
 }
 </style>
 {% endblock content %}
+
+{% block extra_js %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const stylePicker = document.getElementById(
+        "style-picker"
+    );
+
+    const styleContent = document.getElementById(
+        "job-style-content"
+    );
+
+    if (!stylePicker || !styleContent) {
+        return;
+    }
+
+    const $stylePicker = window.jQuery
+        ? window.jQuery(stylePicker)
+        : null;
+
+    if (!$stylePicker) {
+        return;
+    }
+
+    if (
+        typeof $stylePicker.select2 === "function"
+        && !$stylePicker.hasClass(
+            "select2-hidden-accessible"
+        )
+    ) {
+        $stylePicker.select2({
+            width: "100%",
+            allowClear: true,
+            placeholder: (
+                stylePicker.dataset.placeholder
+                || "Select a style"
+            ),
+        });
+    }
+
+    function showEmptyState() {
+        styleContent.innerHTML = `
+            <div class="job-empty-state">
+                <h3>Start with a style</h3>
+                <p>
+                    Once you select a style, the job details
+                    and requirement rows will appear here.
+                </p>
+            </div>
+        `;
+    }
+
+    function loadSelectedStyle() {
+        const styleId = stylePicker.value;
+        const requestUrl = stylePicker.dataset.styleUrl;
+
+        if (!styleId) {
+            showEmptyState();
+            return;
+        }
+
+        const separator = requestUrl.includes("?")
+            ? "&"
+            : "?";
+
+        const url = (
+            requestUrl
+            + separator
+            + "style_id="
+            + encodeURIComponent(styleId)
+        );
+
+        htmx.ajax(
+            "GET",
+            url,
+            {
+                target: "#job-style-content",
+                swap: "innerHTML",
+            }
+        );
+    }
+
+    $stylePicker.on(
+        "change",
+        loadSelectedStyle
+    );
+});
+</script>
+{% endblock extra_js %}

@@ -399,6 +399,83 @@
         </div>
     </section>
 
+
+    <!-- Recorded weights -->
+    <section class="job-section-card">
+        <div class="job-section-header">
+            <h2 class="job-section-title">Recorded Weights</h2>
+
+            <a
+                href="{% url 'culet:job_weight_create' job.pk %}"
+                class="btn btn-primary btn-sm"
+            >
+                Record New Weight
+            </a>
+        </div>
+
+        <div class="job-table-wrap">
+            <table class="job-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Step</th>
+                        <th>Piece Weight</th>
+                        <th>Sprue Weight</th>
+                        <th>Dust Weight</th>
+                        <th>Total Weight</th>
+                        <th>Recorded By</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for job_weight in job_weights %}
+                        <tr>
+                            <td data-label="Date">
+                                {{ job_weight.created_at|date:"M j, Y g:i A" }}
+                            </td>
+
+                            <td data-label="Step">
+                                {{ job_weight.step|default:"—" }}
+                            </td>
+
+                            <td data-label="Piece Weight">
+                                {{ job_weight.weight|floatformat:3 }}
+                            </td>
+
+                            <td data-label="Sprue Weight">
+                                {{ job_weight.sprue_weight|floatformat:3 }}
+                            </td>
+
+                            <td data-label="Dust Weight">
+                                {{ job_weight.dust_weight|floatformat:3 }}
+                            </td>
+
+                            <td data-label="Total Weight">
+                                <strong>{{ job_weight.total_weight|floatformat:3 }}</strong>
+                            </td>
+
+                            <td data-label="Recorded By">
+                                {% if job_weight.recorded_by %}
+                                    {{ job_weight.recorded_by.get_full_name|default:job_weight.recorded_by.username }}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="7" class="empty-table-message">
+                                No weights have been recorded for this job.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+
+
 </div>
 {% endblock content %}
 ```

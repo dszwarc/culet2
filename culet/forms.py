@@ -917,12 +917,12 @@ class JobsByHolderReportForm(forms.Form):
 
 class JobTransferMemoForm(forms.ModelForm):
     scanned_jobs = forms.CharField(
-        label="Scan Jobs",
+        label="Jobs",
         widget=forms.Textarea(
             attrs={
                 "class": "form-control",
                 "rows": 10,
-                "placeholder": "Scan one barcode per line",
+                "placeholder": "Scan or enter one barcode per line",
             }
         ),
         help_text="Scan or enter one job barcode per line.",
@@ -930,29 +930,29 @@ class JobTransferMemoForm(forms.ModelForm):
 
     class Meta:
         model = JobTransferMemo
-
         fields = [
             "assigned_to",
             "notes",
         ]
 
-        labels = {
-            "assigned_to": "Assign Jobs To",
-        }
-
         widgets = {
             "assigned_to": forms.Select(
                 attrs={
                     "class": "form-control",
+                    "data-placeholder": "Select an employee",
                 }
             ),
             "notes": forms.Textarea(
                 attrs={
                     "class": "form-control",
                     "rows": 3,
-                    "placeholder": "Optional notes",
+                    "placeholder": "Optional memo notes",
                 }
             ),
+        }
+
+        labels = {
+            "assigned_to": "Assigned To",
         }
 
     def __init__(self, *args, **kwargs):
@@ -960,13 +960,19 @@ class JobTransferMemoForm(forms.ModelForm):
 
         self.fields["assigned_to"].queryset = (
             Employee.objects
-            .filter(active=True)
-            .select_related("user")
+            .select_related(
+                "user",
+                "department",
+            )
+            .filter(user__is_active=True)
             .order_by(
+                "department__name",
                 "user__last_name",
                 "user__first_name",
             )
         )
+
+        self.fields["assigned_to"].empty_label = "Select an employee"
 
 class MetalPartInventoryFilterForm(forms.Form):
     q = forms.CharField(
