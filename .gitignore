@@ -2,7 +2,11 @@
 /env/
 requirements.txt
 /staticfiles/
-/backups
+# Ignore backup and migration files by default
+backups/*
+
+# Keep the style/part review workbook required by the legacy import
+!backups/ignore_old_culet_styles_and_parts.xlsx
 
 *.sql
 *.sql.gz
