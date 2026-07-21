@@ -113,7 +113,7 @@ from .forms import (
     )
 
 from .mixins import CuletPermissionRequiredMixin
-from .permissions import can_perform_quality_inspection
+from .permissions import can_perform_quality_inspection, can_job_deatil, can_job_edit
 
 from django.contrib import messages
 from django.shortcuts import redirect
@@ -676,13 +676,13 @@ class ActivityListView(LoginRequiredMixin,generic.ListView):
         return Activity.objects.order_by("-start")
     
 class JobDetailView(
-    CuletPermissionRequiredMixin,
+    LoginRequiredMixin,
     generic.DetailView,
 ):
-    permission_function = can_perform_quality_inspection
-    permission_denied_message = (
-        "You do not have permission to perform quality inspections."
-    )
+    # permission_function = can_job_detail
+    # permission_denied_message = (
+    #     "You do not have permission to view job details."
+    # )
     model = Job
     template_name = "jobs/detail.html"
     context_object_name = "job"
