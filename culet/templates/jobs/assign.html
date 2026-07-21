@@ -140,15 +140,21 @@
                                     class="return-job-input"
                                     placeholder="Scan or enter barcode"
                                     autocomplete="off"
+                                    enterkeyhint="next"
                                     {% if forloop.first %}
-                                        autofocus
+                                        data-autofocus-desktop="true"
                                     {% endif %}
                                 >
 
 
                                 <button
                                     type="button"
-                                    class="btn btn-outline-secondary culet-scanner-btn js-culet-scanner-btn"
+                                    class="
+                                        btn
+                                        btn-outline-secondary
+                                        culet-scanner-btn
+                                        js-culet-scanner-btn
+                                    "
                                     data-target="assign-job-{{ forloop.counter }}"
                                     data-auto-submit="false"
                                 >
@@ -194,11 +200,17 @@
 
         </section>
 
+
         {# ================================================= #}
         {# Department and employee selection                 #}
         {# ================================================= #}
 
-        <section class="return-jobs-section assignment-selection-section">
+        <section
+            class="
+                return-jobs-section
+                assignment-selection-section
+            "
+        >
 
             <input
                 type="hidden"
@@ -211,16 +223,22 @@
             <div class="assignment-picker-group">
 
                 <div class="assignment-picker-header">
+
                     <h2>Department</h2>
 
                     <p>
-                        Select a department to filter the employee list.
+                        Select a department to filter the
+                        employee list.
                     </p>
+
                 </div>
 
 
                 <div
-                    class="assignment-option-grid department-option-grid"
+                    class="
+                        assignment-option-grid
+                        department-option-grid
+                    "
                     id="department-option-grid"
                     role="group"
                     aria-label="Select a department"
@@ -291,18 +309,23 @@
             <div class="assignment-picker-group">
 
                 <div class="assignment-picker-header">
+
                     <h2>Employee</h2>
 
                     <p id="employee-picker-help">
                         Select the employee receiving the jobs.
                     </p>
+
                 </div>
 
 
                 {% if employees %}
 
                     <div
-                        class="assignment-option-grid employee-option-grid"
+                        class="
+                            assignment-option-grid
+                            employee-option-grid
+                        "
                         id="employee-option-grid"
                         role="group"
                         aria-label="Select an employee"
@@ -323,8 +346,6 @@
                                 <span class="assignment-option-name">
                                     {{ employee }}
                                 </span>
-
-
                             </button>
 
                         {% endfor %}
@@ -337,7 +358,8 @@
                         class="assignment-empty-message"
                         hidden
                     >
-                        No active employees are assigned to this department.
+                        No active employees are assigned to
+                        this department.
                     </p>
 
 
@@ -361,8 +383,9 @@
 
         </section>
 
+
         {# ================================================= #}
-        {# Submit                                             #}
+        {# Submit                                            #}
         {# ================================================= #}
 
         <div class="return-jobs-submit-wrap">
@@ -389,13 +412,14 @@
 
 
 {# One shared camera-scanner overlay for all scan buttons. #}
+
 {% if not selected_job %}
+
     {% include "includes/barcode_scanner.html" with overlay_only=True %}
+
 {% endif %}
 
 {% endblock content %}
-
-
 {% block extra_js %}
 
 <script>
@@ -448,7 +472,10 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         employeeButtons.forEach(function (button) {
-            setButtonSelected(button, false);
+            setButtonSelected(
+                button,
+                false
+            );
         });
 
         if (selectedEmployeeMessage) {
@@ -541,7 +568,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
                     selectedEmployeeMessage.textContent = (
                         employeeName
-                            ? `Selected: ${employeeName.textContent.trim()}`
+                            ? `Selected: ${
+                                employeeName.textContent.trim()
+                            }`
                             : "Employee selected."
                     );
 
@@ -617,6 +646,53 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
 
+    /*
+     * Use the shared helper in culet_js.js when available.
+     * The fallback keeps this page safe if the shared file has
+     * not been updated yet.
+     */
+    function isTouchDevice() {
+        if (
+            window.CuletDevice &&
+            typeof window.CuletDevice.isTouchDevice ===
+                "function"
+        ) {
+            return window.CuletDevice.isTouchDevice();
+        }
+
+        return (
+            window.matchMedia("(pointer: coarse)").matches ||
+            navigator.maxTouchPoints > 0 ||
+            "ontouchstart" in window
+        );
+    }
+
+
+    function focusOnDesktop(input) {
+        if (!input || isTouchDevice()) {
+            return;
+        }
+
+        input.focus();
+    }
+
+
+    /*
+     * Desktop USB scanners benefit from the first field being
+     * focused. Phones and tablets are intentionally excluded so
+     * their software keyboard does not open on page load.
+     */
+    const desktopAutofocusInput = (
+        linesContainer.querySelector(
+            "[data-autofocus-desktop='true']"
+        )
+    );
+
+    focusOnDesktop(
+        desktopAutofocusInput
+    );
+
+
     let nextLineNumber = (
         linesContainer.querySelectorAll(
             ".return-job-line"
@@ -625,8 +701,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
     function updateLineLabels() {
-        const lines = linesContainer.querySelectorAll(
-            ".return-job-line"
+        const lines = (
+            linesContainer.querySelectorAll(
+                ".return-job-line"
+            )
         );
 
         lines.forEach(function (line, index) {
@@ -635,15 +713,22 @@ document.addEventListener("DOMContentLoaded", function () {
             );
 
             if (label) {
-                label.textContent = `Job ${index + 1}`;
+                label.textContent = (
+                    `Job ${index + 1}`
+                );
             }
         });
     }
 
 
     function createAssignJobLine() {
-        const line = document.createElement("div");
-        const inputId = `assign-job-${nextLineNumber}`;
+        const line = document.createElement(
+            "div"
+        );
+
+        const inputId = (
+            `assign-job-${nextLineNumber}`
+        );
 
         line.className = "return-job-line";
 
@@ -666,11 +751,17 @@ document.addEventListener("DOMContentLoaded", function () {
                     class="return-job-input"
                     placeholder="Scan or enter barcode"
                     autocomplete="off"
+                    enterkeyhint="next"
                 >
 
                 <button
                     type="button"
-                    class="btn btn-outline-secondary culet-scanner-btn js-culet-scanner-btn"
+                    class="
+                        btn
+                        btn-outline-secondary
+                        culet-scanner-btn
+                        js-culet-scanner-btn
+                    "
                     data-target="${inputId}"
                     data-auto-submit="false"
                 >
@@ -693,7 +784,9 @@ document.addEventListener("DOMContentLoaded", function () {
             </div>
         `;
 
-        linesContainer.appendChild(line);
+        linesContainer.appendChild(
+            line
+        );
 
         nextLineNumber += 1;
 
@@ -701,9 +794,13 @@ document.addEventListener("DOMContentLoaded", function () {
             ".return-job-input"
         );
 
-        if (newInput) {
-            newInput.focus();
-        }
+        /*
+         * Focus newly-created lines only for desktop scanner
+         * workflows. Do not open the keyboard on phones/tablets.
+         */
+        focusOnDesktop(
+            newInput
+        );
 
         updateLineLabels();
     }
@@ -743,7 +840,14 @@ document.addEventListener("DOMContentLoaded", function () {
 
                 if (onlyInput) {
                     onlyInput.value = "";
-                    onlyInput.focus();
+
+                    /*
+                     * Preserve desktop USB-scanner convenience,
+                     * but do not open a mobile keyboard.
+                     */
+                    focusOnDesktop(
+                        onlyInput
+                    );
                 }
 
                 return;
@@ -790,7 +894,15 @@ document.addEventListener("DOMContentLoaded", function () {
             ];
 
             if (nextInput) {
-                nextInput.focus();
+                /*
+                 * An Enter key normally comes from a desktop
+                 * USB scanner or physical keyboard. We still
+                 * guard against moving focus on touch devices.
+                 */
+                focusOnDesktop(
+                    nextInput
+                );
+
                 return;
             }
 

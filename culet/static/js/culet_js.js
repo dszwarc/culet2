@@ -140,3 +140,37 @@ document.addEventListener("click", function (event) {
      */
     row.remove();
 });
+
+/*
+|--------------------------------------------------------------------------
+| Desktop-only autofocus
+|--------------------------------------------------------------------------
+*/
+
+window.CuletDevice = {
+    isTouchDevice() {
+        return (
+            window.matchMedia("(pointer: coarse)").matches ||
+            navigator.maxTouchPoints > 0 ||
+            "ontouchstart" in window
+        );
+    },
+
+    autofocusDesktopInput(selector) {
+        if (this.isTouchDevice()) {
+            return;
+        }
+
+        const input = document.querySelector(selector);
+
+        if (input) {
+            input.focus();
+        }
+    }
+};
+
+document.addEventListener("DOMContentLoaded", function () {
+    window.CuletDevice.autofocusDesktopInput(
+        "[data-autofocus-desktop='true']"
+    );
+});
