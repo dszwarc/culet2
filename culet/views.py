@@ -3,7 +3,7 @@ from django.http import HttpResponse, HttpResponseRedirect, HttpResponseBadReque
 from django.template.loader import render_to_string
 import copy
 from django.db import transaction
-from django.db.models import F, Q, Max, OuterRef, Subquery, Sum, Count, Avg, ExpressionWrapper, DurationField
+from django.db.models import Exists, F, Q, Max, OuterRef, Subquery, Sum, Count, Avg, ExpressionWrapper, DurationField
 from django.db.models.functions import TruncDate, Coalesce
 from django.views import generic
 from django.urls import reverse_lazy, reverse
@@ -433,24 +433,60 @@ class JobListView(LoginRequiredMixin, generic.ListView):
         context["sort_links"] = sort_links
 
         return context
-    
-class MyJobListView(LoginRequiredMixin, generic.ListView):
+
+
+class MyJobListView(
+    LoginRequiredMixin,
+    generic.ListView,
+):
     model = Job
     template_name = "jobs/my_jobs.html"
     context_object_name = "latest_job_list"
 
+    def get_employee(self):
+        if not hasattr(self, "_employee"):
+            self._employee = Employee.objects.get(
+                user=self.request.user,
+            )
+
+        return self._employee
+
     def get_queryset(self):
-        employee = Employee.objects.get(user=self.request.user)
-        return Job.objects.filter(
-            assigned_to=employee,
-            holder=employee,
-            shipped=False,
-        ).prefetch_related("activity_set")
+        employee = self.get_employee()
+
+        active_activity = Activity.objects.filter(
+            job=OuterRef("pk"),
+            active=True,
+        )
+
+        return (
+            Job.objects
+            .filter(
+                assigned_to=employee,
+                holder=employee,
+                shipped=False,
+                is_piecework=False,
+            )
+            .annotate(
+                has_active_work=Exists(active_activity),
+            )
+            .prefetch_related(
+                "activity_set",
+            )
+            .order_by(
+                "-has_active_work",
+                F("due").asc(nulls_last=True),
+                "stock_num",
+            )
+        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        employee = Employee.objects.get(user=self.request.user)
-        context["activity_start_form"] = ActivityStartForm(employee=employee)
+
+        context["activity_start_form"] = ActivityStartForm(
+            employee=self.get_employee(),
+        )
+
         return context
 
 def get_receivable_jobs_for_employee(employee):
@@ -2176,7 +2212,7 @@ class ScanToStartView(
             return redirect("culet:my_jobs")
 
         return redirect(
-            "culet:start_work",
+            "culet:job_start",
             pk=job.pk,
         )
 
@@ -2745,8 +2781,7 @@ class JobWeightCreateView(LoginRequiredMixin, generic.CreateView):
         form.instance.recorded_by = self.request.user
         self.object = form.save()
         messages.success(self.request, f"Weight recorded for job {self.job.barcode}.")
-        #return redirect(self.job.get_absolute_url())
-        return redirect("culet:job_weight_lookup")
+        return redirect(self.job.get_absolute_url())
     
 class JobWeightLookupView(LoginRequiredMixin, generic.FormView):
     template_name = "jobs/weight_lookup.html"
