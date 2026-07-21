@@ -5143,3 +5143,177 @@ class RequiredPasswordChangeView(LoginRequiredMixin, generic.FormView):
         )
 
         return super().form_valid(form)
+
+        from django.contrib import messages
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db import transaction
+from django.shortcuts import redirect
+from django.views import generic
+
+from .models import Job, JobStatus
+
+
+class ChangeJobStatusView(
+    LoginRequiredMixin,
+    generic.TemplateView,
+):
+    template_name = "jobs/change_status.html"
+
+    def get_statuses(self):
+        return (
+            JobStatus.objects
+            .filter(active=True)
+            .order_by(
+                "sort_order",
+                "name",
+            )
+        )
+
+    def get_selected_job(self):
+        job_id = self.request.GET.get("job_id", "").strip()
+
+        if not job_id:
+            return None
+
+        return (
+            Job.objects
+            .select_related(
+                "style",
+                "customer",
+                "status",
+            )
+            .filter(pk=job_id)
+            .first()
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context["statuses"] = self.get_statuses()
+        context["selected_job"] = self.get_selected_job()
+
+        return context
+
+    def post(self, request, *args, **kwargs):
+        status_id = request.POST.get(
+            "status",
+            "",
+        ).strip()
+
+        barcodes = [
+            barcode.strip()
+            for barcode in request.POST.getlist("barcodes")
+            if barcode.strip()
+        ]
+
+        context = self.get_context_data()
+
+        # Preserve submitted data when displaying errors.
+        context["submitted_barcodes"] = barcodes
+        context["selected_status_id"] = status_id
+
+        if not status_id:
+            messages.error(
+                request,
+                "Please select a new job status.",
+            )
+            return self.render_to_response(context)
+
+        try:
+            new_status = JobStatus.objects.get(
+                pk=status_id,
+                active=True,
+            )
+        except JobStatus.DoesNotExist:
+            messages.error(
+                request,
+                "The selected job status is not available.",
+            )
+            return self.render_to_response(context)
+
+        if not barcodes:
+            messages.error(
+                request,
+                "Please enter at least one job barcode.",
+            )
+            return self.render_to_response(context)
+
+        # Do not process the same scanned barcode twice.
+        unique_barcodes = list(dict.fromkeys(barcodes))
+
+        matching_jobs = list(
+            Job.objects
+            .filter(
+                barcode__in=unique_barcodes,
+            )
+            .select_related(
+                "style",
+                "customer",
+                "status",
+            )
+        )
+
+        jobs_by_barcode = {
+            str(job.barcode): job
+            for job in matching_jobs
+        }
+
+        missing_barcodes = [
+            barcode
+            for barcode in unique_barcodes
+            if barcode not in jobs_by_barcode
+        ]
+
+        if missing_barcodes:
+            messages.error(
+                request,
+                "No job was found for the following barcode(s): "
+                + ", ".join(missing_barcodes),
+            )
+            return self.render_to_response(context)
+
+        changed_jobs = []
+        unchanged_jobs = []
+
+        with transaction.atomic():
+            for barcode in unique_barcodes:
+                job = jobs_by_barcode[barcode]
+
+                if job.status_id == new_status.pk:
+                    unchanged_jobs.append(job)
+                    continue
+
+                job.status = new_status
+                changed_jobs.append(job)
+
+            if changed_jobs:
+                Job.objects.bulk_update(
+                    changed_jobs,
+                    ["status"],
+                )
+
+        if changed_jobs:
+            messages.success(
+                request,
+                (
+                    f"Updated {len(changed_jobs)} "
+                    f"{'job' if len(changed_jobs) == 1 else 'jobs'} "
+                    f"to “{new_status.name}”."
+                ),
+            )
+
+        if unchanged_jobs:
+            stock_numbers = ", ".join(
+                job.stock_num
+                for job in unchanged_jobs
+            )
+
+            messages.info(
+                request,
+                (
+                    "Already set to this status: "
+                    f"{stock_numbers}."
+                ),
+            )
+
+        return redirect("culet:change_status")

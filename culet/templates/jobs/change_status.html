@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+
+{% block title %}
+    Change Job Status
+{% endblock title %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="page-header mb-4">
+        <div>
+            <h1 class="mb-1">Change Job Status</h1>
+            <p class="text-muted mb-0">
+                Scan jobs and select their new status.
+            </p>
+        </div>
+    </div>
+
+    <form method="post" id="change-status-form">
+        {% csrf_token %}
+
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <div class="mb-4">
+                    <label
+                        for="id_status"
+                        class="form-label fw-semibold"
+                    >
+                        New Status
+                    </label>
+
+                    <select
+                        name="status"
+                        id="id_status"
+                        class="form-select"
+                        required
+                    >
+                        <option value="">
+                            Select a status
+                        </option>
+
+                        {% for status in statuses %}
+                            <option
+                                value="{{ status.pk }}"
+                                {% if selected_status_id|stringformat:"s" == status.pk|stringformat:"s" %}
+                                    selected
+                                {% endif %}
+                            >
+                                {{ status.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="d-flex align-items-center justify-content-between gap-3 mb-3">
+                    <div>
+                        <h2 class="h5 mb-1">Jobs</h2>
+                        <p class="text-muted small mb-0">
+                            Enter or scan each job barcode.
+                        </p>
+                    </div>
+
+                    <button
+                        type="button"
+                        class="btn btn-outline-primary btn-sm"
+                        id="add-job-row"
+                    >
+                        Add Job
+                    </button>
+                </div>
+
+                <div id="job-rows">
+                    {% if submitted_barcodes %}
+                        {% for barcode in submitted_barcodes %}
+                            <div class="job-row input-group mb-2">
+                                <input
+                                    type="text"
+                                    name="barcodes"
+                                    value="{{ barcode }}"
+                                    class="form-control barcode-input"
+                                    placeholder="Scan or enter barcode"
+                                    autocomplete="off"
+                                >
+
+                                <button
+                                    type="button"
+                                    class="btn btn-outline-danger remove-job-row"
+                                    aria-label="Remove job"
+                                >
+                                    &times;
+                                </button>
+                            </div>
+                        {% endfor %}
+
+                    {% elif selected_job %}
+                        <div class="job-row input-group mb-2">
+                            <input
+                                type="text"
+                                name="barcodes"
+                                value="{{ selected_job.barcode }}"
+                                class="form-control barcode-input"
+                                placeholder="Scan or enter barcode"
+                                autocomplete="off"
+                            >
+
+                            <button
+                                type="button"
+                                class="btn btn-outline-danger remove-job-row"
+                                aria-label="Remove job"
+                            >
+                                &times;
+                            </button>
+                        </div>
+
+                    {% else %}
+                        {% for unused in "123" %}
+                            <div class="job-row input-group mb-2">
+                                <input
+                                    type="text"
+                                    name="barcodes"
+                                    class="form-control barcode-input"
+                                    placeholder="Scan or enter barcode"
+                                    autocomplete="off"
+                                >
+
+                                <button
+                                    type="button"
+                                    class="btn btn-outline-danger remove-job-row"
+                                    aria-label="Remove job"
+                                >
+                                    &times;
+                                </button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex flex-column flex-sm-row gap-2">
+            <button
+                type="submit"
+                class="btn btn-primary"
+            >
+                Change Status
+            </button>
+
+            <a
+                href="{% url 'culet:index_job' %}"
+                class="btn btn-outline-secondary"
+            >
+                Cancel
+            </a>
+        </div>
+    </form>
+</div>
+
+<template id="job-row-template">
+    <div class="job-row input-group mb-2">
+        <input
+            type="text"
+            name="barcodes"
+            class="form-control barcode-input"
+            placeholder="Scan or enter barcode"
+            autocomplete="off"
+        >
+
+        <button
+            type="button"
+            class="btn btn-outline-danger remove-job-row"
+            aria-label="Remove job"
+        >
+            &times;
+        </button>
+    </div>
+</template>
+{% endblock content %}
+
+{% block extra_js %}
+{{ block.super }}
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const rowsContainer = document.getElementById("job-rows");
+    const addRowButton = document.getElementById("add-job-row");
+    const rowTemplate = document.getElementById("job-row-template");
+    const form = document.getElementById("change-status-form");
+
+    function focusFirstEmptyInput() {
+        const firstEmptyInput = Array.from(
+            rowsContainer.querySelectorAll(".barcode-input")
+        ).find((input) => !input.value.trim());
+
+        if (firstEmptyInput) {
+            firstEmptyInput.focus();
+        }
+    }
+
+    function addJobRow(focusInput = true) {
+        const fragment = rowTemplate.content.cloneNode(true);
+        const input = fragment.querySelector(".barcode-input");
+
+        rowsContainer.appendChild(fragment);
+
+        if (focusInput && input) {
+            input.focus();
+        }
+    }
+
+    addRowButton.addEventListener("click", function () {
+        addJobRow();
+    });
+
+    rowsContainer.addEventListener("click", function (event) {
+        const removeButton = event.target.closest(".remove-job-row");
+
+        if (!removeButton) {
+            return;
+        }
+
+        const row = removeButton.closest(".job-row");
+        const rows = rowsContainer.querySelectorAll(".job-row");
+
+        if (rows.length === 1) {
+            const input = row.querySelector(".barcode-input");
+            input.value = "";
+            input.focus();
+            return;
+        }
+
+        row.remove();
+        focusFirstEmptyInput();
+    });
+
+    rowsContainer.addEventListener("keydown", function (event) {
+        if (
+            event.key !== "Enter" ||
+            !event.target.classList.contains("barcode-input")
+        ) {
+            return;
+        }
+
+        event.preventDefault();
+
+        const currentInput = event.target;
+        const currentRow = currentInput.closest(".job-row");
+        const nextRow = currentRow.nextElementSibling;
+
+        if (
+            nextRow &&
+            nextRow.classList.contains("job-row")
+        ) {
+            nextRow.querySelector(".barcode-input").focus();
+            return;
+        }
+
+        addJobRow();
+    });
+
+    form.addEventListener("submit", function () {
+        const emptyInputs = rowsContainer.querySelectorAll(
+            ".barcode-input"
+        );
+
+        emptyInputs.forEach(function (input) {
+            if (!input.value.trim()) {
+                input.disabled = true;
+            }
+        });
+    });
+
+    focusFirstEmptyInput();
+});
+</script>
+{% endblock extra_js %}
