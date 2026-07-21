@@ -10,37 +10,37 @@ class Command(BaseCommand):
         {
             "name": "After Cleaning",
             "code": "afterclean",
-            "sort_order": 0,
+            "order": 0,
             "active": True,
         },
         {
             "name": "After Pre-polish",
             "code": "afterprepolish",
-            "sort_order": 1,
+            "order": 1,
             "active": True,
         },
         {
             "name": "After Assembly",
             "code": "afterassm",
-            "sort_order": 2,
+            "order": 2,
             "active": True,
         },
         {
             "name": "Before Set",
             "code": "beforeset",
-            "sort_order": 3,
+            "order": 3,
             "active": True,
         },
         {
             "name": "After Set",
             "code": "afterset",
-            "sort_order": 4,
+            "order": 4,
             "active": True,
         },
         {
             "name": "Final Weight",
             "code": "final",
-            "sort_order": 5,
+            "order": 5,
             "active": True,
         },
     ]
@@ -54,7 +54,7 @@ class Command(BaseCommand):
                 code=step_data["code"],
                 defaults={
                     "name": step_data["name"],
-                    "sort_order": step_data["sort_order"],
+                    "order": step_data["order"],
                     "active": step_data["active"],
                 },
             )
