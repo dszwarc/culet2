@@ -113,7 +113,7 @@ from .forms import (
     )
 
 from .mixins import CuletPermissionRequiredMixin
-from .permissions import can_perform_quality_inspection, can_job_deatil, can_job_edit
+from .permissions import can_perform_quality_inspection
 
 from django.contrib import messages
 from django.shortcuts import redirect
