@@ -147,11 +147,7 @@
                             >
 
                                 <td>
-                                    <a
-                                        href="{% url 'culet:job_detail' job.id %}"
-                                    >
                                         {{ job.stock_num|default:"No stock #" }}
-                                    </a>
                                 </td>
 
 
@@ -272,11 +268,9 @@
                                     Stock #
                                 </span>
 
-                                <a
-                                    href="{% url 'culet:job_detail' job.id %}"
-                                >
+
                                     {{ job.stock_num|default:"No stock #" }}
-                                </a>
+
 
                             </div>
 
