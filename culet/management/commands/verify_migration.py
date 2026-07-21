@@ -34,6 +34,7 @@ EXPECTED_COMMANDS = (
     "import_styles",
     "import_style_metals",
     "import_style_stones",
+    "infer_style_findings",
     "import_style_findings",
     "import_jobs",
     "import_job_metals",

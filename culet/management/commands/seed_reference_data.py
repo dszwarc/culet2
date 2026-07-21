@@ -10,6 +10,7 @@ SEED_COMMANDS = [
     "seed_job_statuses",
     "seed_activity_steps",
     "seed_failure_types",
+    "seed_movementtypes",
 ]
 
 
