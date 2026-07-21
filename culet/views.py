@@ -743,6 +743,10 @@ class JobDetailView(
             )
             .order_by("-created_at", "-pk")
         )
+        context["job_weights"] = (
+            JobWeight.objects
+            .filter(job=self.object)
+            ).order_by("-created_at")
 
         return context
 
