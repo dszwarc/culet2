@@ -1596,7 +1596,10 @@ class AssignJobView(
     def get_employees(self):
         return (
             Employee.objects
-            .filter(user__is_active=True)
+            .filter(
+                active=True,
+                user__is_active=True,
+            )
             .select_related(
                 "user",
                 "department",
@@ -1608,8 +1611,17 @@ class AssignJobView(
             )
         )
 
+    def get_departments(self):
+        return (
+            Department.objects
+            .order_by("name")
+        )
+
     def get_selected_job(self):
-        job_id = self.request.GET.get("job_id", "").strip()
+        job_id = self.request.GET.get(
+            "job_id",
+            "",
+        ).strip()
 
         if not job_id:
             return None
@@ -1628,6 +1640,7 @@ class AssignJobView(
         context = super().get_context_data(**kwargs)
 
         context["employees"] = self.get_employees()
+        context["departments"] = self.get_departments()
         context["selected_job"] = self.get_selected_job()
 
         return context
@@ -1672,7 +1685,10 @@ class AssignJobView(
         if selected_job_id:
             selected_job = (
                 Job.objects
-                .select_related("style")
+                .select_related(
+                    "style",
+                    "assigned_to",
+                )
                 .filter(pk=selected_job_id)
                 .first()
             )
@@ -1721,7 +1737,10 @@ class AssignJobView(
                 .filter(
                     barcode__in=submitted_barcodes,
                 )
-                .select_related("style")
+                .select_related(
+                    "style",
+                    "assigned_to",
+                )
             )
 
             jobs_by_barcode = {
@@ -1744,7 +1763,6 @@ class AssignJobView(
                 )
                 return redirect("culet:assign_job")
 
-            # Keep the same order in which jobs were submitted.
             jobs = [
                 jobs_by_barcode[barcode]
                 for barcode in submitted_barcodes
@@ -1765,7 +1783,11 @@ class AssignJobView(
                     assigned_count += 1
 
         if assigned_count:
-            job_word = "job" if assigned_count == 1 else "jobs"
+            job_word = (
+                "job"
+                if assigned_count == 1
+                else "jobs"
+            )
 
             messages.success(
                 request,
