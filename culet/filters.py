@@ -55,6 +55,16 @@ class JobFilter(django_filters.FilterSet):
             }
         ),
     )
+    status = django_filters.ModelChoiceFilter(
+        queryset=JobStatus.objects.order_by("name"),
+        empty_label="All statuses",
+        widget=forms.Select(
+            attrs={
+                "class": "combo-box",
+                "data-placeholder": "All statuses",
+            }
+        ),
+    )
 
     assigned_to = django_filters.ModelChoiceFilter(
         queryset=(
