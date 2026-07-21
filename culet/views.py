@@ -747,6 +747,10 @@ class JobDetailView(
             )
             .order_by("-created_at", "-pk")
         )
+        context["job_weights"] = (
+            JobWeight.objects
+            .filter(job=self.object)
+            ).order_by("-created_at")
 
         return context
 
@@ -2122,6 +2126,59 @@ class StartWorkView(
         )
 
         return redirect("culet:my_jobs")
+
+class ScanToStartView(
+    LoginRequiredMixin,
+    generic.View,
+):
+    """
+    Receives a scanned barcode from the My Jobs page and
+    redirects the employee to the existing StartWorkView.
+
+    StartWorkView remains responsible for validating whether
+    the job can actually be started.
+    """
+
+    http_method_names = ["post"]
+
+    def post(self, request, *args, **kwargs):
+        employee = request.user.employee
+
+        barcode = request.POST.get(
+            "barcode",
+            "",
+        ).strip()
+
+        if not barcode:
+            messages.error(
+                request,
+                "Please scan or enter a job barcode.",
+            )
+            return redirect("culet:my_jobs")
+
+        job = (
+            Job.objects
+            .filter(
+                barcode=barcode,
+                assigned_to=employee,
+            )
+            .first()
+        )
+
+        if job is None:
+            messages.error(
+                request,
+                (
+                    f"Barcode {barcode} was not found "
+                    "in your assigned jobs."
+                ),
+            )
+            return redirect("culet:my_jobs")
+
+        return redirect(
+            "culet:start_work",
+            pk=job.pk,
+        )
 
 @login_required
 def stopWork(request, pk, job_id):

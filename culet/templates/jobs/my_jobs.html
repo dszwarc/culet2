@@ -1,26 +1,150 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
+
 
 {% block content %}
 
 {% if user.is_authenticated %}
 
-    {% if latest_job_list %}
+    <div class="page-container my-jobs-page">
 
-        {# Desktop/tablet table #}
-        <div class="table-wrap job-desktop-table">
-            <table class="index_table job_index">
-                <thead>
-                    <tr>
-                        <th>Stock #</th>
-                        <th>Style</th>
-                        <th>Due Date</th>
-                        <th>Work</th>
-                    </tr>
-                </thead>
+        <div class="page-header">
 
-                <tbody>
-                    {% for job in latest_job_list %}
-                        <tr class="{% if forloop.counter|divisibleby:2 %}even_row{% else %}odd_row{% endif %}">
+            <h1>My Jobs</h1>
+
+            <p>
+                Start work from your assigned jobs or scan a
+                job barcode using your phone camera.
+            </p>
+
+        </div>
+
+
+        {# ================================================= #}
+        {# Scan to Start                                     #}
+        {# ================================================= #}
+
+        <section class="scan-to-start-card">
+
+            <div class="scan-to-start-header">
+
+                <div>
+                    <h2>Scan to Start</h2>
+
+                    <p>
+                        Scan one of your assigned jobs to open
+                        the start-work screen.
+                    </p>
+                </div>
+
+            </div>
+
+
+            <form
+                method="post"
+                action="{% url 'culet:scan_to_start' %}"
+                id="scan-to-start-form"
+                class="scan-to-start-form"
+            >
+
+                {% csrf_token %}
+
+
+                <div class="scan-to-start-controls">
+
+                    <div class="scan-to-start-input-wrap">
+
+                        <label
+                            for="scan-to-start-barcode"
+                            class="form-label"
+                        >
+                            Job barcode
+                        </label>
+
+                        <input
+                            type="text"
+                            name="barcode"
+                            id="scan-to-start-barcode"
+                            class="form-control"
+                            placeholder="Scan or enter barcode"
+                            inputmode="numeric"
+                            pattern="[0-9]*"
+                            autocomplete="off"
+                            enterkeyhint="go"
+                            required
+                        >
+
+                    </div>
+
+
+                    <button
+                        type="button"
+                        class="
+                            btn
+                            btn-primary
+                            culet-scanner-btn
+                            js-culet-scanner-btn
+                            scan-to-start-camera-button
+                        "
+                        data-target="scan-to-start-barcode"
+                        data-auto-submit="true"
+                    >
+                        📷 Scan to Start
+                    </button>
+
+
+                    <button
+                        type="submit"
+                        class="
+                            btn
+                            btn-outline-primary
+                            scan-to-start-submit-button
+                        "
+                    >
+                        Continue
+                    </button>
+
+                </div>
+
+            </form>
+
+        </section>
+
+
+        {# ================================================= #}
+        {# Assigned Jobs                                     #}
+        {# ================================================= #}
+
+        {% if latest_job_list %}
+
+            {# Desktop/tablet table #}
+
+            <div class="table-wrap job-desktop-table">
+
+                <table class="index_table job_index">
+
+                    <thead>
+                        <tr>
+                            <th>Stock #</th>
+                            <th>Style</th>
+                            <th>Due Date</th>
+                            <th>Work</th>
+                        </tr>
+                    </thead>
+
+
+                    <tbody>
+
+                        {% for job in latest_job_list %}
+
+                            <tr
+                                class="
+                                    {% if forloop.counter|divisibleby:2 %}
+                                        even_row
+                                    {% else %}
+                                        odd_row
+                                    {% endif %}
+                                "
+                            >
 
                             <td>
 
@@ -28,178 +152,342 @@
 
                             </td>
 
-                            <td>{{ job.style|default:"—" }}</td>
 
-                            <td {% if job.is_past_due %}class="past_due"{% endif %}>
-                                {{ job.due|date:"n/j/Y" }}
-                            </td>
+                                <td>
+                                    {{ job.style|default:"—" }}
+                                </td>
 
-                            <td>
-                                {% if job.is_piecework %}
 
-                                    <div class="piecework-card">
-                                        <div class="piecework-title">
-                                            Piecework
+                                <td
+                                    {% if job.is_past_due %}
+                                        class="past_due"
+                                    {% endif %}
+                                >
+                                    {% if job.due %}
+                                        {{ job.due|date:"n/j/Y" }}
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </td>
+
+
+                                <td>
+
+                                    {% if job.is_piecework %}
+
+                                        <div class="piecework-card">
+
+                                            <div class="piecework-title">
+                                                Piecework
+                                            </div>
+
+                                            <div class="piecework-date">
+
+                                                Return by:<br>
+
+                                                {% if job.piecework_due_back %}
+
+                                                    {{ job.piecework_due_back|date:"n/j/Y" }}
+
+                                                {% else %}
+
+                                                    No due date
+
+                                                {% endif %}
+
+                                            </div>
+
                                         </div>
 
-                                        <div class="piecework-date">
-                                            Return by:<br>
 
-                                            {% if job.piecework_due_back %}
-                                                {{ job.piecework_due_back|date:"n/j/Y" }}
-                                            {% else %}
-                                                No due date
-                                            {% endif %}
-                                        </div>
-                                    </div>
+                                    {% elif request.user.employee.can_qc %}
 
-                                {% elif request.user.employee.can_qc %}
-                                    <a
-                                        href="{% url 'culet:quality_inspection' %}?barcode={{ job.barcode|urlencode }}"
-                                        class="btn btn-primary"
-                                    >
-                                        Start Inspection
-                                    </a>
-            
-                                        {% elif job.in_work and job.active_activity %}
+                                        <a
+                                            href="{% url 'culet:quality_inspection' %}?barcode={{ job.barcode|urlencode }}"
+                                            class="btn btn-primary"
+                                        >
+                                            Start Inspection
+                                        </a>
 
-                                            <form
-                                                method="post"
-                                                action="{% url 'culet:stop_work' job.active_activity.id job.id %}"
+
+                                    {% elif job.in_work and job.active_activity %}
+
+                                        <form
+                                            method="post"
+                                            action="{% url 'culet:stop_work' job.active_activity.id job.id %}"
+                                        >
+
+                                            {% csrf_token %}
+
+                                            <button
+                                                type="submit"
+                                                class="btn btn-danger"
+                                                onclick="return confirm('Stop work on Job {{ job.stock_num|default:job.barcode|escapejs }}?');"
                                             >
-                                                {% csrf_token %}
+                                                Stop Work
+                                            </button>
 
-                                                <button
-                                                    type="submit"
-                                                    class="btn btn-danger"
-                                                    onclick="return confirm('Stop work on Job {{ job.stock_num|default:job.barcode }}?');"
-                                                >
-                                                    Stop Work
-                                                </button>
-                                            </form>
+                                        </form>
 
-                                        {% else %}
 
-                                            <a
-                                                href="{% url 'culet:job_start' job.id %}"
-                                                class="btn btn-success"
-                                            >
-                                                Start Work
-                                            </a>
+                                    {% else %}
+
+                                        <a
+                                            href="{% url 'culet:job_start' job.id %}"
+                                            class="btn btn-success"
+                                        >
+                                            Start Work
+                                        </a>
 
                                     {% endif %}
 
+                                </td>
+
+                            </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            </div>
 
 
-                            </td>
+            {# Mobile compact cards #}
 
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+            <div class="mobile-job-list">
 
+                {% for job in latest_job_list %}
 
-        {# Mobile compact cards #}
-        <div class="mobile-job-list">
+                    <article class="mobile-job-card">
 
-            {% for job in latest_job_list %}
-                <article class="mobile-job-card">
+                        <div class="mobile-job-card-header">
 
-                    <div class="mobile-job-card-header">
+                            <div class="mobile-job-stock">
 
-                        <div class="mobile-job-stock">
-                            <span class="mobile-job-label">Stock #</span>
+                                <span class="mobile-job-label">
+                                    Stock #
+                                </span>
 
                             
                                 {{ job.stock_num|default:"No stock #" }}
                             
                         </div>
 
-                        <div class="mobile-job-due {% if job.is_past_due %}mobile-job-due-past{% endif %}">
-                            <span class="mobile-job-label">Due</span>
 
-                            {% if job.due %}
-                                {{ job.due|date:"n/j/y" }}
-                            {% else %}
-                                —
-                            {% endif %}
+                            <div
+                                class="
+                                    mobile-job-due
+                                    {% if job.is_past_due %}
+                                        mobile-job-due-past
+                                    {% endif %}
+                                "
+                            >
+
+                                <span class="mobile-job-label">
+                                    Due
+                                </span>
+
+                                {% if job.due %}
+
+                                    {{ job.due|date:"n/j/y" }}
+
+                                {% else %}
+
+                                    —
+
+                                {% endif %}
+
+                            </div>
+
                         </div>
 
-                    </div>
 
-                    <div class="mobile-job-style">
-                        <span class="mobile-job-label">Style</span>
-                        <span>{{ job.style|default:"—" }}</span>
-                    </div>
+                        <div class="mobile-job-style">
 
-                    <div class="mobile-job-action">
+                            <span class="mobile-job-label">
+                                Style
+                            </span>
 
-                        {% if job.is_piecework %}
+                            <span>
+                                {{ job.style|default:"—" }}
+                            </span>
 
-                            <div class="mobile-piecework-status">
-                                <strong>Piecework</strong>
+                        </div>
 
-                                <span>
-                                    Return by:
-                                    {% if job.piecework_due_back %}
-                                        {{ job.piecework_due_back|date:"n/j/y" }}
-                                    {% else %}
-                                        No due date
-                                    {% endif %}
-                                </span>
-                            </div>
-                        
-                        {% elif request.user.employee.can_qc %}
-                            <a
-                                href="{% url 'culet:quality_inspection' %}?barcode={{ job.barcode|urlencode }}"
-                                class="btn btn-primary"
-                            >
-                                Start Inspection
-                            </a>
 
-                        {% elif job.in_work and job.active_activity %}
+                        <div class="mobile-job-action">
 
-                            <form
-                                method="post"
-                                action="{% url 'culet:stop_work' job.active_activity.id job.id %}"
-                                class="mobile-job-form"
-                            >
-                                {% csrf_token %}
+                            {% if job.is_piecework %}
 
-                                <button
-                                    type="submit"
-                                    class="btn btn-danger mobile-job-button"
-                                    onclick="return confirm('Stop work on Job {{ job.stock_num|default:job.barcode }}?');"
+                                <div class="mobile-piecework-status">
+
+                                    <strong>
+                                        Piecework
+                                    </strong>
+
+                                    <span>
+
+                                        Return by:
+
+                                        {% if job.piecework_due_back %}
+
+                                            {{ job.piecework_due_back|date:"n/j/y" }}
+
+                                        {% else %}
+
+                                            No due date
+
+                                        {% endif %}
+
+                                    </span>
+
+                                </div>
+
+
+                            {% elif request.user.employee.can_qc %}
+
+                                <a
+                                    href="{% url 'culet:quality_inspection' %}?barcode={{ job.barcode|urlencode }}"
+                                    class="
+                                        btn
+                                        btn-primary
+                                        mobile-job-button
+                                    "
                                 >
-                                    Stop Work
-                                </button>
-                            </form>
+                                    Start Inspection
+                                </a>
 
-                        {% else %}
 
-                            <a
-                                href="{% url 'culet:job_start' job.id %}"
-                                class="btn btn-success mobile-job-button"
-                            >
-                                Start Work
-                            </a>
+                            {% elif job.in_work and job.active_activity %}
 
-                        {% endif %}
+                                <form
+                                    method="post"
+                                    action="{% url 'culet:stop_work' job.active_activity.id job.id %}"
+                                    class="mobile-job-form"
+                                >
 
-                    </div>
+                                    {% csrf_token %}
 
-                </article>
-            {% endfor %}
+                                    <button
+                                        type="submit"
+                                        class="
+                                            btn
+                                            btn-danger
+                                            mobile-job-button
+                                        "
+                                        onclick="return confirm('Stop work on Job {{ job.stock_num|default:job.barcode|escapejs }}?');"
+                                    >
+                                        Stop Work
+                                    </button>
 
-        </div>
+                                </form>
 
-    {% else %}
 
-        <p>No jobs are available.</p>
+                            {% else %}
 
-    {% endif %}
+                                <a
+                                    href="{% url 'culet:job_start' job.id %}"
+                                    class="
+                                        btn
+                                        btn-success
+                                        mobile-job-button
+                                    "
+                                >
+                                    Start Work
+                                </a>
+
+                            {% endif %}
+
+                        </div>
+
+                    </article>
+
+                {% endfor %}
+
+            </div>
+
+
+        {% else %}
+
+            <div class="empty-state-card">
+
+                <h2>No jobs are available</h2>
+
+                <p>
+                    You do not currently have any assigned jobs.
+                </p>
+
+            </div>
+
+        {% endif %}
+
+    </div>
+
+
+    {# Shared camera-scanner overlay. Include only once. #}
+
+    {% include "includes/barcode_scanner.html" with overlay_only=True %}
 
 {% endif %}
 
 {% endblock content %}
+
+
+{% block extra_js %}
+
+{{ block.super }}
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const scanForm = document.getElementById(
+        "scan-to-start-form"
+    );
+
+    const barcodeInput = document.getElementById(
+        "scan-to-start-barcode"
+    );
+
+    if (!scanForm || !barcodeInput) {
+        return;
+    }
+
+
+    /*
+     * This provides a fallback in case the shared camera
+     * scanner fills the input and dispatches a change event
+     * without directly submitting data-auto-submit forms.
+     */
+    barcodeInput.addEventListener(
+        "change",
+        function () {
+            if (!barcodeInput.value.trim()) {
+                return;
+            }
+
+            scanForm.requestSubmit();
+        }
+    );
+
+
+    /*
+     * Prevent accidental blank or whitespace-only submissions.
+     */
+    scanForm.addEventListener(
+        "submit",
+        function (event) {
+            barcodeInput.value = (
+                barcodeInput.value.trim()
+            );
+
+            if (!barcodeInput.value) {
+                event.preventDefault();
+                barcodeInput.focus();
+            }
+        }
+    );
+});
+</script>
+
+{% endblock extra_js %}
