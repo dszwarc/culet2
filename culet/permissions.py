@@ -83,6 +83,11 @@ def can_create_repairs(user):
 def can_view_all_styles(user):
     return is_super(user)
 
+def can_job_detail(user):
+    return is_department_head(user)
+
+def can_job_edit(user):
+    return is_manager(user)
 
 def can_view_all_inventory(user):
     return is_super(user)

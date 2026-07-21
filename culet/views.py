@@ -676,9 +676,13 @@ class ActivityListView(LoginRequiredMixin,generic.ListView):
         return Activity.objects.order_by("-start")
     
 class JobDetailView(
-    LoginRequiredMixin,
+    CuletPermissionRequiredMixin,
     generic.DetailView,
 ):
+    permission_function = can_perform_quality_inspection
+    permission_denied_message = (
+        "You do not have permission to perform quality inspections."
+    )
     model = Job
     template_name = "jobs/detail.html"
     context_object_name = "job"

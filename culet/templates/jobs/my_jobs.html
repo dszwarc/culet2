@@ -23,9 +23,9 @@
                         <tr class="{% if forloop.counter|divisibleby:2 %}even_row{% else %}odd_row{% endif %}">
 
                             <td>
-                                <a href="{% url 'culet:job_detail' job.id %}">
+
                                     {{ job.stock_num|default:"No stock #" }}
-                                </a>
+
                             </td>
 
                             <td>{{ job.style|default:"—" }}</td>
@@ -111,9 +111,9 @@
                         <div class="mobile-job-stock">
                             <span class="mobile-job-label">Stock #</span>
 
-                            <a href="{% url 'culet:job_detail' job.id %}">
+                            
                                 {{ job.stock_num|default:"No stock #" }}
-                            </a>
+                            
                         </div>
 
                         <div class="mobile-job-due {% if job.is_past_due %}mobile-job-due-past{% endif %}">

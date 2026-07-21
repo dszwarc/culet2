@@ -38,9 +38,9 @@
                     {% for job in receive_list %}
                         <tr>
                             <td>
-                                <a href="{{ job.get_absolute_url }}">
+
                                     {{ job.stock_num|default:"No stock #" }}
-                                </a>
+
                             </td>
 
                             <td>{{ job.style|default:"—" }}</td>
@@ -92,9 +92,9 @@
                         <div class="mobile-job-stock">
                             <span class="mobile-job-label">Stock #</span>
 
-                            <a href="{{ job.get_absolute_url }}">
+
                                 {{ job.stock_num|default:"No stock #" }}
-                            </a>
+
                         </div>
 
                         <div class="mobile-job-due {% if job.is_past_due %}mobile-job-due-past{% endif %}">
