@@ -204,46 +204,59 @@ def move_job(
             "movement_type must be a MovementType instance or code."
         )
 
-    if to_employee is not None and not isinstance(to_employee, Employee):
+    if (
+        to_employee is not None
+        and not isinstance(to_employee, Employee)
+    ):
         raise ValidationError(
             "to_employee must be an Employee instance or None."
         )
 
-    if performed_by is not None and not isinstance(
-        performed_by,
-        Employee,
+    if (
+        performed_by is not None
+        and not isinstance(performed_by, Employee)
     ):
         raise ValidationError(
             "performed_by must be an Employee instance or None."
         )
 
+    # Lock only the Job row.
+    #
+    # Do not use select_related("assigned_to", "holder") here.
+    # Those fields are nullable, so PostgreSQL creates outer joins and
+    # cannot apply FOR UPDATE to the nullable side of those joins.
     job = (
         Job.objects
-        .select_for_update()
-        .select_related(
-            "assigned_to",
-            "holder",
-        )
+        .select_for_update(of=("self",))
         .get(pk=job.pk)
     )
 
     job_field = movement_type.job_field
 
-    if job_field not in {
+    valid_job_fields = {
         MovementType.JobField.ASSIGNED_TO,
         MovementType.JobField.HOLDER,
-    }:
+    }
+
+    if job_field not in valid_job_fields:
         raise ValidationError(
             f'Movement type "{movement_type}" has unsupported '
             f'job field "{job_field}".'
         )
 
-    from_employee = getattr(job, job_field)
+    from_employee = getattr(
+        job,
+        job_field,
+    )
 
     if from_employee == to_employee:
         return job, None
 
-    setattr(job, job_field, to_employee)
+    setattr(
+        job,
+        job_field,
+        to_employee,
+    )
 
     job.save(
         update_fields=[
