@@ -12,7 +12,7 @@ from django.contrib import messages
 from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
-from .filters import JobFilter, ActivityFilter, StyleFilter, JobReportFilter
+from .filters import JobFilter, ActivityFilter, StyleFilter, JobReportFilter, MetalVendorLotFilter
 from datetime import timedelta, datetime, time, date
 from collections import defaultdict
 from decimal import Decimal
@@ -675,7 +675,10 @@ class ActivityListView(LoginRequiredMixin,generic.ListView):
     def get_queryset(self):
         return Activity.objects.order_by("-start")
     
-class JobDetailView(LoginRequiredMixin, generic.DetailView):
+class JobDetailView(
+    LoginRequiredMixin,
+    generic.DetailView,
+):
     model = Job
     template_name = "jobs/detail.html"
     context_object_name = "job"
@@ -686,7 +689,8 @@ class JobDetailView(LoginRequiredMixin, generic.DetailView):
             .select_related(
                 "customer",
                 "style",
-                "assigned_to",
+                "assigned_to__user",
+                "holder__user",
                 "location",
             )
         )
@@ -721,15 +725,23 @@ class JobDetailView(LoginRequiredMixin, generic.DetailView):
         context["activity"] = (
             Activity.objects
             .filter(job=self.object)
-            .select_related("employee")
+            .select_related(
+                "employee__user",
+                "step",
+            )
             .order_by("-start")
         )
 
-        context["job_weights"] = (
-            JobWeight.objects
+        context["job_movements"] = (
+            JobMovement.objects
             .filter(job=self.object)
-            .select_related("step", "recorded_by")
-            .order_by("-created_at", "-id")
+            .select_related(
+                "movement_type",
+                "from_employee__user",
+                "to_employee__user",
+                "performed_by__user",
+            )
+            .order_by("-created_at", "-pk")
         )
 
         return context
@@ -2332,31 +2344,50 @@ class MetalLotDetailView(LoginRequiredMixin, generic.DetailView):
         )
         return context
 
-class MetalReceiptCreateView(LoginRequiredMixin, generic.CreateView):
+class MetalReceiptCreateView(
+    LoginRequiredMixin,
+    generic.CreateView,
+):
     model = MetalReceipt
     form_class = MetalReceiptForm
     template_name = "inventory/metal_receipt_create.html"
-    success_url = reverse_lazy("culet:metal_vendor_lot_list")
+    success_url = reverse_lazy(
+        "culet:metal_vendor_lot_list"
+    )
+
+    def get_line_formset(self):
+        if self.request.method == "POST":
+            return MetalReceiptLineFormSet(
+                self.request.POST,
+                prefix="lines",
+            )
+
+        return MetalReceiptLineFormSet(
+            prefix="lines",
+        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        if self.request.POST:
-            context["line_formset"] = MetalReceiptLineFormSet(self.request.POST)
-        else:
-            context["line_formset"] = MetalReceiptLineFormSet()
+        if "line_formset" not in context:
+            context["line_formset"] = (
+                self.get_line_formset()
+            )
 
         return context
 
     @transaction.atomic
     def form_valid(self, form):
-        context = self.get_context_data()
-        line_formset = context["line_formset"]
+        line_formset = self.get_line_formset()
 
         if not line_formset.is_valid():
-            return self.render_to_response(self.get_context_data(form=form))
+            return self.render_to_response(
+                self.get_context_data(
+                    form=form,
+                    line_formset=line_formset,
+                )
+            )
 
-        # Save receipt header
         self.object = form.save(commit=False)
         self.object.received_by = self.request.user
         self.object.save()
@@ -2364,43 +2395,62 @@ class MetalReceiptCreateView(LoginRequiredMixin, generic.CreateView):
         lot_num = form.cleaned_data["lot_num"]
         vendor = form.cleaned_data["vendor"]
 
-        # One vendor lot per vendor + lot number
-        vendor_lot, _created = MetalVendorLot.objects.get_or_create(
-            vendor=vendor,
-            lot_num=lot_num,
+        vendor_lot, _created = (
+            MetalVendorLot.objects.get_or_create(
+                vendor=vendor,
+                lot_num=lot_num,
+            )
         )
 
-        # Save receipt lines and update inventory balances
         for line_form in line_formset:
             if not line_form.has_changed():
                 continue
 
-            if line_formset.can_delete and line_form.cleaned_data.get("DELETE"):
+            if (
+                line_formset.can_delete
+                and line_form.cleaned_data.get("DELETE")
+            ):
                 continue
 
             line = line_form.save(commit=False)
             line.receipt = self.object
             line.vendor_lot = vendor_lot
 
-            metal_lot, _created = MetalLot.objects.get_or_create(
-                vendor_lot=vendor_lot,
-                part=line.part,
-                defaults={
-                    "qty_on_hand": Decimal("0"),
-                    "weight_on_hand": Decimal("0"),
-                    "cost": Decimal("0"),
-                },
+            metal_lot, _created = (
+                MetalLot.objects.get_or_create(
+                    vendor_lot=vendor_lot,
+                    part=line.part,
+                    defaults={
+                        "qty_on_hand": Decimal("0"),
+                        "weight_on_hand": Decimal("0"),
+                        "cost": Decimal("0"),
+                    },
+                )
             )
 
             update_kwargs = {
-                "qty_on_hand": F("qty_on_hand") + (line.qty_received or Decimal("0")),
-                "weight_on_hand": F("weight_on_hand") + (line.weight_received or Decimal("0")),
+                "qty_on_hand": (
+                    F("qty_on_hand")
+                    + (
+                        line.qty_received
+                        or Decimal("0")
+                    )
+                ),
+                "weight_on_hand": (
+                    F("weight_on_hand")
+                    + (
+                        line.weight_received
+                        or Decimal("0")
+                    )
+                ),
             }
 
             if line.cost is not None:
                 update_kwargs["cost"] = line.cost
 
-            MetalLot.objects.filter(pk=metal_lot.pk).update(**update_kwargs)
+            MetalLot.objects.filter(
+                pk=metal_lot.pk
+            ).update(**update_kwargs)
 
             line.metal_lot = metal_lot
             line.save()
@@ -2408,20 +2458,122 @@ class MetalReceiptCreateView(LoginRequiredMixin, generic.CreateView):
         return redirect(self.get_success_url())
 
     def form_invalid(self, form):
-        return self.render_to_response(self.get_context_data(form=form))
+        return self.render_to_response(
+            self.get_context_data(
+                form=form,
+                line_formset=self.get_line_formset(),
+            )
+        )
     
-class MetalVendorLotListView(LoginRequiredMixin, generic.ListView):
+class MetalVendorLotListView(
+    LoginRequiredMixin,
+    generic.ListView,
+):
     model = MetalVendorLot
     template_name = "inventory/vendor_lot_list.html"
     context_object_name = "vendor_lots"
-    ordering = ["-received_at"]
+    paginate_by = 50
+
+    SORT_FIELDS = {
+        "lot_num": "lot_num",
+        "vendor": "vendor__name",
+        "received_at": "received_at",
+    }
+
+    DEFAULT_SORT = "received_at"
+    DEFAULT_DIRECTION = "desc"
 
     def get_queryset(self):
-        return (
+        queryset = (
             MetalVendorLot.objects
             .select_related("vendor")
-            .order_by("-received_at")
         )
+
+        self.filterset = MetalVendorLotFilter(
+            self.request.GET,
+            queryset=queryset,
+        )
+
+        queryset = self.filterset.qs
+
+        sort = self.request.GET.get(
+            "sort",
+            self.DEFAULT_SORT,
+        )
+
+        direction = self.request.GET.get(
+            "direction",
+            self.DEFAULT_DIRECTION,
+        )
+
+        if sort not in self.SORT_FIELDS:
+            sort = self.DEFAULT_SORT
+
+        if direction not in {"asc", "desc"}:
+            direction = self.DEFAULT_DIRECTION
+
+        order_field = self.SORT_FIELDS[sort]
+
+        if direction == "desc":
+            order_field = f"-{order_field}"
+
+        return queryset.order_by(
+            order_field,
+            "-pk",
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context["filter"] = self.filterset
+
+        current_sort = self.request.GET.get(
+            "sort",
+            self.DEFAULT_SORT,
+        )
+
+        current_direction = self.request.GET.get(
+            "direction",
+            self.DEFAULT_DIRECTION,
+        )
+
+        if current_sort not in self.SORT_FIELDS:
+            current_sort = self.DEFAULT_SORT
+
+        if current_direction not in {"asc", "desc"}:
+            current_direction = self.DEFAULT_DIRECTION
+
+        context["current_sort"] = current_sort
+        context["current_direction"] = current_direction
+
+        query_params = self.request.GET.copy()
+        query_params.pop("page", None)
+        query_params.pop("sort", None)
+        query_params.pop("direction", None)
+
+        sort_links = {}
+
+        for field_name in self.SORT_FIELDS:
+            params = query_params.copy()
+
+            if current_sort == field_name:
+                next_direction = (
+                    "desc"
+                    if current_direction == "asc"
+                    else "asc"
+                )
+            else:
+                next_direction = "asc"
+
+            params["sort"] = field_name
+            params["direction"] = next_direction
+
+            sort_links[field_name] = params.urlencode()
+
+        context["sort_links"] = sort_links
+        context["query_params"] = query_params.urlencode()
+
+        return context
 
 class MetalVendorLotDetailView(LoginRequiredMixin, generic.DetailView):
     model = MetalVendorLot

@@ -38,25 +38,7 @@
         <div class="job-section-header">
             <h2 class="job-section-title">Job Information</h2>
 
-            <div class="job-status-group">
-                {% if job.shipped %}
-                    <span class="status-badge status-badge-complete">
-                        Shipped
-                    </span>
-                {% elif job.in_work %}
-                    <span class="status-badge status-badge-active">
-                        In Work
-                    </span>
-                {% elif job.active %}
-                    <span class="status-badge status-badge-pending">
-                        Active
-                    </span>
-                {% else %}
-                    <span class="status-badge status-badge-inactive">
-                        Inactive
-                    </span>
-                {% endif %}
-            </div>
+
         </div>
 
         <div class="job-detail-grid">
@@ -95,9 +77,31 @@
                     {{ job.last_updated|date:"M j, Y g:i A" }}
                 </span>
             </div>
+            <div class="job-detail-item">
+                <span>
+                    <span class="job-detail-label">Status</span>
+                </span>
+                {% if job.shipped %}
+                    <span class="job-detail-value">
+                        Shipped
+                    </span>
+                {% elif job.in_work %}
+                    <span class="job-detail-value">
+                        In Work
+                    </span>
+                {% elif job.active %}
+                    <span class="job-detail-value">
+                        Active
+                    </span>
+                {% else %}
+                    <span class="job-detail-value">
+                        Inactive
+                    </span>
+                {% endif %}
+            </div>
         </div>
 
-        <div class="job-notes-block">
+        <div class="job-detail-item" style="margin-top: 1em;">
             <span class="job-detail-label">Notes</span>
 
             <div class="job-notes-content">
@@ -183,6 +187,95 @@
             </div>
         </section>
     {% endif %}
+
+    <!-- Movement history -->
+    <section class="job-section-card">
+        <div class="job-section-header">
+            <div>
+                <h2 class="job-section-title">
+                    Movement History
+                </h2>
+
+                <p class="job-section-subtitle">
+                    Assignment, receipt, return, and release history
+                    for this job.
+                </p>
+            </div>
+        </div>
+
+        <div class="job-table-wrap">
+            <table class="job-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Movement</th>
+                        <th>From</th>
+                        <th>To</th>
+                        <th>Performed By</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for movement in job_movements %}
+                        <tr>
+                            <td data-label="Date">
+                                {{ movement.created_at|date:"M j, Y g:i A" }}
+                            </td>
+
+                            <td data-label="Movement">
+                                <span class="
+                                    movement-badge
+                                    movement-badge--{{ movement.movement_type.code }}
+                                ">
+                                    {{ movement.movement_type.name }}
+                                </span>
+                            </td>
+
+                            <td data-label="From">
+                                {% if movement.from_employee %}
+                                    {{ movement.from_employee.user.get_full_name|default:movement.from_employee.user.username }}
+                                {% else %}
+                                    <span class="text-muted">
+                                        —
+                                    </span>
+                                {% endif %}
+                            </td>
+
+                            <td data-label="To">
+                                {% if movement.to_employee %}
+                                    {{ movement.to_employee.user.get_full_name|default:movement.to_employee.user.username }}
+                                {% else %}
+                                    <span class="text-muted">
+                                        —
+                                    </span>
+                                {% endif %}
+                            </td>
+
+                            <td data-label="Performed By">
+                                {% if movement.performed_by %}
+                                    {{ movement.performed_by.user.get_full_name|default:movement.performed_by.user.username }}
+                                {% else %}
+                                    <span class="text-muted">
+                                        System
+                                    </span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td
+                                colspan="5"
+                                class="empty-table-message"
+                            >
+                                No movement history has been recorded
+                                for this job.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
 
     <!-- Activity history -->
     <section class="job-section-card">

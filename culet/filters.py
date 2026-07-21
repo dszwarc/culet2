@@ -379,3 +379,59 @@ class JobReportFilter(django_filters.FilterSet):
             "due_before",
             "due_after",
         ]
+
+class MetalVendorLotFilter(django_filters.FilterSet):
+    lot_num = django_filters.CharFilter(
+        field_name="lot_num",
+        lookup_expr="icontains",
+        label="Lot Number:",
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": "Search lot number",
+            }
+        ),
+    )
+
+    vendor = django_filters.ModelChoiceFilter(
+        field_name="vendor",
+        queryset=Vendor.objects.order_by("name"),
+        label="Vendor:",
+        empty_label="All vendors",
+        widget=forms.Select(
+            attrs={
+                "class": "combo-box",
+                "data-placeholder": "All vendors",
+            }
+        ),
+    )
+
+    received_after = django_filters.DateFilter(
+        field_name="received_at",
+        lookup_expr="date__gte",
+        label="Received After:",
+        widget=forms.DateInput(
+            attrs={
+                "type": "date",
+            }
+        ),
+    )
+
+    received_before = django_filters.DateFilter(
+        field_name="received_at",
+        lookup_expr="date__lte",
+        label="Received Before:",
+        widget=forms.DateInput(
+            attrs={
+                "type": "date",
+            }
+        ),
+    )
+
+    class Meta:
+        model = MetalVendorLot
+        fields = [
+            "lot_num",
+            "vendor",
+            "received_after",
+            "received_before",
+        ]

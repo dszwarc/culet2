@@ -524,23 +524,25 @@ form:not(td form) {
 
 .job-detail-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 1rem;
 }
 
 .job-detail-item {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    min-width: 0;
+    padding: 1rem 1.15rem;
+    border: 1px solid #e4e7ec;
+    border-radius: .75rem;
+    background: #fafbfc;
 }
 
 .job-detail-label {
-    color: #6b7280;
-    font-size: 0.78rem;
+    display: block;
+    margin-bottom: .35rem;
+    color: #14214a;
+    font-size: .82rem;
     font-weight: 700;
-    letter-spacing: 0.04em;
     text-transform: uppercase;
+    letter-spacing: .05em;
 }
 
 .job-detail-value {
@@ -1221,4 +1223,44 @@ form:not(td form) {
     .assignment-option-grid {
         grid-template-columns: 1fr;
     }
+}
+
+.movement-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.3rem 0.65rem;
+    border: 1px solid #cfd6e4;
+    border-radius: 999px;
+    background: #f5f7fa;
+    color: #344054;
+    font-size: 0.8rem;
+    font-weight: 700;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.movement-badge--assigned {
+    border-color: #9ec5fe;
+    background: #e7f1ff;
+    color: #084298;
+}
+
+.movement-badge--received {
+    border-color: #a3cfbb;
+    background: #d1e7dd;
+    color: #0f5132;
+}
+
+.movement-badge--returned,
+.movement-badge--returned-to-manager {
+    border-color: #ffda6a;
+    background: #fff3cd;
+    color: #664d03;
+}
+
+.movement-badge--released,
+.movement-badge--unassigned {
+    border-color: #b6b7b9;
+    background: #e2e3e5;
+    color: #41464b;
 }

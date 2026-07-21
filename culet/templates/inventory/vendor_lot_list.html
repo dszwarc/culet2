@@ -1,37 +1,288 @@
-{% extends 'base.html' %}
-
+{% extends "base.html" %}
 
 {% block content %}
-    
-<h1>Vendor Lots</h1>
-<div class="table-wrap">
-  <table class="index_table job_index">
-    <thead>
-      <tr>
-        <th>Lot Number</th>
-        <th>Vendor</th>
-        <th>Received At</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for lot in vendor_lots %}
-        <tr>
-          <td>
-            <a href="{% url 'culet:metal_vendor_lot_detail' lot.pk %}">
-              {{ lot.lot_num }}
-            </a>
-          </td>
-          <td>{{ lot.vendor }}</td>
-          <td>{{ lot.received_at }}</td>
-        </tr>
-      {% empty %}
-        <tr>
-          <td colspan="3">No vendor lots found.</td>
-        </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-{% endblock content %}
-    
 
+<div class="page-header">
+    <div>
+        <h1>Vendor Lots</h1>
+        <p class="page-subtitle">
+            Review received metal lots and current vendor lot records.
+        </p>
+    </div>
+
+    <div class="page-header-actions">
+        <a
+            href="{% url 'culet:metal_receipt_create' %}"
+            class="btn btn-primary"
+        >
+            Receive Metal
+        </a>
+    </div>
+</div>
+
+<div class="filter-panel">
+    <div class="filter-header">
+        <div>
+            <h2 class="filter-title">
+                Filter Vendor Lots
+            </h2>
+
+            <p class="filter-subtitle">
+                Search by lot number, vendor, or received date.
+            </p>
+        </div>
+    </div>
+
+    <form method="get" class="filter-form">
+        {% for field in filter.form %}
+            <div class="filter-field">
+                <label for="{{ field.id_for_label }}">
+                    {{ field.label }}
+                </label>
+
+                {{ field }}
+
+                {% if field.errors %}
+                    <div class="field-error">
+                        {{ field.errors }}
+                    </div>
+                {% endif %}
+            </div>
+        {% endfor %}
+
+        <div class="filter-actions">
+            <button
+                type="submit"
+                class="btn btn-primary"
+            >
+                Apply Filters
+            </button>
+
+            <a
+                href="{% url 'culet:metal_vendor_lot_list' %}"
+                class="filter-clear"
+            >
+                Clear
+            </a>
+        </div>
+    </form>
+</div>
+
+{% if vendor_lots %}
+    <div class="table-wrap sticky-table-wrap">
+        <table class="index_table job_index freeze-row">
+            <thead>
+                <tr>
+                    <th
+                        class="
+                            {% if current_sort == 'lot_num' %}
+                                sorted-column
+                            {% endif %}
+                        "
+                    >
+                        <a href="?{{ sort_links.lot_num }}">
+                            Lot Number
+
+                            {% with field="lot_num" %}
+                                {% include "includes/sort_arrow.html" %}
+                            {% endwith %}
+                        </a>
+                    </th>
+
+                    <th
+                        class="
+                            {% if current_sort == 'vendor' %}
+                                sorted-column
+                            {% endif %}
+                        "
+                    >
+                        <a href="?{{ sort_links.vendor }}">
+                            Vendor
+
+                            {% with field="vendor" %}
+                                {% include "includes/sort_arrow.html" %}
+                            {% endwith %}
+                        </a>
+                    </th>
+
+                    <th
+                        class="
+                            {% if current_sort == 'received_at' %}
+                                sorted-column
+                            {% endif %}
+                        "
+                    >
+                        <a href="?{{ sort_links.received_at }}">
+                            Received At
+
+                            {% with field="received_at" %}
+                                {% include "includes/sort_arrow.html" %}
+                            {% endwith %}
+                        </a>
+                    </th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for lot in vendor_lots %}
+                    <tr>
+                        <td>
+                            <a
+                                href="
+                                    {% url
+                                        'culet:metal_vendor_lot_detail'
+                                        lot.pk
+                                    %}
+                                "
+                            >
+                                {{ lot.lot_num }}
+                            </a>
+                        </td>
+
+                        <td>
+                            {{ lot.vendor }}
+                        </td>
+
+                        <td>
+                            {{ lot.received_at|date:"M j, Y g:i A" }}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% else %}
+    <div class="empty-state">
+        <h2>No vendor lots found</h2>
+
+        <p>
+            No vendor lots match the selected filters.
+        </p>
+
+        <a
+            href="{% url 'culet:metal_vendor_lot_list' %}"
+            class="btn btn-secondary"
+        >
+            Clear Filters
+        </a>
+    </div>
+{% endif %}
+
+{% if is_paginated %}
+    {% if page_obj.paginator.num_pages > 1 %}
+        <nav
+            class="pagination-nav"
+            aria-label="Vendor lot pagination"
+        >
+            <div class="pagination-controls">
+                {% if page_obj.has_previous %}
+                    <a
+                        class="pagination-button pagination-edge"
+                        href="
+                            ?{% if query_params %}
+                                {{ query_params }}&
+                            {% endif %}page=1
+                        "
+                    >
+                        &laquo; First
+                    </a>
+
+                    <a
+                        class="pagination-button"
+                        href="
+                            ?{% if query_params %}
+                                {{ query_params }}&
+                            {% endif %}page={{
+                                page_obj.previous_page_number
+                            }}
+                        "
+                    >
+                        Previous
+                    </a>
+                {% else %}
+                    <span
+                        class="
+                            pagination-button
+                            pagination-edge
+                            is-disabled
+                        "
+                    >
+                        &laquo; First
+                    </span>
+
+                    <span
+                        class="
+                            pagination-button
+                            is-disabled
+                        "
+                    >
+                        Previous
+                    </span>
+                {% endif %}
+
+                <span class="pagination-status">
+                    <span class="pagination-status-label">
+                        Page
+                    </span>
+
+                    <strong>{{ page_obj.number }}</strong>
+
+                    <span>of</span>
+
+                    <strong>
+                        {{ page_obj.paginator.num_pages }}
+                    </strong>
+                </span>
+
+                {% if page_obj.has_next %}
+                    <a
+                        class="pagination-button"
+                        href="
+                            ?{% if query_params %}
+                                {{ query_params }}&
+                            {% endif %}page={{
+                                page_obj.next_page_number
+                            }}
+                        "
+                    >
+                        Next
+                    </a>
+
+                    <a
+                        class="pagination-button pagination-edge"
+                        href="
+                            ?{% if query_params %}
+                                {{ query_params }}&
+                            {% endif %}page={{
+                                page_obj.paginator.num_pages
+                            }}
+                        "
+                    >
+                        Last &raquo;
+                    </a>
+                {% else %}
+                    <span
+                        class="
+                            pagination-button
+                            is-disabled
+                        "
+                    >
+                        Next
+                    </span>
+
+                    <span
+                        class="
+                            pagination-button
+                            pagination-edge
+                            is-disabled
+                        "
+                    >
+                        Last &raquo;
+                    </span>
+                {% endif %}
+            </div>
+        </nav>
+    {% endif %}
+{% endif %}
+
+{% endblock content %}

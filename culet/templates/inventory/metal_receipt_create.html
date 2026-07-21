@@ -1,58 +1,222 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 
 {% block content %}
-    
-<h1>Receive Metal Inventory</h1>
 
-<form method="post">
-  {% csrf_token %}
+<div class="job-create-page">
+    <div class="job-create-card">
 
-  <fieldset>
-    <legend>Receipt Header</legend>
-    {{ form.as_p }}
-  </fieldset>
+        <div class="job-create-header">
+            <div>
+                <h1 class="job-create-title">
+                    Receive Metal Inventory
+                </h1>
 
-  <fieldset>
-    <legend>Receipt Lines</legend>
-
-    {{ line_formset.management_form }}
-
-    <div id="line-formset">
-      {% for f in line_formset %}
-        <div class="line-row" style="border:1px solid #ddd; padding:10px; margin-bottom:10px;">
-          {{ f.as_p }}
+                <p class="job-create-subtitle">
+                    Record a vendor shipment and add the received metal
+                    to inventory.
+                </p>
+            </div>
         </div>
-      {% endfor %}
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+                <div class="form-errors">
+                    {{ form.non_field_errors }}
+                </div>
+            {% endif %}
+
+            {% if line_formset.non_form_errors %}
+                <div class="form-errors">
+                    {{ line_formset.non_form_errors }}
+                </div>
+            {% endif %}
+
+            <div class="job-section-card">
+                <h2 class="job-section-title">
+                    Receipt Information
+                </h2>
+
+                <div class="job-form-grid">
+                    <div class="job-form-field">
+                        <label for="{{ form.vendor.id_for_label }}">
+                            {{ form.vendor.label }}
+                        </label>
+
+                        {{ form.vendor }}
+                        {{ form.vendor.errors }}
+                    </div>
+
+                    <div class="job-form-field">
+                        <label for="{{ form.lot_num.id_for_label }}">
+                            {{ form.lot_num.label }}
+                        </label>
+
+                        {{ form.lot_num }}
+                        {{ form.lot_num.errors }}
+                    </div>
+
+                    <div class="job-form-field">
+                        <label for="{{ form.reference.id_for_label }}">
+                            {{ form.reference.label }}
+                        </label>
+
+                        {{ form.reference }}
+                        {{ form.reference.errors }}
+                    </div>
+
+                    <div class="job-form-field job-form-field-full">
+                        <label for="{{ form.notes.id_for_label }}">
+                            {{ form.notes.label }}
+                        </label>
+
+                        {{ form.notes }}
+                        {{ form.notes.errors }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="job-section-card">
+                <h2 class="job-section-title">
+                    Metal Received
+                </h2>
+
+                {{ line_formset.management_form }}
+
+                <div class="job-table-wrap">
+                    <table class="job-table">
+                        <thead>
+                            <tr>
+                                <th>Part</th>
+                                <th>Qty Received</th>
+                                <th>Weight Received</th>
+                                <th>Cost</th>
+
+                                <th class="formset-remove-cell">
+                                    <span class="visually-hidden">
+                                        Remove
+                                    </span>
+                                </th>
+                            </tr>
+                        </thead>
+
+                        <tbody id="metal-receipt-line-formset-body">
+                            {% for line_form in line_formset %}
+                                <tr class="metal-receipt-line-form-row">
+                                    <td>
+                                        {{ line_form.id }}
+                                        {{ line_form.part }}
+                                        {{ line_form.part.errors }}
+                                    </td>
+
+                                    <td>
+                                        {{ line_form.qty_received }}
+                                        {{ line_form.qty_received.errors }}
+                                    </td>
+
+                                    <td>
+                                        {{ line_form.weight_received }}
+                                        {{ line_form.weight_received.errors }}
+                                    </td>
+
+                                    <td>
+                                        {{ line_form.cost }}
+                                        {{ line_form.cost.errors }}
+                                    </td>
+
+                                    <td class="formset-remove-cell">
+                                        {% if line_form.DELETE %}
+                                            <div class="formset-delete-field">
+                                                {{ line_form.DELETE }}
+                                            </div>
+                                        {% endif %}
+
+                                        <button
+                                            type="button"
+                                            class="formset-remove-row"
+                                            aria-label="Remove metal receipt line"
+                                            title="Remove line"
+                                        >
+                                            &times;
+                                        </button>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <template id="metal-receipt-line-empty-form">
+                    <tr class="metal-receipt-line-form-row">
+                        <td>
+                            {{ line_formset.empty_form.id }}
+                            {{ line_formset.empty_form.part }}
+                        </td>
+
+                        <td>
+                            {{ line_formset.empty_form.qty_received }}
+                        </td>
+
+                        <td>
+                            {{ line_formset.empty_form.weight_received }}
+                        </td>
+
+                        <td>
+                            {{ line_formset.empty_form.cost }}
+                        </td>
+
+                        <td class="formset-remove-cell">
+                            {% if line_formset.empty_form.DELETE %}
+                                <div class="formset-delete-field">
+                                    {{ line_formset.empty_form.DELETE }}
+                                </div>
+                            {% endif %}
+
+                            <button
+                                type="button"
+                                class="formset-remove-row"
+                                aria-label="Remove metal receipt line"
+                                title="Remove line"
+                            >
+                                &times;
+                            </button>
+                        </td>
+                    </tr>
+                </template>
+
+                <div class="formset-add-action">
+                    <button
+                        type="button"
+                        class="formset-add-btn"
+                        data-formset-add
+                        data-table-body-id="metal-receipt-line-formset-body"
+                        data-total-forms-id="id_lines-TOTAL_FORMS"
+                        data-empty-template-id="metal-receipt-line-empty-form"
+                    >
+                        <span aria-hidden="true">+</span>
+                        Add Metal
+                    </button>
+                </div>
+            </div>
+
+            <div class="job-form-actions">
+                <a
+                    href="{% url 'culet:metal_receipt_list' %}"
+                    class="btn btn-secondary"
+                >
+                    Cancel
+                </a>
+
+                <button
+                    type="submit"
+                    class="btn btn-primary"
+                >
+                    Save Receipt
+                </button>
+            </div>
+        </form>
     </div>
-
-    <button type="button" id="add-line">Add Line</button>
-  </fieldset>
-
-  <button type="submit">Save Receipt</button>
-</form>
-
-<div id="empty-line-form" style="display:none;">
-  <div class="line-row" style="border:1px solid #ddd; padding:10px; margin-bottom:10px;">
-    {{ line_formset.empty_form.as_p|safe }}
-  </div>
 </div>
 
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-  const addBtn = document.getElementById("add-line");
-  const container = document.getElementById("line-formset");
-  const emptyTemplate = document.getElementById("empty-line-form").innerHTML;
-  const prefix = "{{ line_formset.prefix }}";
-  const totalForms = document.getElementById(`id_${prefix}-TOTAL_FORMS`);
-
-  addBtn.addEventListener("click", function () {
-    const index = parseInt(totalForms.value, 10);
-    const newHtml = emptyTemplate.replace(/__prefix__/g, index);
-    container.insertAdjacentHTML("beforeend", newHtml);
-    totalForms.value = index + 1;
-  });
-});
-</script>
-
 {% endblock content %}
-    

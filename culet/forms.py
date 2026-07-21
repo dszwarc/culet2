@@ -629,11 +629,26 @@ class MetalReceiptLineForm(forms.ModelForm):
             placeholder="Cost",
         ),
     )
+
     class Meta:
         model = MetalReceiptLine
-        fields = ["part", "qty_received","weight_received", "cost"]
+        fields = [
+            "part",
+            "qty_received",
+            "weight_received",
+            "cost",
+        ]
         widgets = {
-            "part": table_select_widget(),
+            "part": forms.Select(
+                attrs={
+                    "class": (
+                        "form-control job-input combo-box"
+                    ),
+                    "data-placeholder": (
+                        "Select or search for a metal part"
+                    ),
+                }
+            ),
             "qty_received": table_number_widget(
                 step="0.001",
                 min_value="0",
@@ -645,11 +660,13 @@ class MetalReceiptLineForm(forms.ModelForm):
                 placeholder="Weight received",
             ),
         }
-        labels = {
-            "qty_received": "Qty Received",
-            "weight_received":"Weight Received",
-            "cost":"Cost",
-        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.fields["part"].empty_label = (
+            "Select or search for a metal part"
+        )
 
 
 class MetalLotForm(forms.ModelForm):
