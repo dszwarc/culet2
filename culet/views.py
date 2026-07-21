@@ -1702,7 +1702,7 @@ class AssignJobView(
                     request,
                     "The selected job could not be found.",
                 )
-                return redirect("culet:index_job")
+                return redirect("culet:assign_job")
 
             jobs = [selected_job]
 
@@ -1804,12 +1804,9 @@ class AssignJobView(
             )
 
         if len(jobs) == 1:
-            return redirect(
-                "culet:job_detail",
-                pk=jobs[0].pk,
-            )
+            return redirect("culet:home")
 
-        return redirect("culet:index_job")
+        return redirect("culet:home")
     
 class ReturnJobView(
     LoginRequiredMixin,
