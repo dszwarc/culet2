@@ -1265,3 +1265,92 @@ form:not(td form) {
     background: #e2e3e5;
     color: #41464b;
 }
+
+.scan-to-start-card {
+    margin-bottom: 1.5rem;
+    padding: 1.25rem;
+    border: 1px solid #d8dee6;
+    border-radius: 0.75rem;
+    background: #ffffff;
+}
+
+.scan-to-start-header {
+    margin-bottom: 1rem;
+}
+
+.scan-to-start-header h2 {
+    margin: 0 0 0.25rem;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #273142;
+}
+
+.scan-to-start-header p {
+    margin: 0;
+    color: #667085;
+}
+
+.scan-to-start-controls {
+    display: grid;
+    grid-template-columns:
+        minmax(12rem, 1fr)
+        auto
+        auto;
+    gap: 0.75rem;
+    align-items: end;
+}
+
+.scan-to-start-input-wrap {
+    min-width: 0;
+}
+
+.scan-to-start-controls .btn {
+    min-height: 42px;
+}
+
+.empty-state-card {
+    padding: 2rem;
+    border: 1px solid #d8dee6;
+    border-radius: 0.75rem;
+    text-align: center;
+    background: #ffffff;
+}
+
+.empty-state-card h2 {
+    margin-top: 0;
+}
+
+.empty-state-card p {
+    margin-bottom: 0;
+    color: #667085;
+}
+
+
+@media (max-width: 700px) {
+
+    .scan-to-start-card {
+        padding: 1rem;
+    }
+
+    .scan-to-start-controls {
+        grid-template-columns: 1fr;
+    }
+
+    .scan-to-start-controls .btn,
+    .scan-to-start-controls .form-control {
+        width: 100%;
+        min-height: 3rem;
+    }
+
+    .scan-to-start-camera-button {
+        order: 1;
+    }
+
+    .scan-to-start-input-wrap {
+        order: 2;
+    }
+
+    .scan-to-start-submit-button {
+        order: 3;
+    }
+}
