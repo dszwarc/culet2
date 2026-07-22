@@ -65,7 +65,15 @@ class JobFilter(django_filters.FilterSet):
             }
         ),
     )
-
+    in_work = django_filters.TypedChoiceFilter(
+        label="In Work",
+        choices=(
+            ("", "All"),
+            ("true", "Yes"),
+            ("false", "No"),
+        ),
+        coerce=lambda value: value == "true",
+    )
     assigned_to = django_filters.ModelChoiceFilter(
         queryset=(
             Employee.objects
@@ -136,6 +144,7 @@ class JobFilter(django_filters.FilterSet):
             "assigned_to",
             "holder",
             "holder_department",
+            "in_work",
             "location",
             "shipped",
             "due_date",
