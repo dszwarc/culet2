@@ -157,7 +157,6 @@
 
         <hr>
 
-
         {# ================================================= #}
         {# Select recent jobs                                #}
         {# ================================================= #}
@@ -174,31 +173,6 @@
                         recently created jobs.
                     </p>
                 </div>
-
-
-                {% if recent_jobs %}
-
-                    <div class="recent-job-selection-actions">
-
-                        <button
-                            type="button"
-                            class="btn btn-secondary btn-small"
-                            id="select-all-recent-jobs"
-                        >
-                            Select All
-                        </button>
-
-                        <button
-                            type="button"
-                            class="btn btn-secondary btn-small"
-                            id="clear-all-recent-jobs"
-                        >
-                            Clear All
-                        </button>
-
-                    </div>
-
-                {% endif %}
 
             </div>
 
@@ -217,6 +191,50 @@
                         name="mode"
                         value="selected"
                     >
+
+
+                    <div class="recent-job-toolbar">
+
+                        <div class="recent-job-selection-actions">
+
+                            <button
+                                type="button"
+                                class="btn btn-secondary btn-small"
+                                id="select-all-recent-jobs"
+                            >
+                                Select All
+                            </button>
+
+                            <button
+                                type="button"
+                                class="btn btn-secondary btn-small"
+                                id="clear-all-recent-jobs"
+                            >
+                                Clear All
+                            </button>
+
+                        </div>
+
+
+                        <div class="recent-job-print-actions">
+
+                            <span
+                                class="recent-job-selected-count"
+                                id="recent-job-selected-count"
+                            >
+                                0 jobs selected
+                            </span>
+
+                            <button
+                                class="btn btn-primary"
+                                type="submit"
+                            >
+                                Print Selected Envelopes
+                            </button>
+
+                        </div>
+
+                    </div>
 
 
                     <div class="recent-job-list">
@@ -266,25 +284,6 @@
                             </label>
 
                         {% endfor %}
-
-                    </div>
-
-
-                    <div class="recent-job-print-bar">
-
-                        <span
-                            class="recent-job-selected-count"
-                            id="recent-job-selected-count"
-                        >
-                            0 jobs selected
-                        </span>
-
-                        <button
-                            class="btn btn-primary"
-                            type="submit"
-                        >
-                            Print Selected Envelopes
-                        </button>
 
                     </div>
 

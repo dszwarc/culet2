@@ -12,8 +12,13 @@
         </div>
 
         <div class="page-actions">
-            <a  class="btn btn-success"
-                href="{% url 'culet:job_envelope_print' job.pk %}">
+            <a
+                class="btn btn-success"
+                href="{% url 'culet:job_envelope_print' job.pk %}"
+                target="_blank"
+                rel="noopener noreferrer"
+                hx-boost="false"
+            >
                 Print Envelope
             </a>
             <a
