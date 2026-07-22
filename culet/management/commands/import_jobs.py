@@ -75,9 +75,9 @@ JOB_SQL = """
 class Command(BaseImportCommand):
     help = (
         "Import old Culet projects as Jobs for a selected date range. "
-        "Both assigned_to and holder are set to the most recently assigned "
-        "legacy employee. Projects with unknown customers or styles are "
-        "preserved using UNKNOWN and LEGACY-UNKNOWN placeholders."
+        "Imported jobs are intentionally left unassigned, with both "
+        "assigned_to and holder set to None. Projects with unknown customers "
+        "or styles are preserved using UNKNOWN and LEGACY-UNKNOWN placeholders."
     )
 
     def add_arguments(self, parser):
@@ -140,7 +140,12 @@ class Command(BaseImportCommand):
             customer=customer,
         )
 
-        employee, employee_message = self.resolve_last_employee(row)
+        # Historical imports must not assign jobs to legacy employees.
+        # Keep both assigned_to and holder blank regardless of legacy progress.
+        employee = None
+        employee_message = (
+            "Historical import: assigned_to and holder intentionally left blank."
+        )
         shipped = to_boolean(row.get("is_shipped"))
         created_at = self.coerce_datetime(row.get("date_added"))
         due_date = self.coerce_due_date(
@@ -180,8 +185,8 @@ class Command(BaseImportCommand):
             "in_work": False,
             "style": style,
             "due": due_date,
-            "assigned_to": employee,
-            "holder": employee,
+            "assigned_to": None,
+            "holder": None,
             "location": None,
             "status": (
                 self.shipped_status
@@ -263,7 +268,7 @@ class Command(BaseImportCommand):
             f"({job.stock_num or 'no stock number'}; "
             f"customer={customer}; "
             f"style={style}; "
-            f"employee={employee or 'none'})"
+            "employee=none)"
         )
 
     def resolve_customer(self, row):
