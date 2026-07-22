@@ -137,57 +137,102 @@ def culet_logout(request):
     return redirect("login")
 
 def get_home_summary_context():
-    now = timezone.now()
     today = timezone.localdate()
-    inactive_cutoff = now - timedelta(days=7)
+    inactive_cutoff = timezone.now() - timedelta(days=7)
 
-    total_jobs = Job.objects.filter(active=True, shipped=False).count()
-
-    jobs_in_work = (
-        Job.objects
-        .filter(activity__active=True, activity__end__isnull=True)
-        .distinct()
-        .count()
+    active_jobs = Job.objects.filter(
+        active=True,
+        shipped=False,
     )
 
-    employees_clocked_in = Employee.objects.filter(clocked_in=True).count()
-
-    idle_employees = (
-        Employee.objects
-        .filter(clocked_in=True)
-        .exclude(activity__active=True, activity__end__isnull=True)
-        .distinct()
-        .count()
-    )
-
-    inactive_jobs_7_days = (
-        Job.objects
-        .filter(active=True, shipped=False)
-        .annotate(last_activity_start=Max("activity__start"))
+    clocked_in_employee_ids = (
+        TimeClock.objects
         .filter(
-            Q(last_activity_start__lt=inactive_cutoff) |
-            Q(last_activity_start__isnull=True, created__lt=inactive_cutoff)
+            clock_out__isnull=True,
+            employee__role__requires_clock_in=True,
         )
-        .count()
+        .values_list(
+            "employee_id",
+            flat=True,
+        )
     )
 
-    late_jobs = (
-        Job.objects
+    active_work_employee_ids = (
+        Activity.objects
         .filter(
             active=True,
-            shipped=False,
-            due__lt=today,
+            end__isnull=True,
+            job__active=True,
+            job__shipped=False,
+        )
+        .values_list(
+            "employee_id",
+            flat=True,
+        )
+    )
+
+    jobs_in_work_count = (
+        active_jobs
+        .filter(
+            activity__active=True,
+            activity__end__isnull=True,
+        )
+        .distinct()
+        .count()
+    )
+
+    clocked_in_count = (
+        Employee.objects
+        .filter(
+            id__in=clocked_in_employee_ids,
+        )
+        .distinct()
+        .count()
+    )
+
+    idle_employee_count = (
+        Employee.objects
+        .filter(
+            id__in=clocked_in_employee_ids,
+        )
+        .exclude(
+            id__in=active_work_employee_ids,
+        )
+        .distinct()
+        .count()
+    )
+
+    late_jobs_count = active_jobs.filter(
+        due__lt=today,
+    ).count()
+
+    inactive_jobs_count = (
+        active_jobs
+        .annotate(
+            last_activity_start=Max("activity__start"),
+        )
+        .filter(
+            Q(last_activity_start__lt=inactive_cutoff)
+            |
+            Q(
+                last_activity_start__isnull=True,
+                created__lt=inactive_cutoff,
+            )
         )
         .count()
     )
 
+    shipped_today_count = JobShip.objects.filter(
+        shipped_at__date=today,
+    ).count()
+
     return {
-        "total_jobs": total_jobs,
-        "jobs_in_work": jobs_in_work,
-        "employees_clocked_in": employees_clocked_in,
-        "idle_employees": idle_employees,
-        "inactive_jobs_7_days": inactive_jobs_7_days,
-        "late_jobs": late_jobs,
+        "jobs_in_work_count": jobs_in_work_count,
+        "clocked_in_count": clocked_in_count,
+        "idle_employee_count": idle_employee_count,
+        "late_jobs_count": late_jobs_count,
+        "inactive_jobs_count": inactive_jobs_count,
+        "shipped_today_count": shipped_today_count,
     }
 
 def get_employee(user):
@@ -246,70 +291,22 @@ class ClockedInRequiredMixin:
 
         return super().dispatch(request, *args, **kwargs)
 
-class HomeView(LoginRequiredMixin, generic.TemplateView):
+class HomeView(
+    LoginRequiredMixin,
+    generic.TemplateView,
+):
     template_name = "home.html"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-
-        today = timezone.localdate()
-        inactive_cutoff = timezone.now() - timedelta(days=7)
-
-        clocked_in_employee_ids = TimeClock.objects.filter(
-            clock_out__isnull=True,
-            employee__role__requires_clock_in=True,
-        ).values_list("employee_id", flat=True)
-
-        active_work_employee_ids = Activity.objects.filter(
-            end__isnull=True,
-        ).values_list("employee_id", flat=True)
-
-        context["jobs_in_work_count"] = Job.objects.filter(
-            activity__end__isnull=True,
-        ).distinct().count()
-
-        context["clocked_in_count"] = Employee.objects.filter(
-            id__in=clocked_in_employee_ids,
-        ).distinct().count()
-
-        context["idle_employee_count"] = Employee.objects.filter(
-            id__in=clocked_in_employee_ids,
-        ).exclude(
-            id__in=active_work_employee_ids,
-        ).distinct().count()
-
-        context["late_jobs_count"] = Job.objects.filter(
-            shipped=False,
-            due__lt=today,
-        ).count()
-
-        context["inactive_jobs_count"] = (
-            Job.objects
-            .filter(
-                active=True,
-                shipped=False,
-            )
-            .annotate(
-                last_activity_start=Max("activity__start"),
-            )
-            .filter(
-                Q(last_activity_start__lt=inactive_cutoff)
-                |
-                Q(
-                    last_activity_start__isnull=True,
-                    created__lt=inactive_cutoff,
-                )
-            )
-            .count()
-        )
-
-        context["shipped_today_count"] = JobShip.objects.filter(
-            shipped_at__date=today,
-        ).count()
-
+        context.update(get_home_summary_context())
         return context
 
-class HomeSummaryPartialView(LoginRequiredMixin, generic.TemplateView):
+
+class HomeSummaryPartialView(
+    LoginRequiredMixin,
+    generic.TemplateView,
+):
     template_name = "partials/home_summary_sidebar.html"
 
     def get_context_data(self, **kwargs):
@@ -3714,12 +3711,15 @@ class BulkJobShipView(
             )
 
         shipped_count = 0
+        shipped_status = JobStatus.objects.get(
+            name__iexact="Shipped",
+        )
 
         with transaction.atomic():
             for barcode in barcodes:
                 job = jobs_by_barcode[barcode]
 
-                # Clear the job's assignment.
+                # Clear the job's assignment and record the movement.
                 job, assignment_movement = move_job(
                     job=job,
                     movement_type="shipped-unassigned",
@@ -3727,7 +3727,7 @@ class BulkJobShipView(
                     performed_by=employee,
                 )
 
-                # Clear physical possession of the job.
+                # Clear physical possession and record the movement.
                 job, holder_movement = move_job(
                     job=job,
                     movement_type="shipped-released",
@@ -3736,12 +3736,16 @@ class BulkJobShipView(
                 )
 
                 job.shipped = True
+                job.active = False
                 job.in_work = False
+                job.status = shipped_status
 
                 job.save(
                     update_fields=[
                         "shipped",
+                        "active",
                         "in_work",
+                        "status",
                         "last_updated",
                     ],
                 )
