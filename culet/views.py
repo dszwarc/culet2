@@ -5148,7 +5148,7 @@ class RequiredPasswordChangeView(LoginRequiredMixin, generic.FormView):
 
         return super().form_valid(form)
 
-        from django.contrib import messages
+from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
 from django.shortcuts import redirect
