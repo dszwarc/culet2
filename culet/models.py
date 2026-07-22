@@ -206,6 +206,7 @@ class Job(models.Model):
     size = models.CharField(default="",blank=True,max_length=80)
     stamp = models.CharField(default="", blank=True, max_length=80)
     notes = models.TextField(default="", blank=True)
+    quantity = models.PositiveIntegerField(default=1)
 
     active = models.BooleanField(default=True)
     shipped = models.BooleanField(default=False)

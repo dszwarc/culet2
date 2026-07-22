@@ -101,6 +101,15 @@
       </div>
 
       <div class="job-field">
+        <label for="{{ job_form.quantity.id_for_label }}">
+            {{ job_form.quantity.label }}
+        </label>
+
+        {{ job_form.quantity }}
+        {{ job_form.quantity.errors }}
+    </div>
+
+      <div class="job-field">
         <label for="{{ job_form.stamp.id_for_label }}">{{ job_form.stamp.label }}</label>
         {{ job_form.stamp }}
         {{ job_form.stamp.errors }}

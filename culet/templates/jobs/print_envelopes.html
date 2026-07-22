@@ -44,15 +44,6 @@
             break-after: auto;
         }
 
-        .label {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            padding: 0.08in;
-            overflow: hidden;
-            background: #fff;
-        }
-
         @media print {
         html,
         body {
@@ -61,6 +52,23 @@
             }
         }
 
+        .label {
+            position: relative;
+            width: 4.2in;
+            height: 6.2in;
+            margin: 0 auto;
+            padding: 0.15in;
+            overflow: hidden;
+            background: #fff;
+
+            page-break-after: always;
+            break-after: page;
+        }
+
+        .label:last-child {
+            page-break-after: auto;
+            break-after: auto;
+        }
 
         /* =========================================================
            TOP JOB INFORMATION
@@ -492,7 +500,7 @@
                     <span class="summary-label">Qty:</span>
 
                     <span class="summary-value">
-                        1
+                        {{job.quantity}}
                     </span>
                 </div>
 

@@ -234,6 +234,7 @@ class JobForm(forms.ModelForm):
             "stock_num",
             "style",
             "size",
+            "quantity",
             "stamp",
             "due",
             "notes",
@@ -244,6 +245,13 @@ class JobForm(forms.ModelForm):
             "stock_num": text_widget("Stock #"),
             "style": forms.HiddenInput(),
             "size": text_widget("Size"),
+            "quantity": forms.NumberInput(
+                attrs={
+                    "class": "form-control",
+                    "min": "1",
+                    "step": "1",
+                }
+            ),
             "stamp": text_widget("Stamp / hallmark"),
             "due": date_widget(),
             "notes": textarea_widget("Add notes for the shop...", rows=4),
@@ -251,6 +259,7 @@ class JobForm(forms.ModelForm):
         labels = {
             "repair_reasons": "Repair Reason(s)",
             "stock_num": "Stock #",
+            "quantity": "Qty",
             "assigned_to": "Assigned To",
         }
 
