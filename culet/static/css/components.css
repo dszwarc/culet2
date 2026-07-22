@@ -1268,44 +1268,20 @@ form:not(td form) {
 
 .scan-to-start-card {
     margin-bottom: 1.5rem;
-    padding: 1.25rem;
-    border: 1px solid #d8dee6;
-    border-radius: 0.75rem;
-    background: #ffffff;
+    padding: 0;
+    background: transparent;
+    border: none;
+    text-align: center;
 }
 
 .scan-to-start-header {
     margin-bottom: 1rem;
 }
 
-.scan-to-start-header h2 {
-    margin: 0 0 0.25rem;
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: #273142;
-}
-
-.scan-to-start-header p {
-    margin: 0;
-    color: #667085;
-}
-
-.scan-to-start-controls {
-    display: grid;
-    grid-template-columns:
-        minmax(12rem, 1fr)
-        auto
-        auto;
-    gap: 0.75rem;
-    align-items: end;
-}
-
-.scan-to-start-input-wrap {
-    min-width: 0;
-}
-
-.scan-to-start-controls .btn {
-    min-height: 42px;
+.scan-to-start-card .btn {
+    min-width: 260px;
+    min-height: 52px;
+    font-size: 1.1rem;
 }
 
 .empty-state-card {
@@ -1325,6 +1301,13 @@ form:not(td form) {
     color: #667085;
 }
 
+#scan-to-start-form {
+    border: none;
+    padding: 0;
+    margin: 0;
+    background: transparent;
+    box-shadow: none;
+}
 
 @media (max-width: 700px) {
 

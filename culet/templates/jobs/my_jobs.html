@@ -11,11 +11,6 @@
 
             <h1>My Jobs</h1>
 
-            <p>
-                Start work from your assigned jobs or scan a
-                job barcode using your phone camera.
-            </p>
-
         </div>
 
 
@@ -25,85 +20,33 @@
 
         <section class="scan-to-start-card">
 
-            <div class="scan-to-start-header">
-
-                <div>
-                    <h2>Scan to Start</h2>
-
-                    <p>
-                        Scan one of your assigned jobs to open
-                        the start-work screen.
-                    </p>
-                </div>
-
-            </div>
-
-
             <form
                 method="post"
                 action="{% url 'culet:scan_to_start' %}"
                 id="scan-to-start-form"
-                class="scan-to-start-form"
             >
-
                 {% csrf_token %}
 
+                <input
+                    type="hidden"
+                    name="barcode"
+                    id="scan-to-start-barcode"
+                >
 
-                <div class="scan-to-start-controls">
-
-                    <div class="scan-to-start-input-wrap">
-
-                        <label
-                            for="scan-to-start-barcode"
-                            class="form-label"
-                        >
-                            Job barcode
-                        </label>
-
-                        <input
-                            type="text"
-                            name="barcode"
-                            id="scan-to-start-barcode"
-                            class="form-control"
-                            placeholder="Scan or enter barcode"
-                            inputmode="numeric"
-                            pattern="[0-9]*"
-                            autocomplete="off"
-                            enterkeyhint="go"
-                            required
-                        >
-
-                    </div>
-
-
-                    <button
-                        type="button"
-                        class="
-                            btn
-                            btn-primary
-                            culet-scanner-btn
-                            js-culet-scanner-btn
-                            scan-to-start-camera-button
-                        "
-                        data-target="scan-to-start-barcode"
-                        data-auto-submit="true"
-                    >
-                        📷 Scan to Start
-                    </button>
-
-
-                    <button
-                        type="submit"
-                        class="
-                            btn
-                            btn-outline-primary
-                            scan-to-start-submit-button
-                        "
-                    >
-                        Continue
-                    </button>
-
-                </div>
+                <button
+                    type="button"
+                    class="
+                        btn
+                        btn-primary
+                        btn-lg
+                        culet-scanner-btn
+                        js-culet-scanner-btn
+                    "
+                    data-target="scan-to-start-barcode"
+                    data-auto-submit="true"
+                >
+                    📷 Scan to Start
+                </button>
 
             </form>
 
@@ -435,61 +378,3 @@
 {% endif %}
 
 {% endblock content %}
-
-
-{% block extra_js %}
-
-{{ block.super }}
-
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-    const scanForm = document.getElementById(
-        "scan-to-start-form"
-    );
-
-    const barcodeInput = document.getElementById(
-        "scan-to-start-barcode"
-    );
-
-    if (!scanForm || !barcodeInput) {
-        return;
-    }
-
-
-    /*
-     * This provides a fallback in case the shared camera
-     * scanner fills the input and dispatches a change event
-     * without directly submitting data-auto-submit forms.
-     */
-    barcodeInput.addEventListener(
-        "change",
-        function () {
-            if (!barcodeInput.value.trim()) {
-                return;
-            }
-
-            scanForm.requestSubmit();
-        }
-    );
-
-
-    /*
-     * Prevent accidental blank or whitespace-only submissions.
-     */
-    scanForm.addEventListener(
-        "submit",
-        function (event) {
-            barcodeInput.value = (
-                barcodeInput.value.trim()
-            );
-
-            if (!barcodeInput.value) {
-                event.preventDefault();
-                barcodeInput.focus();
-            }
-        }
-    );
-});
-</script>
-
-{% endblock extra_js %}
