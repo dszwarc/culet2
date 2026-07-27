@@ -69,6 +69,7 @@ urlpatterns = [
 
     path("piecework/create/", views.PieceworkCreateView.as_view(), name="piecework_create"),
     path("piecework/open/", views.PieceworkOpenListView.as_view(), name="piecework_open"),
+    
     path("piecework/<int:pk>/print/", views.PieceworkPrintView.as_view(), name="piecework_print"),
     path("piecework/<int:pk>/return/", views.PieceworkReturnView.as_view(), name="piecework_return"),
 

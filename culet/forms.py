@@ -964,7 +964,7 @@ class JobTransferMemoForm(forms.ModelForm):
         widgets = {
             "assigned_to": forms.Select(
                 attrs={
-                    "class": "form-control",
+                    "class": "form-control combo-box",
                     "data-placeholder": "Select an employee",
                 }
             ),
