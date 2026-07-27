@@ -754,24 +754,157 @@ class JobMovement(models.Model):
     def __str__(self):
         return f"{self.job} — {self.movement_type}"
 
+from datetime import timedelta
+
+from django.conf import settings
+from django.db import models
+from django.utils import timezone
+
+
+def round_to_quarter_hour(value):
+    """
+    Round a datetime to the nearest quarter hour.
+
+    Remainder:
+    0 minutes: unchanged
+    1–7 minutes: round down
+    8–14 minutes: round up
+
+    Examples:
+    8:07 -> 8:00
+    8:08 -> 8:15
+    4:52 -> 4:45
+    4:53 -> 5:00
+    """
+    if value is None:
+        return None
+
+    value = value.replace(second=0, microsecond=0)
+
+    minute_remainder = value.minute % 15
+
+    if minute_remainder == 0:
+        return value
+
+    if minute_remainder <= 7:
+        return value - timedelta(minutes=minute_remainder)
+
+    return value + timedelta(minutes=(15 - minute_remainder))
+
+
+from datetime import timedelta
+
+from django.db import models
+from django.utils import timezone
+
+
 class TimeClock(models.Model):
-    clock_in = models.DateTimeField(null=True)
-    clock_out = models.DateTimeField(null=True)
-    employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
+    employee = models.ForeignKey(
+        Employee,
+        on_delete=models.CASCADE,
+        related_name="timeclocks",
+    )
+
+    clock_in = models.DateTimeField()
+
+    clock_out = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    class Meta:
+        ordering = [
+            "employee__user__last_name",
+            "employee__user__first_name",
+            "clock_in",
+        ]
 
     def __str__(self):
-        if self.clock_out:
-            clock_out = self.clock_out
-        else:
-            clock_out = "Not Clocked Out"
-        return f"{self.employee.user.first_name} {self.employee.user.last_name} Clocked in: {self.clock_in} - Clocked out: {clock_out}"
+        return (
+            f"{self.employee} "
+            f"{self.clock_in:%Y-%m-%d %H:%M}"
+        )
+
+    @staticmethod
+    def round_to_quarter(dt):
+        """
+        Quarter-hour rounding.
+
+        0 minutes -> same
+        1-7  -> down
+        8-14 -> up
+        """
+
+        if dt is None:
+            return None
+
+        dt = dt.replace(
+            second=0,
+            microsecond=0,
+        )
+
+        remainder = dt.minute % 15
+
+        if remainder == 0:
+            return dt
+
+        if remainder <= 7:
+            return dt - timedelta(
+                minutes=remainder,
+            )
+
+        return dt + timedelta(
+            minutes=15 - remainder,
+        )
 
     @property
-    def duration_hours(self):
-        end = self.clock_out or timezone.now()
-        if self.clock_in and end > self.clock_in:
-            return (end - self.clock_in).total_seconds()/3600
-        return 0
+    def rounded_clock_in(self):
+        return self.round_to_quarter(
+            self.clock_in,
+        )
+
+    @property
+    def rounded_clock_out(self):
+        if self.clock_out is None:
+            return None
+
+        return self.round_to_quarter(
+            self.clock_out,
+        )
+
+    @property
+    def raw_duration(self):
+        if self.clock_out is None:
+            return timezone.now() - self.clock_in
+
+        return self.clock_out - self.clock_in
+
+    @property
+    def rounded_duration(self):
+        if self.rounded_clock_out is None:
+            return None
+
+        return (
+            self.rounded_clock_out
+            - self.rounded_clock_in
+        )
+
+    @property
+    def raw_hours(self):
+        return (
+            self.raw_duration.total_seconds()
+            / 3600
+        )
+
+    @property
+    def rounded_hours(self):
+        if self.rounded_duration is None:
+            return 0
+
+        return (
+            self.rounded_duration.total_seconds()
+            / 3600
+        )
     
 class JobTransferMemo(models.Model):
     memo_num = models.CharField(

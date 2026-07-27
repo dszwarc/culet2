@@ -5394,3 +5394,9 @@ class ChangeJobStatusView(
             )
 
         return redirect("culet:change_status")
+
+class PayrollReportView(
+    LoginRequiredMixin,
+    generic.TemplateView,
+):
+    template_name = "reports/payroll_report.html"
