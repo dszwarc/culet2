@@ -5,12 +5,6 @@
   {% endif %}
     {{ job_form.style }}
 
-    {% if job_form.errors %}
-  <div class="alert alert-danger">
-    {{ job_form.errors }}
-  </div>
-{% endif %}
-
 {% if metal_formset.non_form_errors %}
   <div class="alert alert-danger">
     {{ metal_formset.non_form_errors }}

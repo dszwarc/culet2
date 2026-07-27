@@ -34,3 +34,42 @@ class RequirePasswordChangeMiddleware:
             return redirect("culet:required_password_change")
 
         return self.get_response(request)
+
+import logging
+
+from django.shortcuts import redirect
+from django.urls import reverse
+
+from .services import get_request_log_context
+
+
+logger = logging.getLogger("culet")
+
+
+class CuletExceptionLoggingMiddleware:
+    """
+    Log uncaught view exceptions with request and user context.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        return self.get_response(request)
+
+    def process_exception(
+        self,
+        request,
+        exception,
+    ):
+        logger.exception(
+            "Unhandled request exception. "
+            "request=%s exception=%s",
+            get_request_log_context(request),
+            exception,
+        )
+
+        # Return None so Django continues its normal
+        # exception handling and displays the proper
+        # debug page or HTTP 500 response.
+        return None

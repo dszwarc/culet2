@@ -20,10 +20,16 @@ from itertools import chain
 from operator import itemgetter
 from django.core.exceptions import ValidationError
 import re
+import logging
+logger = logging.getLogger("culet")
 from django.contrib.auth.views import PasswordChangeView
+
 from .services import (
     clock_in_employee,
     clock_out_employee,
+    get_request_log_context,
+    log_validation_failure,
+    log_view_exception,
     move_job,
     stop_activity,
     sync_job_in_work,
@@ -112,7 +118,10 @@ from .forms import (
     JobsByHolderReportForm,
     )
 
-from .mixins import CuletPermissionRequiredMixin
+from .mixins import (
+    CuletPermissionRequiredMixin,
+    LoggedFormInvalidMixin,
+)
 from .permissions import can_perform_quality_inspection
 
 from django.contrib import messages
@@ -787,11 +796,29 @@ class JobDetailView(
 
         return context
 
-class JobCreateView(LoginRequiredMixin, generic.CreateView):
+class JobCreateView(LoginRequiredMixin,LoggedFormInvalidMixin, generic.CreateView):
     model = Job
     form_class = JobForm
     template_name = "jobs/create.html"
     success_url = reverse_lazy("culet:index_job")
+
+    def get_logging_formsets(self, context):
+        return {
+            "metals": context["metal_formset"],
+            "stones": context["stone_formset"],
+            "findings": context["finding_formset"],
+        }
+
+
+    def get_logging_extra(self):
+        return {
+            "repair_from": self.request.POST.get(
+                "repair_from"
+            ),
+            "style_id": self.request.POST.get(
+                "style"
+            ),
+        }
 
     def get_original_repair_job(self):
         repair_from = self.request.GET.get("repair_from") or self.request.POST.get("repair_from")
@@ -847,7 +874,7 @@ class JobCreateView(LoginRequiredMixin, generic.CreateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-
+        context["job_form"] = context["form"]
         original_job = self.get_original_repair_job()
         context["original_repair_job"] = original_job
         context["repair_from"] = original_job.pk if original_job else None
@@ -915,19 +942,36 @@ class JobCreateView(LoginRequiredMixin, generic.CreateView):
         stone_valid = stone_formset.is_valid()
         finding_valid = finding_formset.is_valid()
 
-        if not metal_valid:
-            messages.error(self.request, f"Metal form errors: {metal_formset.errors}")
-            messages.error(self.request, f"Metal non-form errors: {metal_formset.non_form_errors()}")
+        if not (
+            metal_valid
+            and stone_valid
+            and finding_valid
+        ):
+            log_validation_failure(
+                request=self.request,
+                view_name=self.__class__.__name__,
+                form=form,
+                formsets={
+                    "metals": metal_formset,
+                    "stones": stone_formset,
+                    "findings": finding_formset,
+                },
+                extra={
+                    "repair_from": self.request.POST.get(
+                        "repair_from"
+                    ),
+                    "style_id": self.request.POST.get(
+                        "style"
+                    ),
+                },
+            )
 
-        if not stone_valid:
-            messages.error(self.request, f"Stone form errors: {stone_formset.errors}")
-            messages.error(self.request, f"Stone non-form errors: {stone_formset.non_form_errors()}")
+            messages.error(
+                self.request,
+                "The job could not be created. "
+                "Please correct the requirement errors below.",
+            )
 
-        if not finding_valid:
-            messages.error(self.request, f"Finding form errors: {finding_formset.errors}")
-            messages.error(self.request, f"Finding non-form errors: {finding_formset.non_form_errors()}")
-
-        if not (metal_valid and stone_valid and finding_valid):
             return self.render_to_response(context)
 
         original_job = self.get_original_repair_job()
@@ -941,8 +985,32 @@ class JobCreateView(LoginRequiredMixin, generic.CreateView):
             self.object.is_repair = False
             self.object.assigned_to = None
             self.object.holder = None
-            self.object.location = Location.objects.get(name="Office")
-            self.object.status = JobStatus.objects.get(name="Waiting on Metal")
+        try:
+            office_location = Location.objects.get(
+                name="Office"
+            )
+            waiting_status = JobStatus.objects.get(
+                name="Waiting on Metal"
+            )
+        except (
+            Location.DoesNotExist,
+            Location.MultipleObjectsReturned,
+            JobStatus.DoesNotExist,
+            JobStatus.MultipleObjectsReturned,
+        ) as exc:
+            log_view_exception(
+                request=self.request,
+                view_name=self.__class__.__name__,
+                exception=exc,
+                extra={
+                    "operation": (
+                        "load job creation defaults"
+                    ),
+                },
+            )
+            raise
+        self.object.location = office_location
+        self.object.status = waiting_status
 
         if self.object.style:
             if not self.object.stamp:
@@ -953,6 +1021,7 @@ class JobCreateView(LoginRequiredMixin, generic.CreateView):
 
         self.object.save()
         form.save_m2m()
+        finding_formset.save()
 
         metal_formset.instance = self.object
         metal_formset.save()
@@ -963,12 +1032,16 @@ class JobCreateView(LoginRequiredMixin, generic.CreateView):
         finding_formset.instance = self.object
         finding_formset.save()
 
-        return redirect(self.object.get_absolute_url())
-
-    def form_invalid(self, form):
-        return self.render_to_response(
-            self.get_context_data(form=form)
+        logger.info(
+            "Job created successfully. "
+            "job_id=%s stock_num=%s style_id=%s user=%s",
+            self.object.pk,
+            self.object.stock_num,
+            self.object.style_id,
+            self.request.user.get_username(),
         )
+
+        return redirect(self.object.get_absolute_url())
 
 class JobStyleDefaultsHTMXView(LoginRequiredMixin, generic.View):
     template_name = "jobs/partials/job_style_defaults.html"

@@ -96,23 +96,25 @@
             </div>
         {% endif %}
 
-        <div
-            id="job-style-content"
-            class="job-style-content"
-        >
-            {% if not original_repair_job %}
-                <div class="job-empty-state">
-                    <h3>
-                        Start with a style
-                    </h3>
+            <div
+                id="job-style-content"
+                class="job-style-content"
+            >
+                {% if job_form.is_bound %}
+                    {% include "jobs/partials/job_style_defaults.html" %}
+                {% elif not original_repair_job %}
+                    <div class="job-empty-state">
+                        <h3>
+                            Start with a style
+                        </h3>
 
-                    <p>
-                        Once you select a style, the job details
-                        and requirement rows will appear here.
-                    </p>
-                </div>
-            {% endif %}
-        </div>
+                        <p>
+                            Once you select a style, the job details
+                            and requirement rows will appear here.
+                        </p>
+                    </div>
+                {% endif %}
+            </div>
     </div>
 </div>
 

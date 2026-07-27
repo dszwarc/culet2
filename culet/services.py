@@ -7,6 +7,9 @@ from .models import Activity, TimeClock
 
 from django.core.exceptions import ValidationError
 
+import logging
+
+
 from .models import (
     Activity,
     Employee,
@@ -274,3 +277,189 @@ def move_job(
     )
 
     return job, movement
+
+logger = logging.getLogger("culet")
+
+
+SENSITIVE_POST_KEYS = {
+    "password",
+    "password1",
+    "password2",
+    "old_password",
+    "new_password1",
+    "new_password2",
+    "csrfmiddlewaretoken",
+    "pin",
+}
+
+
+def get_request_log_context(request):
+    """
+    Return safe, reusable request information for log records.
+
+    Does not include full POST data or passwords.
+    """
+    user = getattr(request, "user", None)
+
+    if user and user.is_authenticated:
+        user_id = user.pk
+        username = user.get_username()
+    else:
+        user_id = None
+        username = "anonymous"
+
+    return {
+        "method": request.method,
+        "path": request.path,
+        "user_id": user_id,
+        "username": username,
+        "remote_addr": request.META.get("REMOTE_ADDR"),
+        "user_agent": request.META.get(
+            "HTTP_USER_AGENT",
+            "",
+        )[:250],
+    }
+
+
+def get_safe_post_data(request):
+    """
+    Return submitted field names and safe values for debugging.
+
+    Sensitive fields are replaced rather than logged.
+    """
+    safe_data = {}
+
+    for key in request.POST.keys():
+        values = request.POST.getlist(key)
+
+        if key.lower() in SENSITIVE_POST_KEYS:
+            safe_data[key] = "[REDACTED]"
+            continue
+
+        if len(values) == 1:
+            safe_data[key] = values[0]
+        else:
+            safe_data[key] = values
+
+    return safe_data
+
+
+def serialize_form_errors(form):
+    """
+    Convert a bound Django form's errors into log-friendly data.
+    """
+    if form is None:
+        return {}
+
+    return {
+        "fields": form.errors.get_json_data(),
+        "non_field_errors": [
+            str(error)
+            for error in form.non_field_errors()
+        ],
+    }
+
+
+def serialize_formset_errors(formset):
+    """
+    Convert formset and individual-row errors into log-friendly data.
+    """
+    if formset is None:
+        return {}
+
+    row_errors = []
+
+    for index, form in enumerate(formset.forms):
+        if not form.errors and not form.non_field_errors():
+            continue
+
+        row_errors.append(
+            {
+                "row": index,
+                "errors": form.errors.get_json_data(),
+                "non_field_errors": [
+                    str(error)
+                    for error in form.non_field_errors()
+                ],
+                "marked_for_deletion": bool(
+                    form.cleaned_data.get("DELETE")
+                    if hasattr(form, "cleaned_data")
+                    else False
+                ),
+            }
+        )
+
+    return {
+        "prefix": formset.prefix,
+        "total_forms": formset.total_form_count(),
+        "initial_forms": formset.initial_form_count(),
+        "non_form_errors": [
+            str(error)
+            for error in formset.non_form_errors()
+        ],
+        "rows": row_errors,
+    }
+
+
+def log_validation_failure(
+    *,
+    request,
+    view_name,
+    form=None,
+    formsets=None,
+    extra=None,
+):
+    """
+    Log invalid forms and formsets consistently across Culet views.
+
+    Usage:
+        log_validation_failure(
+            request=request,
+            view_name="JobCreateView",
+            form=form,
+            formsets={
+                "metals": metal_formset,
+                "stones": stone_formset,
+            },
+        )
+    """
+    formsets = formsets or {}
+    extra = extra or {}
+
+    log_data = {
+        "request": get_request_log_context(request),
+        "form_errors": serialize_form_errors(form),
+        "formset_errors": {
+            name: serialize_formset_errors(formset)
+            for name, formset in formsets.items()
+        },
+        "extra": extra,
+    }
+
+    logger.warning(
+        "%s validation failed: %s",
+        view_name,
+        log_data,
+    )
+
+
+def log_view_exception(
+    *,
+    request,
+    view_name,
+    exception,
+    extra=None,
+):
+    """
+    Log an unexpected view exception with its full traceback.
+
+    Call only from inside an except block.
+    """
+    logger.exception(
+        "%s raised an unexpected exception. "
+        "request=%s extra=%s exception=%s",
+        view_name,
+        get_request_log_context(request),
+        extra or {},
+        exception,
+    )
