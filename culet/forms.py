@@ -1287,4 +1287,4 @@ class StartWorkForm(forms.Form):
 
         self.fields["step"].queryset = ActivityStep.objects.filter(
             departments=employee.department,
-        ).order_by("name")
+        ).exclude(code="piecework",).order_by("name")
