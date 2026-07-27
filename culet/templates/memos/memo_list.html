@@ -43,8 +43,6 @@
                 <th>Created</th>
                 <th>Created By</th>
                 <th>Assigned To</th>
-                <th>From</th>
-                <th>To</th>
                 <th>Actions</th>
             </tr>
 
@@ -55,8 +53,6 @@
                     <td>{{ memo.created_at }}</td>
                     <td>{{ memo.created_by }}</td>
                     <td>{{ memo.assigned_to|default:"-" }}</td>
-                    <td>{{ memo.from_location }}</td>
-                    <td>{{ memo.to_location }}</td>
                     <td>
                         <a href="{{ memo.detail_url }}" class="btn btn-primary">
                             View Memo

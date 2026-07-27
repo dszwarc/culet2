@@ -1,0 +1,354 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container">
+
+    <h1>Payroll Report</h1>
+
+    <form method="get" class="report-form mb-4">
+        {{ form.as_p }}
+
+        <button
+            type="submit"
+            class="btn btn-primary"
+        >
+            Run Report
+        </button>
+    </form>
+
+    {% if employee_rows %}
+
+        <!-- ========================================================= -->
+        <!-- REPORT TOTALS -->
+        <!-- ========================================================= -->
+
+        <div class="card shadow-sm mb-4">
+
+            <div class="card-header">
+                <strong>Report Totals</strong>
+            </div>
+
+            <div class="card-body p-0">
+
+                <table class="table table-striped mb-0">
+
+                    <thead>
+                        <tr>
+                            <th class="text-end">
+                                Raw Hours
+                            </th>
+
+                            <th class="text-end">
+                                Rounded Hours
+                            </th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        <tr class="fw-bold">
+
+                            <td class="text-end">
+                                {{ report_totals.raw_hours|floatformat:2 }}
+                            </td>
+
+                            <td class="text-end">
+                                {{ report_totals.rounded_hours|floatformat:2 }}
+                            </td>
+
+                        </tr>
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+        <!-- ========================================================= -->
+        <!-- EMPLOYEES -->
+        <!-- ========================================================= -->
+
+        {% for row in employee_rows %}
+
+            <div class="card shadow-sm mb-5">
+
+                <div class="card-header d-flex justify-content-between align-items-center">
+
+                    <div>
+
+                        <h3 class="mb-1">
+                            {{ row.employee.user.get_full_name|default:row.employee.user.username }}
+                        </h3>
+
+                        {% if row.employee.department %}
+                            <div class="text-muted">
+                                {{ row.employee.department }}
+                            </div>
+                        {% endif %}
+
+                    </div>
+
+                    <div class="text-end">
+
+                        <div>
+                            <strong>Employee Totals</strong>
+                        </div>
+
+                        <div>
+                            Raw:
+                            {{ row.raw_hours|floatformat:2 }}
+                        </div>
+
+                        <div>
+                            Rounded:
+                            {{ row.rounded_hours|floatformat:2 }}
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="card-body">
+
+                    {% for week in row.weeks %}
+
+                        <div class="border rounded mb-4">
+
+                            <div class="bg-light px-3 py-2">
+
+                                <strong>
+                                    Week of
+                                    {{ week.week_start|date:"M j, Y" }}
+                                </strong>
+
+                                <span class="text-muted">
+                                    through
+                                    {{ week.week_end|date:"M j, Y" }}
+                                </span>
+
+                            </div>
+
+                            {% for day in week.days.values %}
+
+                                <div class="p-3">
+
+                                    <h5 class="mb-3">
+                                        {{ day.date|date:"l, F j" }}
+                                    </h5>
+
+                                    <div class="table-responsive">
+
+                                        <table class="table table-hover table-sm align-middle">
+
+                                            <thead class="table-light">
+
+                                                <tr>
+
+                                                    <th>
+                                                        Raw In
+                                                    </th>
+
+                                                    <th>
+                                                        Rounded In
+                                                    </th>
+
+                                                    <th>
+                                                        Raw Out
+                                                    </th>
+
+                                                    <th>
+                                                        Rounded Out
+                                                    </th>
+
+                                                    <th class="text-end">
+                                                        Raw Hours
+                                                    </th>
+
+                                                    <th class="text-end">
+                                                        Rounded Hours
+                                                    </th>
+
+                                                    <th>
+                                                        Edit
+                                                    </th>
+
+                                                </tr>
+
+                                            </thead>
+
+                                            <tbody>
+
+                                                {% for entry in day.entries %}
+
+                                                    <tr>
+
+                                                        <td>
+                                                            {{ entry.raw_clock_in|date:"g:i A" }}
+                                                        </td>
+
+                                                        <td>
+                                                            {{ entry.rounded_clock_in|date:"g:i A" }}
+                                                        </td>
+
+                                                        <td>
+
+                                                            {% if entry.raw_clock_out %}
+                                                                {{ entry.raw_clock_out|date:"g:i A" }}
+                                                            {% else %}
+                                                                Still Clocked In
+                                                            {% endif %}
+
+                                                        </td>
+
+                                                        <td>
+
+                                                            {% if entry.rounded_clock_out %}
+                                                                {{ entry.rounded_clock_out|date:"g:i A" }}
+                                                            {% else %}
+                                                                —
+                                                            {% endif %}
+
+                                                        </td>
+
+                                                        <td class="text-end">
+                                                            {{ entry.raw_hours|floatformat:2 }}
+                                                        </td>
+
+                                                        <td class="text-end fw-semibold">
+                                                            {{ entry.rounded_hours|floatformat:2 }}
+                                                        </td>
+
+                                                        <td>
+
+                                                            <a
+                                                                href="{% url 'culet:time_clock_edit' entry.timeclock.pk %}"
+                                                                class="btn btn-sm btn-outline-primary"
+                                                            >
+                                                                Edit
+                                                            </a>
+
+                                                        </td>
+
+                                                    </tr>
+
+                                                {% endfor %}
+                                                                                                <tr class="table-secondary fw-bold">
+
+                                                    <td colspan="4" class="text-end">
+                                                        Daily Total
+                                                    </td>
+
+                                                    <td class="text-end">
+                                                        {{ day.raw_hours|floatformat:2 }}
+                                                    </td>
+
+                                                    <td class="text-end">
+                                                        {{ day.rounded_hours|floatformat:2 }}
+                                                    </td>
+
+                                                    <td></td>
+
+                                                </tr>
+
+                                            </tbody>
+
+                                        </table>
+
+                                    </div>
+
+                                </div>
+
+                            {% endfor %}
+
+                            <div class="border-top bg-light">
+
+                                <table class="table mb-0">
+
+                                    <tbody>
+
+                                        <tr class="fw-bold">
+
+                                            <td class="text-end" style="width:70%;">
+                                                Week Total
+                                            </td>
+
+                                            <td class="text-end" style="width:15%;">
+                                                {{ week.raw_hours|floatformat:2 }}
+                                            </td>
+
+                                            <td class="text-end" style="width:15%;">
+                                                {{ week.rounded_hours|floatformat:2 }}
+                                            </td>
+
+                                        </tr>
+
+                                    </tbody>
+
+                                </table>
+
+                            </div>
+
+                        </div>
+
+                    {% endfor %}
+
+                    <div class="border rounded bg-primary text-white p-3 mt-4">
+
+                        <div class="row">
+
+                            <div class="col-md-6">
+
+                                <h5 class="mb-0">
+                                    Employee Total
+                                </h5>
+
+                            </div>
+
+                            <div class="col-md-3 text-end">
+
+                                <strong>
+                                    Raw Hours
+                                </strong>
+
+                                <br>
+
+                                {{ row.raw_hours|floatformat:2 }}
+
+                            </div>
+
+                            <div class="col-md-3 text-end">
+
+                                <strong>
+                                    Rounded Hours
+                                </strong>
+
+                                <br>
+
+                                {{ row.rounded_hours|floatformat:2 }}
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        {% endfor %}
+
+    {% elif request.GET %}
+
+        <div class="alert alert-info">
+
+            No payroll records were found for the selected filters.
+
+        </div>
+
+    {% endif %}
+
+</div>
+
+{% endblock %}

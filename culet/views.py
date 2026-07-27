@@ -23,6 +23,7 @@ import re
 import logging
 logger = logging.getLogger("culet")
 from django.contrib.auth.views import PasswordChangeView
+from collections import OrderedDict
 
 from .services import (
     clock_in_employee,
@@ -4072,7 +4073,7 @@ class JobTransferMemoCreateView(
         created_by = self.get_employee()
         assigned_to = form.cleaned_data["assigned_to"]
 
-        scanned_values = [
+        raw_scanned_values = [
             value.strip()
             for value in (
                 form.cleaned_data["scanned_jobs"]
@@ -4081,13 +4082,33 @@ class JobTransferMemoCreateView(
             if value.strip()
         ]
 
-        if not scanned_values:
+        if not raw_scanned_values:
             form.add_error(
                 "scanned_jobs",
                 "Please scan at least one job.",
             )
-
             return self.form_invalid(form)
+
+        invalid_scans = [
+            value
+            for value in raw_scanned_values
+            if not value.isdigit()
+        ]
+
+        if invalid_scans:
+            form.add_error(
+                "scanned_jobs",
+                (
+                    "These values are not valid numeric barcodes: "
+                    + ", ".join(invalid_scans)
+                ),
+            )
+            return self.form_invalid(form)
+
+        scanned_values = [
+            int(value)
+            for value in raw_scanned_values
+        ]
 
         duplicate_scans = sorted({
             value
@@ -4101,10 +4122,12 @@ class JobTransferMemoCreateView(
                 (
                     "The following barcodes were scanned "
                     "more than once: "
-                    + ", ".join(duplicate_scans)
+                    + ", ".join(
+                        str(value)
+                        for value in duplicate_scans
+                    )
                 ),
             )
-
             return self.form_invalid(form)
 
         jobs = list(
@@ -4136,10 +4159,12 @@ class JobTransferMemoCreateView(
                 (
                     "These scanned jobs were not found "
                     "or are already shipped: "
-                    + ", ".join(missing_jobs)
+                    + ", ".join(
+                        str(value)
+                        for value in missing_jobs
+                    )
                 ),
             )
-
             return self.form_invalid(form)
 
         assigned_count = 0
@@ -4637,17 +4662,6 @@ class PieceworkReturnView(
             )
         )
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-
-        context["locations"] = (
-            Location.objects
-            .filter(active=True)
-            .order_by("name")
-        )
-
-        return context
-
     @transaction.atomic
     def post(self, request, *args, **kwargs):
         memo = self.get_object()
@@ -4665,27 +4679,6 @@ class PieceworkReturnView(
                 "culet:piecework_open",
             )
 
-        return_location_id = request.POST.get(
-            "return_location",
-        )
-
-        if not return_location_id:
-            messages.error(
-                request,
-                "Please select a return location.",
-            )
-
-            return self.render_to_response(
-                self.get_context_data(
-                    object=memo,
-                )
-            )
-
-        return_location = get_object_or_404(
-            Location,
-            pk=return_location_id,
-            active=True,
-        )
 
         returned_by = get_employee(
             request.user,
@@ -4749,14 +4742,12 @@ class PieceworkReturnView(
                 performed_by=returned_by,
             )
 
-            job.location = return_location
             job.is_piecework = False
             job.in_work = False
             job.piecework_assigned_at = None
 
             job.save(
                 update_fields=[
-                    "location",
                     "is_piecework",
                     "in_work",
                     "piecework_assigned_at",
@@ -4813,24 +4804,12 @@ class MemoListView(LoginRequiredMixin, generic.TemplateView):
         piecework_memos = PieceworkMemo.objects.select_related(
             "created_by",
             "assigned_to",
-            "from_location",
-            "to_location",
         )
 
         if form.is_valid():
             memo_type = form.cleaned_data.get("memo_type")
-            from_location = form.cleaned_data.get("from_location")
-            to_location = form.cleaned_data.get("to_location")
             created_start = form.cleaned_data.get("created_start")
             created_end = form.cleaned_data.get("created_end")
-
-            if from_location:
-                transfer_memos = transfer_memos.filter(from_location=from_location)
-                piecework_memos = piecework_memos.filter(from_location=from_location)
-
-            if to_location:
-                transfer_memos = transfer_memos.filter(to_location=to_location)
-                piecework_memos = piecework_memos.filter(to_location=to_location)
 
             if created_start:
                 transfer_memos = transfer_memos.filter(created_at__date__gte=created_start)
@@ -4854,8 +4833,6 @@ class MemoListView(LoginRequiredMixin, generic.TemplateView):
                 "memo_num": memo.memo_num,
                 "created_at": memo.created_at,
                 "created_by": memo.created_by,
-                "from_location": memo.from_location,
-                "to_location": memo.to_location,
                 "detail_url": reverse("culet:job_transfer_memo_print", kwargs={"pk": memo.pk}),
             })
 
@@ -4865,8 +4842,6 @@ class MemoListView(LoginRequiredMixin, generic.TemplateView):
                 "memo_num": memo.memo_num,
                 "created_at": memo.created_at,
                 "created_by": memo.created_by,
-                "from_location": memo.from_location,
-                "to_location": memo.to_location,
                 "assigned_to": memo.assigned_to,
                 "detail_url": reverse("culet:piecework_print", kwargs={"pk": memo.pk}),
             })
@@ -5400,3 +5375,177 @@ class PayrollReportView(
     generic.TemplateView,
 ):
     template_name = "reports/payroll_report.html"
+
+
+
+
+class PayrollReportView(LoginRequiredMixin, generic.TemplateView):
+    """
+    Payroll-oriented time clock report.
+
+    Unlike the downtime report, this view intentionally ignores Activity
+    records and reports strictly from TimeClock data.
+
+    The report hierarchy is:
+
+        Employee
+            Week
+                Day
+                    Clock Entries
+                Week Total
+            Employee Total
+
+    The report uses the @property helpers on TimeClock:
+
+        rounded_clock_in
+        rounded_clock_out
+        rounded_hours
+    """
+
+    template_name = "reports/payroll_report.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        form = TimeClockReportForm(self.request.GET or None)
+
+        employee_rows = []
+
+        report_totals = {
+            "raw_hours": 0,
+            "rounded_hours": 0,
+        }
+
+        if form.is_valid():
+            selected_employee = form.cleaned_data.get("employee")
+            start_date = form.cleaned_data["start_date"]
+            end_date = form.cleaned_data["end_date"]
+
+            start_dt = timezone.make_aware(
+                datetime.combine(start_date, time.min)
+            )
+
+            end_dt = timezone.make_aware(
+                datetime.combine(end_date, time.max)
+            )
+
+            employees = (
+                Employee.objects
+                .select_related(
+                    "user",
+                    "department",
+                    "role",
+                )
+                .filter(
+                    role__requires_clock_in=True,
+                )
+                .order_by(
+                    "user__last_name",
+                    "user__first_name",
+                )
+            )
+
+            if selected_employee:
+                employees = employees.filter(
+                    pk=selected_employee.pk,
+                )
+
+            for employee in employees:
+
+                entries = (
+                    TimeClock.objects
+                    .filter(
+                        employee=employee,
+                        clock_in__lte=end_dt,
+                    )
+                    .filter(
+                        Q(clock_out__gte=start_dt)
+                        | Q(clock_out__isnull=True)
+                    )
+                    .order_by(
+                        "clock_in",
+                    )
+                )
+
+                weeks = OrderedDict()
+
+                employee_raw_hours = 0
+                employee_rounded_hours = 0
+
+                for entry in entries:
+
+                    work_date = timezone.localtime(
+                        entry.clock_in
+                    ).date()
+
+                    if work_date < start_date or work_date > end_date:
+                        continue
+
+                    week_start = (
+                        work_date
+                        - timedelta(days=work_date.weekday())
+                    )
+
+                    week = weeks.setdefault(
+                        week_start,
+                        {
+                            "week_start": week_start,
+                            "week_end": week_start + timedelta(days=6),
+                            "days": OrderedDict(),
+                            "raw_hours": 0,
+                            "rounded_hours": 0,
+                        },
+                    )
+
+                    day = week["days"].setdefault(
+                        work_date,
+                        {
+                            "date": work_date,
+                            "entries": [],
+                            "raw_hours": 0,
+                            "rounded_hours": 0,
+                        },
+                    )
+
+                    raw_hours = entry.raw_hours
+                    rounded_hours = entry.rounded_hours
+
+                    day["entries"].append(
+                        {
+                            "timeclock": entry,
+                            "raw_clock_in": entry.clock_in,
+                            "rounded_clock_in": entry.rounded_clock_in,
+                            "raw_clock_out": entry.clock_out,
+                            "rounded_clock_out": entry.rounded_clock_out,
+                            "raw_hours": raw_hours,
+                            "rounded_hours": rounded_hours,
+                        }
+                    )
+
+                    day["raw_hours"] += raw_hours
+                    day["rounded_hours"] += rounded_hours
+
+                    week["raw_hours"] += raw_hours
+                    week["rounded_hours"] += rounded_hours
+
+                    employee_raw_hours += raw_hours
+                    employee_rounded_hours += rounded_hours
+
+                if weeks:
+                    employee_rows.append(
+                        {
+                            "employee": employee,
+                            "weeks": list(weeks.values()),
+                            "raw_hours": employee_raw_hours,
+                            "rounded_hours": employee_rounded_hours,
+                        }
+                    )
+
+                    report_totals["raw_hours"] += employee_raw_hours
+                    report_totals["rounded_hours"] += employee_rounded_hours
+
+        context["form"] = form
+        context["employee_rows"] = employee_rows
+        context["report_totals"] = report_totals
+
+        return context

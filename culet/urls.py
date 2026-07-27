@@ -77,6 +77,7 @@ urlpatterns = [
     path("reports/weight-loss-by-style/", views.WeightLossByStyleReportView.as_view(), name="report_weight_loss_by_style"),
     path("reports/employee-activity/",views.EmployeeActivityReportView.as_view(),name="report_employee_activity"),
     path("reports/time-clock/",views.TimeClockReportView.as_view(),name="report_time_clock"),
+    path("reports/payroll/",views.PayrollReportView.as_view(),name="payroll_report"),
     path("reports/late-jobs/",views.LateJobsReportView.as_view(),name="report_late_jobs"),
     path("reports/clocked-in-idle/", views.ClockedInIdleEmployeesReportView.as_view(), name="report_clocked_in_idle",),
     path("reports/jobs-by-holder/", views.JobsByHolderReportView.as_view(), name="report_jobs_by_holder",),

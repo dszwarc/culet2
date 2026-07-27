@@ -873,6 +873,13 @@ class TimeClock(models.Model):
         )
 
     @property
+    def rounded_duration_hours(self):
+        return round(
+            self.rounded_hours,
+            2,
+        )
+
+    @property
     def raw_duration(self):
         if self.clock_out is None:
             return timezone.now() - self.clock_in

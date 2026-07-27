@@ -552,7 +552,7 @@
                     <tr>
                         <th class="column-number">#</th>
                         <th class="column-job">Stock Number</th>
-                        <th class="column-description">Description</th>
+                        <th class="column-description">Style</th>
 
                         {% if memo_type != "piecework" %}
                             <th class="column-customer">Customer</th>
@@ -576,13 +576,8 @@
                             </td>
 
                             <td class="column-description">
-                                <div class="job-description">
-                                    {{ line.job.name|default:"-" }}
-                                </div>
-
                                 {% if line.job.style %}
-                                    <div class="job-style">
-                                        Style:
+                                    <div class="job-number">
                                         {{ line.job.style.name|default:"-" }}
                                     </div>
                                 {% endif %}

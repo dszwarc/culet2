@@ -28,15 +28,9 @@
     <form method="post">
         {% csrf_token %}
 
-        <label for="return_location">Return Location</label>
-        <select name="return_location" id="return_location" class="form-control" required>
-            {% for location in locations %}
-                <option value="{{ location.id }}">{{ location.name }}</option>
-            {% endfor %}
-        </select>
-
-        <br>
-
+        <p>
+            Confirm that these jobs have been returned and are now in your possession.
+        </p>
         <button type="submit" class="btn btn-primary">
             Mark Returned
         </button>
