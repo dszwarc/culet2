@@ -1451,6 +1451,32 @@ class JobUpdateView(LoginRequiredMixin, generic.UpdateView):
 
         return context
 
+    def form_invalid(self, form):
+        context = self.get_context_data(form=form)
+
+        log_validation_failure(
+            request=self.request,
+            view_name=self.__class__.__name__,
+            form=form,
+            formsets={
+                "metals": context["metal_formset"],
+                "stones": context["stone_formset"],
+                "findings": context["finding_formset"],
+            },
+            extra={
+                "job_id": self.object.pk,
+                "stock_num": self.object.stock_num,
+            },
+        )
+
+        messages.error(
+            self.request,
+            "The job could not be updated. "
+            "Please correct the highlighted fields.",
+        )
+
+        return self.render_to_response(context)
+
     @transaction.atomic
     def form_valid(self, form):
         context = self.get_context_data()
@@ -1458,12 +1484,46 @@ class JobUpdateView(LoginRequiredMixin, generic.UpdateView):
         stone_formset = context["stone_formset"]
         finding_formset = context["finding_formset"]
 
+        metal_valid = metal_formset.is_valid()
+        stone_valid = stone_formset.is_valid()
+        finding_valid = finding_formset.is_valid()
+
         if not (
-            metal_formset.is_valid()
-            and stone_formset.is_valid()
-            and finding_formset.is_valid()
+            metal_valid
+            and stone_valid
+            and finding_valid
         ):
-            return self.render_to_response(self.get_context_data(form=form))
+            log_validation_failure(
+                request=self.request,
+                view_name=self.__class__.__name__,
+                form=form,
+                formsets={
+                    "metals": metal_formset,
+                    "stones": stone_formset,
+                    "findings": finding_formset,
+                },
+                extra={
+                    "job_id": self.object.pk,
+                    "stock_num": self.object.stock_num,
+                },
+            )
+
+            messages.error(
+                self.request,
+                "The job could not be updated. "
+                "Please correct the highlighted requirement fields.",
+            )
+
+            context.update(
+                {
+                    "form": form,
+                    "metal_formset": metal_formset,
+                    "stone_formset": stone_formset,
+                    "finding_formset": finding_formset,
+                }
+            )
+
+            return self.render_to_response(context)
 
         self.object = form.save()
         metal_formset.instance = self.object
