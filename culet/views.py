@@ -23,7 +23,7 @@ import re
 import logging
 logger = logging.getLogger("culet")
 from django.contrib.auth.views import PasswordChangeView
-from collections import OrderedDict
+from collections import OrderedDict, Counter
 
 from .services import (
     clock_in_employee,
@@ -1818,7 +1818,37 @@ class AssignJobView(
         context["departments"] = self.get_departments()
         context["selected_job"] = self.get_selected_job()
 
+        context.setdefault(
+            "jobs_text",
+            "",
+        )
+
+        context.setdefault(
+            "selected_employee_id",
+            "",
+        )
+
         return context
+
+    def render_form_with_errors(
+        self,
+        request,
+        *,
+        jobs_text="",
+        selected_employee_id="",
+        selected_job=None,
+    ):
+        context = self.get_context_data()
+
+        context["jobs_text"] = jobs_text
+        context["selected_employee_id"] = (
+            selected_employee_id
+        )
+
+        if selected_job is not None:
+            context["selected_job"] = selected_job
+
+        return self.render_to_response(context)
 
     def post(self, request, *args, **kwargs):
         employee_id = request.POST.get(
@@ -1831,40 +1861,52 @@ class AssignJobView(
             "",
         ).strip()
 
+        jobs_text = request.POST.get(
+            "jobs_text",
+            "",
+        )
+
+        # Accept barcodes separated by:
+        # - new lines
+        # - spaces
+        # - tabs
+        # - commas
+        # - semicolons
         submitted_barcodes = [
             barcode.strip()
-            for barcode in request.POST.getlist("jobs")
+            for barcode in re.split(
+                r"[\s,;]+",
+                jobs_text,
+            )
             if barcode.strip()
         ]
 
-        redirect_url = reverse("culet:assign_job")
+        redirect_url = reverse(
+            "culet:assign_job",
+        )
 
         if selected_job_id:
             redirect_url = (
-                f"{redirect_url}?job_id={selected_job_id}"
+                f"{redirect_url}"
+                f"?job_id={selected_job_id}"
             )
 
-        if not employee_id:
-            messages.error(
-                request,
-                "Please select the employee to assign these jobs to.",
-            )
-            return redirect(redirect_url)
+        selected_job = None
 
-        employee = get_object_or_404(
-            self.get_employees(),
-            pk=employee_id,
-        )
-
-        # Assignment opened from a Job Detail page.
+        # Retrieve the selected Job Detail job before validating
+        # the employee so that the job remains visible if the
+        # form is rendered again with an error.
         if selected_job_id:
             selected_job = (
                 Job.objects
                 .select_related(
                     "style",
+                    "customer",
                     "assigned_to",
                 )
-                .filter(pk=selected_job_id)
+                .filter(
+                    pk=selected_job_id,
+                )
                 .first()
             )
 
@@ -1873,24 +1915,65 @@ class AssignJobView(
                     request,
                     "The selected job could not be found.",
                 )
-                return redirect("culet:assign_job")
 
-            jobs = [selected_job]
+                return redirect(
+                    "culet:assign_job",
+                )
 
-        # Assignment using scanned or manually entered barcodes.
+        if not employee_id:
+            messages.error(
+                request,
+                (
+                    "Please select the employee to assign "
+                    "these jobs to."
+                ),
+            )
+
+            return self.render_form_with_errors(
+                request,
+                jobs_text=jobs_text,
+                selected_employee_id=employee_id,
+                selected_job=selected_job,
+            )
+
+        employee = get_object_or_404(
+            self.get_employees(),
+            pk=employee_id,
+        )
+
+        # Assignment opened from a Job Detail page.
+        if selected_job is not None:
+            jobs = [
+                selected_job,
+            ]
+
+        # Assignment using the textarea.
         else:
             if not submitted_barcodes:
                 messages.error(
                     request,
-                    "Please enter or scan at least one job barcode.",
+                    (
+                        "Please enter at least one "
+                        "job barcode."
+                    ),
                 )
-                return redirect("culet:assign_job")
 
-            duplicate_barcodes = sorted({
+                return self.render_form_with_errors(
+                    request,
+                    jobs_text=jobs_text,
+                    selected_employee_id=employee_id,
+                )
+
+            barcode_counts = Counter(
+                submitted_barcodes,
+            )
+
+            duplicate_barcodes = sorted(
                 barcode
-                for barcode in submitted_barcodes
-                if submitted_barcodes.count(barcode) > 1
-            })
+                for barcode, count
+                in barcode_counts.items()
+                if count > 1
+            )
 
             if duplicate_barcodes:
                 barcode_word = (
@@ -1901,11 +1984,20 @@ class AssignJobView(
 
                 messages.error(
                     request,
-                    f"The following {barcode_word} "
-                    f"were entered more than once: "
-                    + ", ".join(duplicate_barcodes),
+                    (
+                        f"The following {barcode_word} "
+                        "were entered more than once: "
+                        + ", ".join(
+                            duplicate_barcodes,
+                        )
+                    ),
                 )
-                return redirect("culet:assign_job")
+
+                return self.render_form_with_errors(
+                    request,
+                    jobs_text=jobs_text,
+                    selected_employee_id=employee_id,
+                )
 
             matching_jobs = list(
                 Job.objects
@@ -1932,21 +2024,129 @@ class AssignJobView(
             if missing_barcodes:
                 messages.error(
                     request,
-                    "No job was found for the following "
-                    "barcode(s): "
-                    + ", ".join(missing_barcodes),
+                    (
+                        "No job was found for the "
+                        "following barcode(s): "
+                        + ", ".join(
+                            missing_barcodes,
+                        )
+                    ),
                 )
-                return redirect("culet:assign_job")
 
+                return self.render_form_with_errors(
+                    request,
+                    jobs_text=jobs_text,
+                    selected_employee_id=employee_id,
+                )
+
+            # Preserve the order in which the barcodes
+            # were entered into the textarea.
             jobs = [
                 jobs_by_barcode[barcode]
                 for barcode in submitted_barcodes
             ]
 
         assigned_count = 0
+        recovered_piecework_count = 0
 
         with transaction.atomic():
+            job_ids = [
+                job.pk
+                for job in jobs
+            ]
+
+            # Lock only the Job rows. Do not use
+            # select_related() with select_for_update()
+            # because nullable joins may cause PostgreSQL
+            # FOR UPDATE errors.
+            locked_jobs = list(
+                Job.objects
+                .select_for_update()
+                .filter(
+                    pk__in=job_ids,
+                )
+            )
+
+            locked_jobs_by_id = {
+                job.pk: job
+                for job in locked_jobs
+            }
+
+            # Preserve the original job order after
+            # replacing the jobs with their locked copies.
+            jobs = [
+                locked_jobs_by_id[job.pk]
+                for job in jobs
+            ]
+
+            open_piecework_job_ids = set(
+                PieceworkMemoLine.objects
+                .filter(
+                    job_id__in=job_ids,
+                    memo__returned_at__isnull=True,
+                )
+                .values_list(
+                    "job_id",
+                    flat=True,
+                )
+            )
+
+            blocked_jobs = [
+                job
+                for job in jobs
+                if job.pk in open_piecework_job_ids
+            ]
+
+            if blocked_jobs:
+                blocked_identifiers = [
+                    str(
+                        job.stock_num
+                        or job.barcode
+                    )
+                    for job in blocked_jobs
+                ]
+
+                messages.error(
+                    request,
+                    (
+                        "The following job(s) are currently "
+                        "assigned through an open piecework "
+                        "memo and cannot be reassigned here: "
+                        + ", ".join(
+                            blocked_identifiers,
+                        )
+                        + ". Return the piecework memo first."
+                    ),
+                )
+
+                return self.render_form_with_errors(
+                    request,
+                    jobs_text=jobs_text,
+                    selected_employee_id=employee_id,
+                    selected_job=selected_job,
+                )
+
             for job in jobs:
+                # Imported legacy jobs can retain the
+                # is_piecework flag despite having no open
+                # PieceworkMemoLine. Clear that stale state
+                # before assigning the job normally.
+                if job.is_piecework:
+                    job.is_piecework = False
+                    job.piecework_assigned_at = None
+                    job.in_work = False
+
+                    job.save(
+                        update_fields=[
+                            "is_piecework",
+                            "piecework_assigned_at",
+                            "in_work",
+                            "last_updated",
+                        ],
+                    )
+
+                    recovered_piecework_count += 1
+
                 job, movement = move_job(
                     job=job,
                     movement_type="assigned",
@@ -1957,6 +2157,23 @@ class AssignJobView(
                 if movement is not None:
                     assigned_count += 1
 
+        if recovered_piecework_count:
+            job_word = (
+                "job"
+                if recovered_piecework_count == 1
+                else "jobs"
+            )
+
+            messages.warning(
+                request,
+                (
+                    f"{recovered_piecework_count} legacy "
+                    f"{job_word} had a piecework flag "
+                    "without an open piecework memo. "
+                    "The stale piecework status was cleared."
+                ),
+            )
+
         if assigned_count:
             job_word = (
                 "job"
@@ -1966,18 +2183,23 @@ class AssignJobView(
 
             messages.success(
                 request,
-                f"{assigned_count} {job_word} assigned to {employee}.",
+                (
+                    f"{assigned_count} {job_word} "
+                    f"assigned to {employee}."
+                ),
             )
         else:
             messages.info(
                 request,
-                f"The selected job(s) were already assigned to {employee}.",
+                (
+                    "The selected job(s) were already "
+                    f"assigned to {employee}."
+                ),
             )
 
-        if len(jobs) == 1:
-            return redirect("culet:home")
-
-        return redirect("culet:home")
+        return redirect(
+            "culet:home",
+        )
     
 class ReturnJobView(
     LoginRequiredMixin,
@@ -4450,14 +4672,54 @@ class PieceworkCreateView(
 ):
     template_name = "piecework/create.html"
 
+    def get_employees(self):
+        return (
+            Employee.objects
+            .filter(
+                active=True,
+                user__is_active=True,
+            )
+            .select_related(
+                "user",
+                "department",
+                "role",
+            )
+            .order_by(
+                "user__last_name",
+                "user__first_name",
+            )
+        )
+
+    def get_departments(self):
+        return (
+            Department.objects
+            .order_by("name")
+        )
+
+    def get_context(
+        self,
+        *,
+        memo_form=None,
+        scan_form=None,
+    ):
+        if memo_form is None:
+            memo_form = PieceworkMemoCreateForm()
+
+        if scan_form is None:
+            scan_form = PieceworkScanForm()
+
+        return {
+            "memo_form": memo_form,
+            "scan_form": scan_form,
+            "employees": self.get_employees(),
+            "departments": self.get_departments(),
+        }
+
     def get(self, request, *args, **kwargs):
         return render(
             request,
             self.template_name,
-            {
-                "memo_form": PieceworkMemoCreateForm(),
-                "scan_form": PieceworkScanForm(),
-            },
+            self.get_context(),
         )
 
     @transaction.atomic
@@ -4477,10 +4739,10 @@ class PieceworkCreateView(
             return render(
                 request,
                 self.template_name,
-                {
-                    "memo_form": memo_form,
-                    "scan_form": scan_form,
-                },
+                self.get_context(
+                    memo_form=memo_form,
+                    scan_form=scan_form,
+                ),
             )
 
         creator = get_employee(
@@ -4503,10 +4765,16 @@ class PieceworkCreateView(
                 "Please scan at least one job.",
             )
 
-            return redirect(
-                "culet:piecework_create",
+            return render(
+                request,
+                self.template_name,
+                self.get_context(
+                    memo_form=memo_form,
+                    scan_form=scan_form,
+                ),
             )
 
+        # Keep the remainder of your existing post() code here.
         piecework_location, created = (
             Location.objects.get_or_create(
                 name="Piecework",

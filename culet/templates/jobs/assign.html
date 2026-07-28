@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 
+
 {% block content %}
 
 <div class="page-container return-jobs-page">
@@ -7,15 +8,6 @@
     <div class="page-header">
 
         <h1>Assign Jobs</h1>
-
-        <p>
-            {% if selected_job %}
-                Select the employee who will receive this job.
-            {% else %}
-                Scan one or more jobs and select the employee
-                receiving them.
-            {% endif %}
-        </p>
 
     </div>
 
@@ -26,34 +18,13 @@
 
 
         {# ================================================= #}
-        {# Job scanner section                               #}
+        {# Job entry section                                 #}
         {# ================================================= #}
 
         <section class="return-jobs-section">
 
             <div class="return-jobs-section-header">
 
-                <div>
-
-                    <h2>
-                        {% if selected_job %}
-                            Selected Job
-                        {% else %}
-                            Jobs
-                        {% endif %}
-                    </h2>
-
-                    <p>
-                        {% if selected_job %}
-                            This assignment was opened from the
-                            job detail page.
-                        {% else %}
-                            Use the camera, a USB scanner, or
-                            enter each barcode manually.
-                        {% endif %}
-                    </p>
-
-                </div>
 
             </div>
 
@@ -91,7 +62,6 @@
 
                 </div>
 
-
                 <p class="form-help-text">
 
                     Barcode:
@@ -112,89 +82,48 @@
 
             {% else %}
 
-                <div
-                    id="assign-job-lines"
-                    class="return-job-lines"
-                >
+                <div class="assign-jobs-textarea-wrap">
 
-                    {% for line_number in "123" %}
-
-                        <div class="return-job-line">
-
-                            <label
-                                for="assign-job-{{ forloop.counter }}"
-                                class="return-job-label"
-                            >
-                                Job {{ forloop.counter }}
-                            </label>
+                    <label
+                        for="id_jobs_text"
+                        class="assign-jobs-textarea-label"
+                    >
+                        Job Barcodes
+                    </label>
 
 
-                            <div class="return-job-controls">
-
-                                <input
-                                    type="text"
-                                    inputmode="numeric"
-                                    pattern="[0-9]*"
-                                    name="jobs"
-                                    id="assign-job-{{ forloop.counter }}"
-                                    class="return-job-input"
-                                    placeholder="Scan or enter barcode"
-                                    autocomplete="off"
-                                    enterkeyhint="next"
-                                    {% if forloop.first %}
-                                        data-autofocus-desktop="true"
-                                    {% endif %}
-                                >
+                    <textarea
+                        name="jobs_text"
+                        id="id_jobs_text"
+                        class="
+                            form-control
+                            assign-jobs-textarea
+                        "
+                        rows="10"
+                        placeholder="Enter or paste one barcode per line"
+                        autocomplete="off"
+                        autocapitalize="off"
+                        spellcheck="false"
+                    >{{ jobs_text|default:"" }}</textarea>
 
 
-                                <button
-                                    type="button"
-                                    class="
-                                        btn
-                                        btn-outline-secondary
-                                        culet-scanner-btn
-                                        js-culet-scanner-btn
-                                    "
-                                    data-target="assign-job-{{ forloop.counter }}"
-                                    data-auto-submit="false"
-                                >
-                                    📷 Scan
-                                </button>
+                    <p class="form-help-text">
+                        Enter one barcode per line. Barcodes separated
+                        by spaces, commas, semicolons, or tabs are also
+                        accepted.
+                    </p>
 
 
-                                <button
-                                    type="button"
-                                    class="
-                                        btn
-                                        btn-outline-danger
-                                        return-job-remove
-                                        js-remove-assign-line
-                                    "
-                                    aria-label="Remove this job line"
-                                >
-                                    Remove
-                                </button>
-
-                            </div>
-
-                        </div>
-
-                    {% endfor %}
+                    <p
+                        id="jobs-text-error"
+                        class="assignment-selected-message has-error"
+                        aria-live="polite"
+                        hidden
+                    >
+                        Please enter at least one job barcode.
+                    </p>
 
                 </div>
-
-
-                <button
-                    type="button"
-                    id="add-assign-job-line"
-                    class="
-                        btn
-                        btn-outline-primary
-                        return-job-add
-                    "
-                >
-                    + Add another job
-                </button>
 
             {% endif %}
 
@@ -216,7 +145,7 @@
                 type="hidden"
                 name="employee"
                 id="id_employee"
-                value=""
+                value="{{ selected_employee_id|default:'' }}"
             >
 
 
@@ -338,10 +267,13 @@
                                 class="
                                     assignment-option-button
                                     employee-option-button
+                                    {% if selected_employee_id|stringformat:"s" == employee.pk|stringformat:"s" %}
+                                        is-selected
+                                    {% endif %}
                                 "
                                 data-employee-id="{{ employee.pk }}"
                                 data-department-id="{% if employee.department_id %}{{ employee.department_id }}{% else %}unassigned{% endif %}"
-                                aria-pressed="false"
+                                aria-pressed="{% if selected_employee_id|stringformat:"s" == employee.pk|stringformat:"s" %}true{% else %}false{% endif %}"
                             >
                                 <span class="assignment-option-name">
                                     {{ employee }}
@@ -368,7 +300,11 @@
                         class="assignment-selected-message"
                         aria-live="polite"
                     >
-                        No employee selected.
+                        {% if selected_employee_id %}
+                            Employee selected.
+                        {% else %}
+                            No employee selected.
+                        {% endif %}
                     </p>
 
                 {% else %}
@@ -410,16 +346,9 @@
 
 </div>
 
-
-{# One shared camera-scanner overlay for all scan buttons. #}
-
-{% if not selected_job %}
-
-    {% include "includes/barcode_scanner.html" with overlay_only=True %}
-
-{% endif %}
-
 {% endblock content %}
+
+
 {% block extra_js %}
 
 <script>
@@ -430,6 +359,14 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const employeeInput = document.getElementById(
         "id_employee"
+    );
+
+    const jobsTextInput = document.getElementById(
+        "id_jobs_text"
+    );
+
+    const jobsTextError = document.getElementById(
+        "jobs-text-error"
     );
 
     const departmentButtons = Array.from(
@@ -519,6 +456,52 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
 
+    function showEmployeeError() {
+        if (selectedEmployeeMessage) {
+            selectedEmployeeMessage.textContent =
+                "Please select an employee before assigning jobs.";
+
+            selectedEmployeeMessage.classList.add(
+                "has-error"
+            );
+        }
+
+        const employeeSection = document.getElementById(
+            "employee-option-grid"
+        );
+
+        if (employeeSection) {
+            employeeSection.scrollIntoView({
+                behavior: "smooth",
+                block: "center"
+            });
+        }
+    }
+
+
+    function showJobsTextError() {
+        if (jobsTextError) {
+            jobsTextError.hidden = false;
+        }
+
+        if (jobsTextInput) {
+            jobsTextInput.focus();
+
+            jobsTextInput.scrollIntoView({
+                behavior: "smooth",
+                block: "center"
+            });
+        }
+    }
+
+
+    function clearJobsTextError() {
+        if (jobsTextError) {
+            jobsTextError.hidden = true;
+        }
+    }
+
+
     departmentButtons.forEach(function (button) {
         button.addEventListener(
             "click",
@@ -583,337 +566,86 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
 
-    if (form && employeeInput) {
+    if (jobsTextInput) {
+        jobsTextInput.addEventListener(
+            "input",
+            function () {
+                if (jobsTextInput.value.trim()) {
+                    clearJobsTextError();
+                }
+            }
+        );
+    }
+
+
+    if (form) {
         form.addEventListener(
             "submit",
             function (event) {
-                if (employeeInput.value) {
-                    return;
+                let hasError = false;
+
+                if (
+                    jobsTextInput &&
+                    !jobsTextInput.value.trim()
+                ) {
+                    hasError = true;
+                    showJobsTextError();
                 }
 
-                event.preventDefault();
-
-                if (selectedEmployeeMessage) {
-                    selectedEmployeeMessage.textContent =
-                        "Please select an employee before assigning jobs.";
-
-                    selectedEmployeeMessage.classList.add(
-                        "has-error"
-                    );
+                if (
+                    employeeInput &&
+                    !employeeInput.value
+                ) {
+                    hasError = true;
+                    showEmployeeError();
                 }
 
-                const employeeSection = (
-                    document.getElementById(
-                        "employee-option-grid"
-                    )
-                );
-
-                if (employeeSection) {
-                    employeeSection.scrollIntoView({
-                        behavior: "smooth",
-                        block: "center"
-                    });
+                if (hasError) {
+                    event.preventDefault();
                 }
             }
         );
     }
 
 
-    if (
-        departmentButtons.length > 0 &&
-        employeeButtons.length > 0
-    ) {
-        filterEmployees("all");
-    }
-});
-</script>
-
-
-{% if not selected_job %}
-
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-    const linesContainer = document.getElementById(
-        "assign-job-lines"
-    );
-
-    const addLineButton = document.getElementById(
-        "add-assign-job-line"
-    );
-
-    if (!linesContainer || !addLineButton) {
-        return;
-    }
-
-
     /*
-     * Use the shared helper in culet_js.js when available.
-     * The fallback keeps this page safe if the shared file has
-     * not been updated yet.
+     * Initialize the employee display if the form was
+     * rendered again with a selected employee.
      */
-    function isTouchDevice() {
-        if (
-            window.CuletDevice &&
-            typeof window.CuletDevice.isTouchDevice ===
-                "function"
-        ) {
-            return window.CuletDevice.isTouchDevice();
-        }
-
-        return (
-            window.matchMedia("(pointer: coarse)").matches ||
-            navigator.maxTouchPoints > 0 ||
-            "ontouchstart" in window
-        );
-    }
-
-
-    function focusOnDesktop(input) {
-        if (!input || isTouchDevice()) {
-            return;
-        }
-
-        input.focus();
-    }
-
-
-    /*
-     * Desktop USB scanners benefit from the first field being
-     * focused. Phones and tablets are intentionally excluded so
-     * their software keyboard does not open on page load.
-     */
-    const desktopAutofocusInput = (
-        linesContainer.querySelector(
-            "[data-autofocus-desktop='true']"
+    const initiallySelectedEmployee = (
+        employeeButtons.find(
+            function (button) {
+                return button.classList.contains(
+                    "is-selected"
+                );
+            }
         )
     );
 
-    focusOnDesktop(
-        desktopAutofocusInput
-    );
+    if (
+        initiallySelectedEmployee &&
+        employeeInput &&
+        selectedEmployeeMessage
+    ) {
+        employeeInput.value = (
+            initiallySelectedEmployee.dataset.employeeId
+        );
 
-
-    let nextLineNumber = (
-        linesContainer.querySelectorAll(
-            ".return-job-line"
-        ).length + 1
-    );
-
-
-    function updateLineLabels() {
-        const lines = (
-            linesContainer.querySelectorAll(
-                ".return-job-line"
+        const employeeName = (
+            initiallySelectedEmployee.querySelector(
+                ".assignment-option-name"
             )
         );
 
-        lines.forEach(function (line, index) {
-            const label = line.querySelector(
-                ".return-job-label"
-            );
-
-            if (label) {
-                label.textContent = (
-                    `Job ${index + 1}`
-                );
-            }
-        });
+        selectedEmployeeMessage.textContent = (
+            employeeName
+                ? `Selected: ${
+                    employeeName.textContent.trim()
+                }`
+                : "Employee selected."
+        );
     }
-
-
-    function createAssignJobLine() {
-        const line = document.createElement(
-            "div"
-        );
-
-        const inputId = (
-            `assign-job-${nextLineNumber}`
-        );
-
-        line.className = "return-job-line";
-
-        line.innerHTML = `
-            <label
-                for="${inputId}"
-                class="return-job-label"
-            >
-                Job ${nextLineNumber}
-            </label>
-
-            <div class="return-job-controls">
-
-                <input
-                    type="text"
-                    inputmode="numeric"
-                    pattern="[0-9]*"
-                    name="jobs"
-                    id="${inputId}"
-                    class="return-job-input"
-                    placeholder="Scan or enter barcode"
-                    autocomplete="off"
-                    enterkeyhint="next"
-                >
-
-                <button
-                    type="button"
-                    class="
-                        btn
-                        btn-outline-secondary
-                        culet-scanner-btn
-                        js-culet-scanner-btn
-                    "
-                    data-target="${inputId}"
-                    data-auto-submit="false"
-                >
-                    📷 Scan
-                </button>
-
-                <button
-                    type="button"
-                    class="
-                        btn
-                        btn-outline-danger
-                        return-job-remove
-                        js-remove-assign-line
-                    "
-                    aria-label="Remove this job line"
-                >
-                    Remove
-                </button>
-
-            </div>
-        `;
-
-        linesContainer.appendChild(
-            line
-        );
-
-        nextLineNumber += 1;
-
-        const newInput = line.querySelector(
-            ".return-job-input"
-        );
-
-        /*
-         * Focus newly-created lines only for desktop scanner
-         * workflows. Do not open the keyboard on phones/tablets.
-         */
-        focusOnDesktop(
-            newInput
-        );
-
-        updateLineLabels();
-    }
-
-
-    addLineButton.addEventListener(
-        "click",
-        function () {
-            createAssignJobLine();
-        }
-    );
-
-
-    linesContainer.addEventListener(
-        "click",
-        function (event) {
-            const removeButton = event.target.closest(
-                ".js-remove-assign-line"
-            );
-
-            if (!removeButton) {
-                return;
-            }
-
-            const currentLines = (
-                linesContainer.querySelectorAll(
-                    ".return-job-line"
-                )
-            );
-
-            if (currentLines.length === 1) {
-                const onlyInput = (
-                    currentLines[0].querySelector(
-                        ".return-job-input"
-                    )
-                );
-
-                if (onlyInput) {
-                    onlyInput.value = "";
-
-                    /*
-                     * Preserve desktop USB-scanner convenience,
-                     * but do not open a mobile keyboard.
-                     */
-                    focusOnDesktop(
-                        onlyInput
-                    );
-                }
-
-                return;
-            }
-
-            const line = removeButton.closest(
-                ".return-job-line"
-            );
-
-            if (line) {
-                line.remove();
-                updateLineLabels();
-            }
-        }
-    );
-
-
-    linesContainer.addEventListener(
-        "keydown",
-        function (event) {
-            if (
-                event.key !== "Enter" ||
-                !event.target.matches(
-                    ".return-job-input"
-                )
-            ) {
-                return;
-            }
-
-            event.preventDefault();
-
-            const inputs = Array.from(
-                linesContainer.querySelectorAll(
-                    ".return-job-input"
-                )
-            );
-
-            const currentIndex = inputs.indexOf(
-                event.target
-            );
-
-            const nextInput = inputs[
-                currentIndex + 1
-            ];
-
-            if (nextInput) {
-                /*
-                 * An Enter key normally comes from a desktop
-                 * USB scanner or physical keyboard. We still
-                 * guard against moving focus on touch devices.
-                 */
-                focusOnDesktop(
-                    nextInput
-                );
-
-                return;
-            }
-
-            if (event.target.value.trim()) {
-                createAssignJobLine();
-            }
-        }
-    );
 });
 </script>
-
-{% endif %}
 
 {% endblock extra_js %}

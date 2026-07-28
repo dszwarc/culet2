@@ -1,25 +1,602 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container">
-    <h1>Assign Piecework</h1>
 
-    <form method="post">
+<div class="page-container return-jobs-page">
+
+    <div class="page-header">
+        <h1>Assign Piecework</h1>
+    </div>
+
+
+    <form
+        method="post"
+        class="return-jobs-form"
+        id="piecework-create-form"
+    >
         {% csrf_token %}
 
-        <div class="form_box">
-            <h3>Memo Info</h3>
-            {{ memo_form.as_p }}
+
+        {# ================================================= #}
+        {# Non-field errors                                  #}
+        {# ================================================= #}
+
+        {% if memo_form.non_field_errors %}
+            <div class="alert alert-danger">
+                {{ memo_form.non_field_errors }}
+            </div>
+        {% endif %}
+
+        {% if scan_form.non_field_errors %}
+            <div class="alert alert-danger">
+                {{ scan_form.non_field_errors }}
+            </div>
+        {% endif %}
+
+
+
+        {# ================================================= #}
+        {# Memo information                                  #}
+        {# ================================================= #}
+
+        <section class="return-jobs-section">
+
+            <div class="return-jobs-section-header">
+                <div>
+                    <h2>Memo Information</h2>
+                </div>
+            </div>
+
+
+            <div class="job-form-grid">
+
+                <div class="job-field">
+
+                    <label for="{{ memo_form.due_back.id_for_label }}">
+                        {{ memo_form.due_back.label }}
+                    </label>
+
+                    {{ memo_form.due_back }}
+
+                    {% if memo_form.due_back.errors %}
+                        <div class="field-errors">
+                            {{ memo_form.due_back.errors }}
+                        </div>
+                    {% endif %}
+
+                </div>
+
+
+                <div class="job-field job-field-full">
+
+                    <label for="{{ memo_form.notes.id_for_label }}">
+                        {{ memo_form.notes.label }}
+                    </label>
+
+                    {{ memo_form.notes }}
+
+                    {% if memo_form.notes.errors %}
+                        <div class="field-errors">
+                            {{ memo_form.notes.errors }}
+                        </div>
+                    {% endif %}
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        {# ================================================= #}
+        {# Jobs                                              #}
+        {# ================================================= #}
+
+        <section class="return-jobs-section">
+
+            <div class="return-jobs-section-header">
+                <div>
+                    <h2>Jobs</h2>
+                </div>
+            </div>
+
+
+            <div class="job-field job-field-full">
+
+                {{ scan_form.scans }}
+
+                {% if scan_form.scans.help_text %}
+                    <p class="form-help-text">
+                        {{ scan_form.scans.help_text }}
+                    </p>
+                {% endif %}
+
+                {% if scan_form.scans.errors %}
+                    <div class="field-errors">
+                        {{ scan_form.scans.errors }}
+                    </div>
+                {% endif %}
+
+            </div>
+
+        </section>
+
+
+
+        {# ================================================= #}
+        {# Department and employee selection                 #}
+        {# ================================================= #}
+
+        <section
+            class="
+                return-jobs-section
+                assignment-selection-section
+            "
+        >
+
+            <input
+                type="hidden"
+                name="assigned_to"
+                id="id_assigned_to"
+                value="{% if memo_form.assigned_to.value %}{{ memo_form.assigned_to.value }}{% endif %}"
+            >
+
+
+            <div class="assignment-picker-group">
+
+                <div class="assignment-picker-header">
+                    <h2>Department</h2>
+
+                    <p>
+                        Select a department to filter the
+                        employee list.
+                    </p>
+                </div>
+
+
+                <div
+                    class="
+                        assignment-option-grid
+                        department-option-grid
+                    "
+                    id="department-option-grid"
+                    role="group"
+                    aria-label="Select a department"
+                >
+
+                    <button
+                        type="button"
+                        class="
+                            assignment-option-button
+                            department-option-button
+                            is-selected
+                        "
+                        data-department-filter="all"
+                        aria-pressed="true"
+                    >
+                        <span class="assignment-option-name">
+                            All
+                        </span>
+
+                        <span class="assignment-option-detail">
+                            All active employees
+                        </span>
+                    </button>
+
+
+                    <button
+                        type="button"
+                        class="
+                            assignment-option-button
+                            department-option-button
+                        "
+                        data-department-filter="unassigned"
+                        aria-pressed="false"
+                    >
+                        <span class="assignment-option-name">
+                            Unassigned
+                        </span>
+
+                        <span class="assignment-option-detail">
+                            No department
+                        </span>
+                    </button>
+
+
+                    {% for department in departments %}
+
+                        <button
+                            type="button"
+                            class="
+                                assignment-option-button
+                                department-option-button
+                            "
+                            data-department-filter="{{ department.pk }}"
+                            aria-pressed="false"
+                        >
+                            <span class="assignment-option-name">
+                                {{ department.name }}
+                            </span>
+                        </button>
+
+                    {% endfor %}
+
+                </div>
+
+            </div>
+
+
+            <div class="assignment-picker-group">
+
+                <div class="assignment-picker-header">
+                    <h2>Employee</h2>
+
+                    <p>
+                        Select the employee receiving the
+                        piecework jobs.
+                    </p>
+                </div>
+
+
+                {% if employees %}
+
+                    <div
+                        class="
+                            assignment-option-grid
+                            employee-option-grid
+                        "
+                        id="employee-option-grid"
+                        role="group"
+                        aria-label="Select an employee"
+                    >
+
+                        {% for employee in employees %}
+
+                            <button
+                                type="button"
+                                class="
+                                    assignment-option-button
+                                    employee-option-button
+
+                                    {% if memo_form.assigned_to.value|stringformat:"s" == employee.pk|stringformat:"s" %}
+                                        is-selected
+                                    {% endif %}
+                                "
+                                data-employee-id="{{ employee.pk }}"
+                                data-department-id="{% if employee.department_id %}{{ employee.department_id }}{% else %}unassigned{% endif %}"
+                                aria-pressed="{% if memo_form.assigned_to.value|stringformat:"s" == employee.pk|stringformat:"s" %}true{% else %}false{% endif %}"
+                            >
+                                <span class="assignment-option-name">
+                                    {{ employee }}
+                                </span>
+
+                                {% if employee.department %}
+                                    <span class="assignment-option-detail">
+                                        {{ employee.department }}
+                                    </span>
+                                {% endif %}
+                            </button>
+
+                        {% endfor %}
+
+                    </div>
+
+
+                    <p
+                        id="no-employees-message"
+                        class="assignment-empty-message"
+                        hidden
+                    >
+                        No active employees are assigned to
+                        this department.
+                    </p>
+
+
+                    <p
+                        id="selected-employee-message"
+                        class="
+                            assignment-selected-message
+
+                            {% if memo_form.assigned_to.errors %}
+                                has-error
+                            {% endif %}
+                        "
+                        aria-live="polite"
+                    >
+                        {% if memo_form.assigned_to.errors %}
+                            Please select an employee.
+                        {% elif memo_form.assigned_to.value %}
+                            Employee selected.
+                        {% else %}
+                            No employee selected.
+                        {% endif %}
+                    </p>
+
+
+                    {% if memo_form.assigned_to.errors %}
+                        <div class="field-errors">
+                            {{ memo_form.assigned_to.errors }}
+                        </div>
+                    {% endif %}
+
+                {% else %}
+
+                    <p class="return-jobs-warning">
+                        No active employees are available.
+                    </p>
+
+                {% endif %}
+
+            </div>
+
+        </section>
+
+        {# ================================================= #}
+        {# Submit                                            #}
+        {# ================================================= #}
+
+        <div class="return-jobs-submit-wrap">
+
+            <button
+                type="submit"
+                class="
+                    btn
+                    btn-primary
+                    return-jobs-submit
+                "
+                {% if not employees %}
+                    disabled
+                {% endif %}
+            >
+                Create Piecework Memo
+            </button>
+
         </div>
 
-        <div class="form_box">
-            <h3>Jobs</h3>
-            {{ scan_form.as_p }}
-        </div>
-
-        <button type="submit" class="btn btn-primary">
-            Create Piecework Memo
-        </button>
     </form>
+
 </div>
-{% endblock %}
+
+{% endblock content %}
+
+
+{% block extra_js %}
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const form = document.getElementById(
+        "piecework-create-form"
+    );
+
+    const employeeInput = document.getElementById(
+        "id_assigned_to"
+    );
+
+    const departmentButtons = Array.from(
+        document.querySelectorAll(
+            ".department-option-button"
+        )
+    );
+
+    const employeeButtons = Array.from(
+        document.querySelectorAll(
+            ".employee-option-button"
+        )
+    );
+
+    const noEmployeesMessage = document.getElementById(
+        "no-employees-message"
+    );
+
+    const selectedEmployeeMessage = document.getElementById(
+        "selected-employee-message"
+    );
+
+
+    function setButtonSelected(button, selected) {
+        button.classList.toggle(
+            "is-selected",
+            selected
+        );
+
+        button.setAttribute(
+            "aria-pressed",
+            selected ? "true" : "false"
+        );
+    }
+
+
+    function setSelectedEmployeeMessage(button) {
+        if (!selectedEmployeeMessage) {
+            return;
+        }
+
+        if (!button) {
+            selectedEmployeeMessage.textContent =
+                "No employee selected.";
+
+            selectedEmployeeMessage.classList.remove(
+                "has-error"
+            );
+
+            return;
+        }
+
+        const employeeName = button.querySelector(
+            ".assignment-option-name"
+        );
+
+        selectedEmployeeMessage.textContent = (
+            employeeName
+                ? `Selected: ${employeeName.textContent.trim()}`
+                : "Employee selected."
+        );
+
+        selectedEmployeeMessage.classList.remove(
+            "has-error"
+        );
+    }
+
+
+    function clearEmployeeSelection() {
+        if (employeeInput) {
+            employeeInput.value = "";
+        }
+
+        employeeButtons.forEach(function (button) {
+            setButtonSelected(
+                button,
+                false
+            );
+        });
+
+        setSelectedEmployeeMessage(
+            null
+        );
+    }
+
+
+    function filterEmployees(departmentFilter) {
+        let visibleEmployeeCount = 0;
+
+        clearEmployeeSelection();
+
+        employeeButtons.forEach(function (button) {
+            const employeeDepartment = (
+                button.dataset.departmentId
+            );
+
+            const shouldShow = (
+                departmentFilter === "all" ||
+                employeeDepartment === departmentFilter
+            );
+
+            button.hidden = !shouldShow;
+
+            if (shouldShow) {
+                visibleEmployeeCount += 1;
+            }
+        });
+
+        if (noEmployeesMessage) {
+            noEmployeesMessage.hidden = (
+                visibleEmployeeCount !== 0
+            );
+        }
+    }
+
+
+    departmentButtons.forEach(function (button) {
+        button.addEventListener(
+            "click",
+            function () {
+                departmentButtons.forEach(
+                    function (otherButton) {
+                        setButtonSelected(
+                            otherButton,
+                            otherButton === button
+                        );
+                    }
+                );
+
+                filterEmployees(
+                    button.dataset.departmentFilter
+                );
+            }
+        );
+    });
+
+
+    employeeButtons.forEach(function (button) {
+        button.addEventListener(
+            "click",
+            function () {
+                employeeButtons.forEach(
+                    function (otherButton) {
+                        setButtonSelected(
+                            otherButton,
+                            otherButton === button
+                        );
+                    }
+                );
+
+                if (employeeInput) {
+                    employeeInput.value = (
+                        button.dataset.employeeId
+                    );
+                }
+
+                setSelectedEmployeeMessage(
+                    button
+                );
+            }
+        );
+    });
+
+
+    if (form && employeeInput) {
+        form.addEventListener(
+            "submit",
+            function (event) {
+                if (employeeInput.value) {
+                    return;
+                }
+
+                event.preventDefault();
+
+                if (selectedEmployeeMessage) {
+                    selectedEmployeeMessage.textContent =
+                        "Please select an employee before creating the memo.";
+
+                    selectedEmployeeMessage.classList.add(
+                        "has-error"
+                    );
+                }
+
+                const employeeSection = (
+                    document.getElementById(
+                        "employee-option-grid"
+                    )
+                );
+
+                if (employeeSection) {
+                    employeeSection.scrollIntoView({
+                        behavior: "smooth",
+                        block: "center"
+                    });
+                }
+            }
+        );
+    }
+
+
+    /*
+     * Restore the selected employee when the server renders
+     * the bound form again after a validation error.
+     */
+    const initiallySelectedEmployee = (
+        employeeButtons.find(
+            function (button) {
+                return button.classList.contains(
+                    "is-selected"
+                );
+            }
+        )
+    );
+
+    if (
+        initiallySelectedEmployee &&
+        employeeInput
+    ) {
+        employeeInput.value = (
+            initiallySelectedEmployee.dataset.employeeId
+        );
+
+        setSelectedEmployeeMessage(
+            initiallySelectedEmployee
+        );
+    }
+});
+</script>
+
+{% endblock extra_js %}

@@ -88,6 +88,7 @@ h1, h2, h3 {
     justify-content: space-between;
     gap: 1rem;
     margin-bottom: 1.25rem;
+    margin-top: 1.25rem;
 }
 
 .page-header h1 {

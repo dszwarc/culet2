@@ -45,13 +45,16 @@
     padding: 0;
     list-style: none;
 }
-
+.message{
+    text-align: center;
+}
 .messages li,
 .success,
 .error {
     width: 100%;
     border-radius: var(--radius);
     font-weight: 700;
+    font-size: 1.5rem;
 }
 
 .success {
@@ -1376,4 +1379,25 @@ form:not(td form) {
     .recent-job-print-actions {
         justify-content: space-between;
     }
+}
+
+.assign-jobs-textarea-wrap {
+    width: 100%;
+}
+
+.assign-jobs-textarea-label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.assign-jobs-textarea {
+    display: block;
+    width: 100%;
+    min-height: 14rem;
+    padding: 0.85rem 1rem;
+    resize: vertical;
+    font-family: monospace;
+    font-size: 1rem;
+    line-height: 1.5;
 }
