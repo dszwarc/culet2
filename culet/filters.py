@@ -132,6 +132,10 @@ class JobFilter(django_filters.FilterSet):
             }
         ),
     )
+    in_work = django_filters.BooleanFilter(
+        label="In Work:",
+        field_name="in_work",
+    )
 
     class Meta:
         model = Job
@@ -142,6 +146,7 @@ class JobFilter(django_filters.FilterSet):
             "style",
             "customer",
             "assigned_to",
+            "in_work",
             "holder",
             "holder_department",
             "in_work",
