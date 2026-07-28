@@ -538,33 +538,56 @@ document.addEventListener("DOMContentLoaded", function () {
         form.addEventListener(
             "submit",
             function (event) {
-                if (employeeInput.value) {
+                /*
+                * Stop submission if no employee was selected.
+                */
+                if (!employeeInput.value) {
+                    event.preventDefault();
+
+                    if (selectedEmployeeMessage) {
+                        selectedEmployeeMessage.textContent =
+                            "Please select an employee before creating the memo.";
+
+                        selectedEmployeeMessage.classList.add(
+                            "has-error"
+                        );
+                    }
+
+                    const employeeSection = (
+                        document.getElementById(
+                            "employee-option-grid"
+                        )
+                    );
+
+                    if (employeeSection) {
+                        employeeSection.scrollIntoView({
+                            behavior: "smooth",
+                            block: "center"
+                        });
+                    }
+
                     return;
                 }
 
-                event.preventDefault();
-
-                if (selectedEmployeeMessage) {
-                    selectedEmployeeMessage.textContent =
-                        "Please select an employee before creating the memo.";
-
-                    selectedEmployeeMessage.classList.add(
-                        "has-error"
-                    );
+                /*
+                * Do not open a print tab when browser validation
+                * has already determined that the form is invalid.
+                */
+                if (!form.checkValidity()) {
+                    return;
                 }
 
-                const employeeSection = (
-                    document.getElementById(
-                        "employee-option-grid"
-                    )
+                /*
+                * Open the print window directly from the user's
+                * submit action so the browser does not block it.
+                *
+                * The successful response will later load the
+                * printable memo into this named window.
+                */
+                window.open(
+                    "",
+                    "culetMemoPrintWindow"
                 );
-
-                if (employeeSection) {
-                    employeeSection.scrollIntoView({
-                        behavior: "smooth",
-                        block: "center"
-                    });
-                }
             }
         );
     }
@@ -597,6 +620,8 @@ document.addEventListener("DOMContentLoaded", function () {
         );
     }
 });
+
+
 </script>
 
 {% endblock extra_js %}

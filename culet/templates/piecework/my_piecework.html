@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+
+
+{% block content %}
+
+{% if user.is_authenticated %}
+
+    <div class="page-container my-jobs-page">
+
+        <div class="page-header">
+
+            <h1>My Piecework</h1>
+
+        </div>
+
+
+        {% if piecework_job_list %}
+
+            {# ============================================= #}
+            {# Desktop/tablet table                          #}
+            {# ============================================= #}
+
+            <div class="table-wrap job-desktop-table">
+
+                <table class="index_table job_index">
+
+                    <thead>
+
+                        <tr>
+                            <th>Stock #</th>
+                            <th>Style</th>
+                            <th>Return By</th>
+                            <th>Job Due</th>
+                            <th>Status</th>
+                        </tr>
+
+                    </thead>
+
+
+                    <tbody>
+
+                        {% for job in piecework_job_list %}
+
+                            <tr
+                                class="
+                                    {% if forloop.counter|divisibleby:2 %}
+                                        even_row
+                                    {% else %}
+                                        odd_row
+                                    {% endif %}
+                                "
+                            >
+
+                                <td>
+                                    {{ job.stock_num|default:"No stock #" }}
+                                </td>
+
+
+                                <td>
+                                    {{ job.style|default:"—" }}
+                                </td>
+
+
+                                <td
+                                    {% if job.piecework_return_date %}
+                                        {% now "Y-m-d" as today_string %}
+
+                                        {% if job.piecework_return_date|date:"Y-m-d" < today_string %}
+                                            class="past_due"
+                                        {% endif %}
+                                    {% endif %}
+                                >
+                                    {% if job.piecework_return_date %}
+
+                                        {{ job.piecework_return_date|date:"n/j/Y" }}
+
+                                    {% else %}
+
+                                        No return date
+
+                                    {% endif %}
+                                </td>
+
+
+                                <td
+                                    {% if job.is_past_due %}
+                                        class="past_due"
+                                    {% endif %}
+                                >
+                                    {% if job.due %}
+
+                                        {{ job.due|date:"n/j/Y" }}
+
+                                    {% else %}
+
+                                        —
+
+                                    {% endif %}
+                                </td>
+
+
+                                <td>
+
+                                    <div class="piecework-card">
+
+                                        <div class="piecework-title">
+                                            Piecework
+                                        </div>
+
+                                        <div class="piecework-date">
+
+                                            Return by:<br>
+
+                                            {% if job.piecework_return_date %}
+
+                                                {{ job.piecework_return_date|date:"n/j/Y" }}
+
+                                            {% else %}
+
+                                                No return date
+
+                                            {% endif %}
+
+                                        </div>
+
+                                    </div>
+
+                                </td>
+
+                            </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+
+            {# ============================================= #}
+            {# Mobile compact cards                          #}
+            {# ============================================= #}
+
+            <div class="mobile-job-list">
+
+                {% for job in piecework_job_list %}
+
+                    <article class="mobile-job-card">
+
+                        <div class="mobile-job-card-header">
+
+                            <div class="mobile-job-stock">
+
+                                <span class="mobile-job-label">
+                                    Stock #
+                                </span>
+
+                                {{ job.stock_num|default:"No stock #" }}
+
+                            </div>
+
+
+                            <div
+                                class="
+                                    mobile-job-due
+                                    {% if job.is_past_due %}
+                                        mobile-job-due-past
+                                    {% endif %}
+                                "
+                            >
+
+                                <span class="mobile-job-label">
+                                    Job Due
+                                </span>
+
+                                {% if job.due %}
+
+                                    {{ job.due|date:"n/j/y" }}
+
+                                {% else %}
+
+                                    —
+
+                                {% endif %}
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="mobile-job-style">
+
+                            <span class="mobile-job-label">
+                                Style
+                            </span>
+
+                            <span>
+                                {{ job.style|default:"—" }}
+                            </span>
+
+                        </div>
+
+
+                        <div class="mobile-job-action">
+
+                            <div class="mobile-piecework-status">
+
+                                <strong>
+                                    Piecework
+                                </strong>
+
+                                <span>
+
+                                    Return by:
+
+                                    {% if job.piecework_return_date %}
+
+                                        {{ job.piecework_return_date|date:"n/j/y" }}
+
+                                    {% else %}
+
+                                        No return date
+
+                                    {% endif %}
+
+                                </span>
+
+                            </div>
+
+                        </div>
+
+                    </article>
+
+                {% endfor %}
+
+            </div>
+
+
+        {% else %}
+
+            <div class="empty-state-card">
+
+                <h2>No piecework is assigned</h2>
+
+                <p>
+                    You do not currently have any assigned piecework.
+                </p>
+
+            </div>
+
+        {% endif %}
+
+    </div>
+
+{% endif %}
+
+{% endblock content %}

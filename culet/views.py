@@ -3,7 +3,8 @@ from django.http import HttpResponse, HttpResponseRedirect, HttpResponseBadReque
 from django.template.loader import render_to_string
 import copy
 from django.db import transaction
-from django.db.models import Exists, F, Q, Max, OuterRef, Subquery, Sum, Count, Avg, ExpressionWrapper, DurationField
+from django.db import models
+from django.db.models import Exists, F, Q, Max, OuterRef, Subquery, Sum, Count, Avg, ExpressionWrapper, DurationField, DateField
 from django.db.models.functions import TruncDate, Coalesce
 from django.views import generic
 from django.urls import reverse_lazy, reverse
@@ -504,6 +505,76 @@ def get_receivable_jobs_for_employee(employee):
         .exclude(holder=employee)
     )
 
+class MyPieceworkListView(
+    LoginRequiredMixin,
+    generic.ListView,
+):
+    model = Job
+    template_name = "piecework/my_piecework.html"
+    context_object_name = "piecework_job_list"
+
+    def get_employee(self):
+        if not hasattr(self, "_employee"):
+            self._employee = Employee.objects.get(
+                user=self.request.user,
+            )
+
+        return self._employee
+
+    def get_queryset(self):
+        employee = self.get_employee()
+
+        current_piecework_due_back = (
+            PieceworkMemoLine.objects
+            .filter(
+                job=OuterRef("pk"),
+                memo__assigned_to=employee,
+                memo__returned_at__isnull=True,
+            )
+            .order_by(
+                "-memo__created_at",
+                "-memo__pk",
+            )
+            .values(
+                "memo__due_back",
+            )[:1]
+        )
+
+        return (
+            Job.objects
+            .filter(
+                assigned_to=employee,
+                is_piecework=True,
+                shipped=False,
+                active=True,
+            )
+            .select_related(
+                "style",
+                "customer",
+                "assigned_to",
+                "holder",
+                "status",
+            )
+            .annotate(
+                piecework_return_date=Subquery(
+                    current_piecework_due_back,
+                    output_field=DateField(),
+                ),
+            )
+            .order_by(
+                models.F(
+                    "piecework_return_date",
+                ).asc(
+                    nulls_last=True,
+                ),
+                models.F(
+                    "due",
+                ).asc(
+                    nulls_last=True,
+                ),
+                "stock_num",
+            )
+        )
 
 class ReceiveListView(LoginRequiredMixin, generic.ListView):
     model = Job
@@ -4492,9 +4563,20 @@ class JobTransferMemoCreateView(
             ),
         )
 
-        return redirect(
-            "culet:job_transfer_memo_print",
-            pk=memo.pk,
+        return render(
+            self.request,
+            "memos/create_redirect.html",
+            {
+                "print_url": reverse(
+                    "culet:job_transfer_memo_print",
+                    kwargs={
+                        "pk": memo.pk,
+                    },
+                ),
+                "home_url": reverse(
+                    "culet:home",
+                ),
+            },
         )
 
 
@@ -4939,9 +5021,20 @@ class PieceworkCreateView(
             ),
         )
 
-        return redirect(
-            "culet:piecework_print",
-            pk=memo.pk,
+        return render(
+            request,
+            "memos/create_redirect.html",
+            {
+                "print_url": reverse(
+                    "culet:piecework_print",
+                    kwargs={
+                        "pk": memo.pk,
+                    },
+                ),
+                "home_url": reverse(
+                    "culet:home",
+                ),
+            },
         )
 
 

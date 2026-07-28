@@ -1,0 +1,66 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <title>Memo Created</title>
+</head>
+
+<body>
+
+<script>
+    (function () {
+        const printUrl = "{{ print_url|escapejs }}";
+        const homeUrl = "{{ home_url|escapejs }}";
+
+        /*
+         * The form's submit handler already opened a blank window
+         * named "culetMemoPrintWindow".
+         *
+         * Reuse that window and send it to the printable memo.
+         */
+        const printWindow = window.open(
+            "",
+            "culetMemoPrintWindow"
+        );
+
+        if (printWindow) {
+            printWindow.location.href = printUrl;
+            printWindow.focus();
+        }
+
+        /*
+         * Return the original tab to Home.
+         * The Django success message remains available because
+         * it was added before rendering this response.
+         */
+        window.location.replace(homeUrl);
+    })();
+</script>
+
+<noscript>
+    <p>
+        Your memo was created successfully.
+    </p>
+
+    <p>
+        <a
+            href="{{ print_url }}"
+            target="_blank"
+            rel="noopener"
+        >
+            Open printable memo
+        </a>
+    </p>
+
+    <p>
+        <a href="{{ home_url }}">
+            Return to Home
+        </a>
+    </p>
+</noscript>
+
+</body>
+</html>

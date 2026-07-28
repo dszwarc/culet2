@@ -66,7 +66,11 @@ urlpatterns = [
     path("inventory/metal/parts/<int:pk>/", views.MetalPartInventoryDetailView.as_view(), name="metal_part_inventory_detail"),
     path("inventory/metal/lots/<int:pk>/", views.MetalLotDetailView.as_view(), name="metal_lot_detail"),
     path("inventory/", views.InventoryDashboardView.as_view(), name="inventory_dashboard"),
-
+    path(
+        "jobs/my-piecework/",
+        views.MyPieceworkListView.as_view(),
+        name="my_piecework",
+    ),
     path("piecework/create/", views.PieceworkCreateView.as_view(), name="piecework_create"),
     path("piecework/open/", views.PieceworkOpenListView.as_view(), name="piecework_open"),
     
