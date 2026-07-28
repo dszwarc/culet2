@@ -849,7 +849,10 @@ class TimeClock(models.Model):
         related_name="timeclocks",
     )
 
-    clock_in = models.DateTimeField()
+    clock_in = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
 
     clock_out = models.DateTimeField(
         null=True,
@@ -925,6 +928,9 @@ class TimeClock(models.Model):
 
     @property
     def raw_duration(self):
+        if self.clock_in is None:
+            return None
+
         if self.clock_out is None:
             return timezone.now() - self.clock_in
 
@@ -932,7 +938,10 @@ class TimeClock(models.Model):
 
     @property
     def rounded_duration(self):
-        if self.rounded_clock_out is None:
+        if (
+            self.rounded_clock_in is None
+            or self.rounded_clock_out is None
+        ):
             return None
 
         return (
@@ -942,6 +951,9 @@ class TimeClock(models.Model):
 
     @property
     def raw_hours(self):
+        if self.raw_duration is None:
+            return 0
+
         return (
             self.raw_duration.total_seconds()
             / 3600
