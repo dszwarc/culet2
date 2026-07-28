@@ -3,7 +3,6 @@ from django_filters import DateFilter, CharFilter, DateTimeFilter
 from .models import *
 from django import forms
 
-
 class JobFilter(django_filters.FilterSet):
     barcode = django_filters.CharFilter(
         label="Barcode:",
@@ -132,10 +131,6 @@ class JobFilter(django_filters.FilterSet):
             }
         ),
     )
-    in_work = django_filters.BooleanFilter(
-        label="In Work:",
-        field_name="in_work",
-    )
 
     class Meta:
         model = Job
@@ -149,7 +144,6 @@ class JobFilter(django_filters.FilterSet):
             "in_work",
             "holder",
             "holder_department",
-            "in_work",
             "location",
             "shipped",
             "due_date",
