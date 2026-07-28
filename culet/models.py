@@ -407,23 +407,67 @@ class QualityInspectionFailure(models.Model):
         return f"{self.inspection.job} - {self.failure_type}"
 
 class JobWeight(models.Model):
-    job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="weights")
-    weight = models.DecimalField(max_digits=10, decimal_places=3, default=0, verbose_name="Piece Weight")
-    sprue_weight = models.DecimalField(max_digits=10, decimal_places=3, default=0)
-    dust_weight = models.DecimalField(max_digits=10, decimal_places=3, default=0)
-    created_at = models.DateTimeField(default=timezone.now, editable=False)
-    recorded_by = models.ForeignKey(User,on_delete=models.PROTECT, null=True, blank=True)
-    step = models.ForeignKey(Step, on_delete=models.PROTECT,related_name="job_weights", null=True, blank=True)
+    job = models.ForeignKey(
+        Job,
+        on_delete=models.CASCADE,
+        related_name="weights",
+    )
+
+    weight = models.DecimalField(
+        max_digits=10,
+        decimal_places=3,
+        verbose_name="Piece Weight",
+    )
+
+    sprue_weight = models.DecimalField(
+        max_digits=10,
+        decimal_places=3,
+    )
+
+    dust_weight = models.DecimalField(
+        max_digits=10,
+        decimal_places=3,
+    )
+
+    created_at = models.DateTimeField(
+        default=timezone.now,
+        editable=False,
+    )
+
+    recorded_by = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+    )
+
+    step = models.ForeignKey(
+        Step,
+        on_delete=models.PROTECT,
+        related_name="job_weights",
+        null=True,
+        blank=True,
+    )
 
     class Meta:
-        ordering = ["created_at", "id"]
+        ordering = [
+            "created_at",
+            "id",
+        ]
 
     @property
     def total_weight(self):
-        return (self.weight or Decimal("0")) + (self.sprue_weight or Decimal("0")) + (self.dust_weight or Decimal("0"))
-    
+        return (
+            self.weight
+            + self.sprue_weight
+            + self.dust_weight
+        )
+
     def __str__(self):
-        return f"Weight of {self.job} @ {self.created_at:%Y-%m-%d %H:%M}"
+        return (
+            f"Weight of {self.job} "
+            f"@ {self.created_at:%Y-%m-%d %H:%M}"
+        )
 
 class Metal(models.Model):
     lot_num = models.IntegerField(unique=True, blank=True)

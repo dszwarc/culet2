@@ -149,39 +149,60 @@ class ActivityStartForm(forms.ModelForm):
         self.fields["step"].empty_label = "Choose activity step"
 
 class JobWeightForm(forms.ModelForm):
+    weight = forms.DecimalField(
+        label="Weight",
+        required=True,
+        max_digits=10,
+        decimal_places=3,
+        min_value=Decimal("0"),
+        widget=forms.NumberInput(
+            attrs={
+                "class": "form-control",
+                "step": "0.001",
+                "min": "0",
+            },
+        ),
+    )
+
+    sprue_weight = forms.DecimalField(
+        label="Sprue Weight",
+        required=True,
+        max_digits=10,
+        decimal_places=3,
+        min_value=Decimal("0"),
+        widget=forms.NumberInput(
+            attrs={
+                "class": "form-control",
+                "step": "0.001",
+                "min": "0",
+            },
+        ),
+    )
+
+    dust_weight = forms.DecimalField(
+        label="Dust Weight",
+        required=True,
+        max_digits=10,
+        decimal_places=3,
+        min_value=Decimal("0"),
+        widget=forms.NumberInput(
+            attrs={
+                "class": "form-control",
+                "step": "0.001",
+                "min": "0",
+            },
+        ),
+    )
+
     class Meta:
         model = JobWeight
-        fields = ["step","weight", "sprue_weight", "dust_weight"]
-        widgets = {
-            "weight": forms.NumberInput(attrs={"step": "0.001", "min": "0"}),
-            "sprue_weight": forms.NumberInput(attrs={"step": "0.001", "min": "0"}),
-            "dust_weight": forms.NumberInput(attrs={"step": "0.001", "min": "0"}),
-        }
-        labels = {
-            "weight": "Piece Weight",
-            "sprue_weight": "Sprue Weight",
-            "dust_weight": "Dust Weight",
-        }
 
-    def clean(self):
-        cleaned_data = super().clean()
-
-        weight = cleaned_data.get("weight") or Decimal("0")
-        sprue_weight = cleaned_data.get("sprue_weight") or Decimal("0")
-        dust_weight = cleaned_data.get("dust_weight") or Decimal("0")
-
-        for field_name, value in {
-            "weight": weight,
-            "sprue_weight": sprue_weight,
-            "dust_weight": dust_weight,
-        }.items():
-            if value < 0:
-                self.add_error(field_name, "Weight values cannot be negative.")
-
-        if (weight + sprue_weight + dust_weight) <= 0:
-            raise ValidationError("At least one weight value must be greater than 0.")
-
-        return cleaned_data
+        fields = [
+            "step",
+            "weight",
+            "sprue_weight",
+            "dust_weight",
+        ]
 
 class JobShipLineForm(forms.Form):
     barcode = forms.CharField(
@@ -213,8 +234,17 @@ class BulkJobShipForm(forms.Form):
 
 class JobWeightLookupForm(forms.Form):
     barcode = forms.IntegerField(required=False, label="Barcode")
-    stock_num = forms.IntegerField(required=False, label="Stock Number")
-
+    stock_num = forms.CharField(
+        label="Stock Number",
+        max_length=255,
+        strip=True,
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-control",
+                "autocomplete": "off",
+            },
+        ),
+    )
     def clean(self):
         cleaned_data = super().clean()
         barcode = cleaned_data.get("barcode")
