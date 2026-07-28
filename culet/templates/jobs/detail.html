@@ -83,6 +83,12 @@
                 </span>
             </div>
             <div class="job-detail-item">
+                <span class="job-detail-label">Is Piecework</span>
+                <span class="job-detail-value">
+                    {{ job.is_piecework }}
+                </span>
+            </div>
+            <div class="job-detail-item">
                 <span>
                     <span class="job-detail-label">Status</span>
                 </span>
@@ -111,6 +117,13 @@
 
             <div class="job-notes-content">
                 {{ job.notes|default:"No notes have been added."|linebreaksbr }}
+            </div>
+        </div>
+                <div class="job-detail-item" style="margin-top: 1em;">
+            <span class="job-detail-label">Stamp</span>
+
+            <div class="job-notes-content">
+                {{ job.stamp|default:"No stamp has been added."|linebreaksbr }}
             </div>
         </div>
     </section>
