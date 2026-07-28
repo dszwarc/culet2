@@ -1401,3 +1401,8 @@ form:not(td form) {
     font-size: 1rem;
     line-height: 1.5;
 }
+
+.return-to-my-jobs{
+    text-align: center;
+    padding: .5rem;
+}

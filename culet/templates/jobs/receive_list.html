@@ -3,7 +3,9 @@
 {% block content %}
 
 {% if user.is_authenticated %}
-
+<div class="return-to-my-jobs">
+            <a class="btn btn-primary btn-lg culet-scanner-btn" href="{% url 'culet:my_jobs' %}">My Jobs</a>
+</div>
     {% if receive_list %}
         
         {% if culet_perms.is_department_head %}
@@ -19,6 +21,8 @@
                     Receive All Jobs
                 </button>
             </form>
+
+
         {% endif %}
 
         {# Desktop/tablet table #}
@@ -156,7 +160,7 @@
 
     {% else %}
 
-        <p>No jobs are available.</p>
+        <p class="return-to-my-jobs">No jobs are available.</p>
 
     {% endif %}
 
