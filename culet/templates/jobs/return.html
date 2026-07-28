@@ -7,7 +7,7 @@
     <div class="page-header">
         <h1>Return Jobs</h1>
         <p>
-            Scan one or more jobs and select the manager receiving them.
+            Scan one or more jobs and select the employee receiving them.
         </p>
     </div>
 
@@ -93,22 +93,22 @@
                     required
                 >
                     <option value="">
-                        Select a manager
+                        Select an employee to return to:
                     </option>
 
-                    {% for manager in managers %}
-                        <option value="{{ manager.pk }}">
-                            {{ manager }}
-                            {% if manager.department %}
-                                — {{ manager.department.name }}
+                    {% for return_employee in return_employees %}
+                        <option value="{{ return_employee.pk }}">
+                            {{ return_employee }}
+                            {% if return_employee.department %}
+                                — {{ return_employee.department.name }}
                             {% endif %}
                         </option>
                     {% endfor %}
                 </select>
 
-                {% if not managers %}
+                {% if not return_employees %}
                     <p class="return-jobs-warning">
-                        No active managers are available.
+                        No employees are available to return to.
                     </p>
                 {% endif %}
             </div>
@@ -118,7 +118,7 @@
             <button
                 type="submit"
                 class="btn btn-primary return-jobs-submit"
-                {% if not managers %}disabled{% endif %}
+                {% if not return_employees %}disabled{% endif %}
             >
                 Return Jobs
             </button>

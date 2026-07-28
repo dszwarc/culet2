@@ -2278,14 +2278,11 @@ class ReturnJobView(
 ):
     template_name = "jobs/return.html"
 
-    def get_managers(self):
+    def get_return_employees(self):
         return (
             Employee.objects
             .filter(
-                role__name__in=[
-                    "Manager",
-                    "Super",
-                ],
+                can_receive_returned_jobs=True,
                 user__is_active=True,
             )
             .select_related(
@@ -2302,7 +2299,9 @@ class ReturnJobView(
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        context["managers"] = self.get_managers()
+        context["return_employees"] = (
+            self.get_return_employees()
+        )
 
         return context
 
@@ -2328,11 +2327,10 @@ class ReturnJobView(
         if not employee_id:
             messages.error(
                 request,
-                "Please select the manager receiving these jobs.",
+                "Please select the employee receiving these jobs.",
             )
             return redirect("culet:return_job")
 
-        # Detect repeated scans before looking up the jobs.
         duplicate_barcodes = sorted({
             barcode
             for barcode in submitted_barcodes
@@ -2354,8 +2352,8 @@ class ReturnJobView(
             )
             return redirect("culet:return_job")
 
-        manager = get_object_or_404(
-            self.get_managers(),
+        return_employee = get_object_or_404(
+            self.get_return_employees(),
             pk=employee_id,
         )
 
@@ -2398,7 +2396,7 @@ class ReturnJobView(
                 job, movement = move_job(
                     job=job,
                     movement_type="returned-to-manager",
-                    to_employee=manager,
+                    to_employee=return_employee,
                     performed_by=request.user.employee,
                 )
 
@@ -2414,12 +2412,18 @@ class ReturnJobView(
 
             messages.success(
                 request,
-                f"{returned_count} {job_word} returned to {manager}.",
+                (
+                    f"{returned_count} {job_word} "
+                    f"returned to {return_employee}."
+                ),
             )
         else:
             messages.info(
                 request,
-                f"The selected job(s) were already assigned to {manager}.",
+                (
+                    "The selected job(s) were already assigned "
+                    f"to {return_employee}."
+                ),
             )
 
         return redirect("culet:return_job")

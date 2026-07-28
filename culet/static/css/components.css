@@ -1406,3 +1406,36 @@ form:not(td form) {
     text-align: center;
     padding: .5rem;
 }
+
+.job-count-summary {
+    max-width: 240px;
+    margin: 0 auto 1.25rem;
+    padding: .65rem 1rem;
+
+    text-align: center;
+
+    background: #fff;
+
+    border: 1px solid #dbe4ee;
+    border-radius: 10px;
+
+    box-shadow: 0 1px 3px rgba(0,0,0,.05);
+}
+
+.job-count-number {
+    font-size: 1.9rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--primary-color);
+}
+
+.job-count-label {
+    margin-top: .15rem;
+
+    font-size: .82rem;
+    font-weight: 600;
+    color: #6b7280;
+
+    text-transform: uppercase;
+    letter-spacing: .08em;
+}

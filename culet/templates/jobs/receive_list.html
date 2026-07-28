@@ -4,7 +4,7 @@
 
 {% if user.is_authenticated %}
 <div class="return-to-my-jobs">
-            <a class="btn btn-primary btn-lg culet-scanner-btn" href="{% url 'culet:my_jobs' %}">My Jobs</a>
+            <a class="btn btn-success btn-lg culet-scanner-btn" href="{% url 'culet:my_jobs' %}">My Jobs</a>
 </div>
     {% if receive_list %}
         
@@ -17,7 +17,7 @@
             >
                 {% csrf_token %}
 
-                <button class="btn btn-primary receive-all-button" type="submit">
+                <button class="btn btn-primary receive-all-button" style="margin:.5rem;" type="submit">
                     Receive All Jobs
                 </button>
             </form>
@@ -26,6 +26,15 @@
         {% endif %}
 
         {# Desktop/tablet table #}
+        <div class="job-count-summary">
+            <div class="job-count-number">
+                {{ receive_list|length }}
+            </div>
+
+            <div class="job-count-label">
+                Job(s) To Receive
+            </div>
+        </div>
         <div class="table-wrap job-desktop-table">
             <table class="index_table job_index">
                 <thead>
