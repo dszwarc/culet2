@@ -121,6 +121,13 @@ class Employee(models.Model):
 
     clocked_in = models.BooleanField(default=False)
     must_change_password = models.BooleanField(default=True)
+    can_receive_returned_jobs = models.BooleanField(
+        default=False, verbose_name="Can receive returned jobs", 
+        help_text=(
+            "Allow this employee to appear as a destination" 
+            "when jobs are returned."
+            ),
+        )
 
     @property
     def active_activities(self):
