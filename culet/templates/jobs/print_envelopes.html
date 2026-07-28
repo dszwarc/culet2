@@ -92,7 +92,7 @@
             display: block;
             width: 2.65in;
             height: 0.32in;
-            margin: 0;
+            margin: 0 auto;
         }
 
         .top-stock-number {
@@ -103,6 +103,7 @@
             line-height: 1;
             white-space: nowrap;
             text-overflow: ellipsis;
+            text-align: center;
         }
 
         .top-due-date {
@@ -150,7 +151,10 @@
         /* =========================================================
            STYLE, METAL, SIZE, QUANTITY
            ========================================================= */
-
+        .summary-style {
+            font-size: 16px;
+            font-weight: 700;
+        }
         .summary-grid {
             display: grid;
             grid-template-columns: 1.65in 1fr;
@@ -459,9 +463,27 @@
             <div class="summary-left">
 
                 <div class="summary-line">
-                    <span class="summary-label">Style:</span>
+                    <span class="summary-label">Size:</span>
 
                     <span class="summary-value">
+                        {{ job.size|default:"-" }}
+                    </span>
+                </div>
+
+                <div class="summary-line">
+                    <span class="summary-label">Qty:</span>
+
+                    <span class="summary-value">
+                        {{job.quantity}}
+                    </span>
+                </div>
+            </div>
+
+            <div class="summary-right">
+                <div class="summary-line">
+                    <span class="summary-label">Style:</span>
+
+                    <span class="summary-value summary-style">
                         {{ job.style|default:"-" }}
                     </span>
                 </div>
@@ -483,27 +505,6 @@
                         {% endfor %}
                     </span>
                 </div>
-
-            </div>
-
-            <div class="summary-right">
-
-                <div class="summary-line">
-                    <span class="summary-label">Size:</span>
-
-                    <span class="summary-value">
-                        {{ job.size|default:"-" }}
-                    </span>
-                </div>
-
-                <div class="summary-line">
-                    <span class="summary-label">Qty:</span>
-
-                    <span class="summary-value">
-                        {{job.quantity}}
-                    </span>
-                </div>
-
             </div>
 
         </div>
