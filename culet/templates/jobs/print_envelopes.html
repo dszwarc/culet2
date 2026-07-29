@@ -76,9 +76,9 @@
 
         .top-section {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) 0.9in;
+            grid-template-columns: minmax(0, 1fr) 1.5in;
             column-gap: 0.1in;
-            min-height: 1in;
+            min-height: 1.5in;
             padding-bottom: 0.06in;
             border-bottom: 1px solid #000;
         }
@@ -92,7 +92,7 @@
             display: block;
             width: 2.65in;
             height: 0.32in;
-            margin: 0 auto;
+            margin: 0;
         }
 
         .top-stock-number {
@@ -106,27 +106,31 @@
             text-align: center;
         }
 
+        .top-style,
         .top-due-date {
-            margin-top: 0.06in;
-            font-size: 15px;
-            font-weight: 700;
-            line-height: 1;
+            margin-top: 0.05in;
+            overflow: hidden;
+            font-size: 18px;
+            font-weight: bold;
+            line-height: 1.05;
+            white-space: nowrap;
+            text-overflow: ellipsis;
         }
 
         .envelope-style-photo-wrap {
             display: flex;
             align-items: flex-start;
             justify-content: flex-end;
-            width: 0.9in;
-            height: 0.9in;
+            width: 1.5in;
+            height: 1.5in;
             overflow: hidden;
         }
 
         .envelope-style-photo,
         .envelope-style-photo-placeholder {
             box-sizing: border-box;
-            width: 0.9in;
-            height: 0.9in;
+            width: 1.5in;
+            height: 1.5in;
         }
 
         .envelope-style-photo {
@@ -151,33 +155,32 @@
         /* =========================================================
            STYLE, METAL, SIZE, QUANTITY
            ========================================================= */
-        .summary-style {
-            font-size: 16px;
-            font-weight: 700;
-        }
-        .summary-grid {
+
+        .summary-row {
             display: grid;
-            grid-template-columns: 1.65in 1fr;
+            grid-template-columns: 0.8in 0.8in minmax(0, 1fr);
             column-gap: 0.08in;
-            min-height: 0.48in;
-            padding-top: 0.035in;
+            min-height: 0.28in;
+            padding: 0.05in 0;
         }
 
         .summary-line {
             display: flex;
             align-items: baseline;
-            min-height: 0.2in;
-            font-size: 11px;
+            min-width: 0;
+            font-size: 10px;
             line-height: 1.05;
         }
 
         .summary-label {
             flex-shrink: 0;
-            margin-right: 0.03in;
+            margin-right: 0.025in;
             font-weight: 700;
+            font-size: 14px;
         }
 
         .summary-value {
+            font-size: 14px;
             min-width: 0;
             flex-grow: 1;
             padding-bottom: 1px;
@@ -185,10 +188,6 @@
             border-bottom: 1px solid #000;
             white-space: nowrap;
             text-overflow: ellipsis;
-        }
-
-        .summary-right .summary-value {
-            border-bottom: 0;
         }
 
         /* =========================================================
@@ -430,6 +429,10 @@
         <div class="top-stock-number">
             {{ job.stock_num|default:"-" }}
         </div>
+        <br>
+        <div class="top-style">
+            {{ job.style|default:"-" }}
+        </div>
 
         <div class="top-due-date">
             Due:
@@ -457,54 +460,38 @@
 
 </div>
 
-        <!-- Style, primary metal, size, and quantity -->
-        <div class="summary-grid">
+        <!-- Size, quantity, and primary metal -->
+        <div class="summary-row">
 
-            <div class="summary-left">
-
-                <div class="summary-line">
-                    <span class="summary-label">Size:</span>
-
-                    <span class="summary-value">
-                        {{ job.size|default:"-" }}
-                    </span>
-                </div>
-
-                <div class="summary-line">
-                    <span class="summary-label">Qty:</span>
-
-                    <span class="summary-value">
-                        {{job.quantity}}
-                    </span>
-                </div>
+            <div class="summary-line">
+                <span class="summary-label">Size:</span>
+                <span class="summary-value">
+                    {{ job.size|default:"-" }}
+                </span>
             </div>
 
-            <div class="summary-right">
-                <div class="summary-line">
-                    <span class="summary-label">Style:</span>
+            <div class="summary-line">
+                <span class="summary-label">Qty:</span>
+                <span class="summary-value">
+                    {{ job.quantity|default:"-" }}
+                </span>
+            </div>
 
-                    <span class="summary-value summary-style">
-                        {{ job.style|default:"-" }}
-                    </span>
-                </div>
-
-                <div class="summary-line">
-                    <span class="summary-label">Metal:</span>
-
-                    <span class="summary-value">
-                        {% for metal in job.job_metals.all %}
-                            {% if forloop.first %}
-                                {% if metal.metal_type %}
-                                    {{ metal.metal_type }}
-                                {% else %}
-                                    {{ metal.part }}
-                                {% endif %}
+            <div class="summary-line">
+                <span class="summary-label">Metal:</span>
+                <span class="summary-value">
+                    {% for metal in job.job_metals.all %}
+                        {% if forloop.first %}
+                            {% if metal.metal_type %}
+                                {{ metal.metal_type }}
+                            {% else %}
+                                {{ metal.part }}
                             {% endif %}
-                        {% empty %}
-                            -
-                        {% endfor %}
-                    </span>
-                </div>
+                        {% endif %}
+                    {% empty %}
+                        -
+                    {% endfor %}
+                </span>
             </div>
 
         </div>
