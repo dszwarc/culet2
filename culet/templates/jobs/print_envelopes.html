@@ -70,51 +70,75 @@
             break-after: auto;
         }
 
-        /* =========================================================
-           TOP JOB INFORMATION
-           ========================================================= */
+/* =========================================================
+   TOP JOB INFORMATION
+   ========================================================= */
 
         .top-section {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr) 1.5in;
-            column-gap: 0.1in;
-            min-height: 1.5in;
             padding-bottom: 0.06in;
             border-bottom: 1px solid #000;
         }
 
-        .top-information {
-            min-width: 0;
-            overflow: hidden;
+        /* Full-width barcode and stock number */
+        .top-identification {
+            width: 100%;
+            text-align: center;
         }
 
         .top-barcode {
             display: block;
-            width: 2.65in;
-            height: 0.32in;
-            margin: 0;
+            width: 100%;
+            height: 0.38in;
+            margin: 0 auto;
         }
 
         .top-stock-number {
-            margin-top: 0.02in;
+            width: 100%;
+            margin-top: 0.015in;
             overflow: hidden;
             font-size: 21px;
             font-weight: 700;
             line-height: 1;
+            text-align: center;
             white-space: nowrap;
             text-overflow: ellipsis;
-            text-align: center;
         }
 
-        .top-style,
-        .top-due-date {
-            margin-top: 0.05in;
+        /* Due date, style, and photo */
+        .top-details {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 1.5in;
+            column-gap: 0.1in;
+            align-items: start;
+            min-height: 1.5in;
+            margin-top: 0.06in;
+        }
+
+        .top-details-text {
+            min-width: 0;
             overflow: hidden;
-            font-size: 18px;
-            font-weight: bold;
-            line-height: 1.05;
+        }
+
+        .top-due-date {
+            margin-top: 0;
+            overflow: hidden;
+            font-size: 17px;
+            font-weight: 700;
+            line-height: 1.1;
+            text-align: center;
             white-space: nowrap;
             text-overflow: ellipsis;
+        }
+
+        .top-style {
+            margin-top: 0.14in;
+            margin-bottom:0.14in;
+            overflow: hidden;
+            font-size: 18px;
+            font-weight: 700;
+            line-height: 1.1;
+            white-space: normal;
+            overflow-wrap: anywhere;
         }
 
         .envelope-style-photo-wrap {
@@ -169,7 +193,8 @@
             align-items: baseline;
             min-width: 0;
             font-size: 10px;
-            line-height: 1.05;
+            line-height: 1.1;
+            margin-bottom: .05in;
         }
 
         .summary-label {
@@ -185,7 +210,6 @@
             flex-grow: 1;
             padding-bottom: 1px;
             overflow: hidden;
-            border-bottom: 1px solid #000;
             white-space: nowrap;
             text-overflow: ellipsis;
         }
@@ -414,56 +438,44 @@
 
         <!-- Top barcode and primary job identification -->
 <!-- Top barcode, job identification, and style photo -->
-<div class="top-section">
+<!-- Full-width barcode, stock number, due date, style, and photo -->
+    <div class="top-section">
 
-    <div class="top-information">
-        <svg
-            class="barcode top-barcode"
-            jsbarcode-format="CODE128"
-            jsbarcode-value="{{ job.barcode }}"
-            jsbarcode-displayvalue="false"
-            jsbarcode-margin="0"
-            jsbarcode-height="26">
-        </svg>
+        <!-- Barcode and stock number span the full envelope width -->
+        <div class="top-identification">
+            <svg
+                class="barcode top-barcode"
+                jsbarcode-format="CODE128"
+                jsbarcode-value="{{ job.barcode }}"
+                jsbarcode-displayvalue="false"
+                jsbarcode-margin="0"
+                jsbarcode-height="30">
+            </svg>
 
-        <div class="top-stock-number">
-            {{ job.stock_num|default:"-" }}
-        </div>
-        <br>
-        <div class="top-style">
-            {{ job.style|default:"-" }}
-        </div>
-
-        <div class="top-due-date">
-            Due:
-            {% if job.due %}
-                {{ job.due|date:"m/d/Y" }}
-            {% else %}
-                -
-            {% endif %}
-        </div>
-    </div>
-
-    <div class="envelope-style-photo-wrap">
-        {% if job.style and job.style.photo %}
-            <img
-                src="{{ job.style.photo.url }}"
-                alt=""
-                class="envelope-style-photo"
-            >
-        {% else %}
-            <div class="envelope-style-photo-placeholder">
-                No photo
+            <div class="top-stock-number">
+                {{ job.stock_num|default:"-" }}
             </div>
-        {% endif %}
-    </div>
+        </div>
 
-</div>
+        <!-- Due date and style on left; photo on right -->
+        <div class="top-details">
 
-        <!-- Size, quantity, and primary metal -->
-        <div class="summary-row">
+            <div class="top-details-text">
 
-            <div class="summary-line">
+                <div class="top-due-date">
+                    Due:
+                    {% if job.due %}
+                        {{ job.due|date:"m/d/Y" }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </div>
+
+                <div class="top-style">
+                    {{ job.style|default:"-" }}
+                </div>
+
+                            <div class="summary-line">
                 <span class="summary-label">Size:</span>
                 <span class="summary-value">
                     {{ job.size|default:"-" }}
@@ -494,7 +506,25 @@
                 </span>
             </div>
 
+            </div>
+
+            <div class="envelope-style-photo-wrap">
+                {% if job.style and job.style.photo %}
+                    <img
+                        src="{{ job.style.photo.url }}"
+                        alt=""
+                        class="envelope-style-photo"
+                    >
+                {% else %}
+                    <div class="envelope-style-photo-placeholder">
+                        No photo
+                    </div>
+                {% endif %}
+            </div>
+
         </div>
+
+    </div>
 
         <!-- Stamp -->
         <div class="stamp-box">
