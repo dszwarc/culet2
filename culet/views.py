@@ -4860,7 +4860,6 @@ class PieceworkCreateView(
                 ),
             )
 
-        # Keep the remainder of your existing post() code here.
         piecework_location, created = (
             Location.objects.get_or_create(
                 name="Piecework",
@@ -4879,9 +4878,12 @@ class PieceworkCreateView(
             )
         )
 
-        found_jobs = []
         missing_scans = []
         seen_job_ids = set()
+
+        # Store the scan used for each resolved job so
+        # error messages can reference what was entered.
+        resolved_jobs = []
 
         for scan in scans:
             job = find_job_by_scan(scan)
@@ -4900,6 +4902,83 @@ class PieceworkCreateView(
 
             seen_job_ids.add(job.pk)
 
+            resolved_jobs.append(
+                {
+                    "job_id": job.pk,
+                    "scan": scan,
+                }
+            )
+
+        if not resolved_jobs:
+            messages.error(
+                request,
+                "No valid jobs were found.",
+            )
+
+            return redirect(
+                "culet:piecework_create",
+            )
+
+        job_ids = [
+            item["job_id"]
+            for item in resolved_jobs
+        ]
+
+        scan_by_job_id = {
+            item["job_id"]: item["scan"]
+            for item in resolved_jobs
+        }
+
+        # Lock the jobs before validating piecework status.
+        # Every piecework creation path should lock Job rows
+        # in the same way.
+        locked_jobs = {
+            job.pk: job
+            for job in (
+                Job.objects
+                .select_for_update()
+                .filter(pk__in=job_ids)
+                .select_related(
+                    "assigned_to",
+                    "holder",
+                )
+            )
+        }
+
+        # Fetch all open piecework records for the locked jobs.
+        open_piecework_lines = {
+            line.job_id: line
+            for line in (
+                PieceworkMemoLine.objects
+                .filter(
+                    job_id__in=job_ids,
+                    memo__returned_at__isnull=True,
+                )
+                .select_related(
+                    "memo",
+                    "memo__assigned_to",
+                    "memo__assigned_to__user",
+                )
+                .order_by(
+                    "memo__created_at",
+                )
+            )
+        }
+
+        found_jobs = []
+
+        for item in resolved_jobs:
+            job_id = item["job_id"]
+            scan = item["scan"]
+
+            job = locked_jobs.get(job_id)
+
+            if job is None:
+                missing_scans.append(
+                    f"{scan} - job no longer exists",
+                )
+                continue
+
             if not job.active:
                 missing_scans.append(
                     f"{scan} - inactive",
@@ -4912,17 +4991,36 @@ class PieceworkCreateView(
                 )
                 continue
 
+            open_line = open_piecework_lines.get(
+                job.pk,
+            )
+
+            if open_line:
+                missing_scans.append(
+                    (
+                        f"{scan} - already on open "
+                        f"piecework memo "
+                        f"{open_line.memo.memo_num}"
+                    ),
+                )
+                continue
+
+            # No open memo exists, but the Boolean still says
+            # piecework. Do not silently overwrite inconsistent
+            # data.
             if job.is_piecework:
                 missing_scans.append(
                     (
-                        f"{scan} - already assigned "
-                        f"to piecework"
+                        f"{scan} - marked as piecework, "
+                        "but no open piecework memo was found; "
+                        "status must be corrected"
                     ),
                 )
                 continue
 
             has_open_activity = (
-                Activity.objects.filter(
+                Activity.objects
+                .filter(
                     job=job,
                     active=True,
                     end__isnull=True,
@@ -4934,7 +5032,7 @@ class PieceworkCreateView(
                 missing_scans.append(
                     (
                         f"{scan} - currently being "
-                        f"worked on"
+                        "worked on"
                     ),
                 )
                 continue
@@ -4942,9 +5040,19 @@ class PieceworkCreateView(
             found_jobs.append(job)
 
         if not found_jobs:
+            error_message = (
+                "No valid jobs were found."
+            )
+
+            if missing_scans:
+                error_message += (
+                    " "
+                    + ", ".join(missing_scans)
+                )
+
             messages.error(
                 request,
-                "No valid jobs were found.",
+                error_message,
             )
 
             return redirect(
@@ -5011,6 +5119,7 @@ class PieceworkCreateView(
             )
 
         job_count = len(found_jobs)
+
         job_word = (
             "job"
             if job_count == 1
@@ -5020,7 +5129,7 @@ class PieceworkCreateView(
         messages.success(
             request,
             (
-                f"Piecework memo created with "
+                "Piecework memo created with "
                 f"{job_count} {job_word}."
             ),
         )
@@ -5066,7 +5175,6 @@ class PieceworkOpenListView(
         queryset = (
             PieceworkMemoLine.objects
             .filter(
-                job__is_piecework=True,
                 memo__returned_at__isnull=True,
             )
             .select_related(

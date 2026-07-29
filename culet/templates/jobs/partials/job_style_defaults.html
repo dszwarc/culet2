@@ -103,6 +103,15 @@
         {{ job_form.quantity.errors }}
     </div>
 
+    <div class="job-field">
+        <label for="{{ job_form.metal_description.id_for_label }}">
+            {{ job_form.metal_description.label }}
+        </label>
+
+        {{ job_form.metal_description }}
+        {{ job_form.metal_description.errors }}
+    </div>
+
       <div class="job-field">
         <label for="{{ job_form.stamp.id_for_label }}">{{ job_form.stamp.label }}</label>
         {{ job_form.stamp }}

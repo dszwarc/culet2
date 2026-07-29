@@ -144,6 +144,15 @@
                     </div>
 
                     <div class="job-field">
+                        <label for="{{ form.metal_description.id_for_label }}">
+                            {{ form.metal_description.label }}
+                        </label>
+
+                        {{ form.metal_description }}
+                        {{ form.metal_description.errors }}
+                    </div>
+
+                    <div class="job-field">
 
                         <label for="{{ form.stamp.id_for_label }}">
                             {{ form.stamp.label }}

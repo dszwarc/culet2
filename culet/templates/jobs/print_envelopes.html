@@ -122,7 +122,7 @@
         .top-due-date {
             margin-top: 0;
             overflow: hidden;
-            font-size: 20px;
+            font-size: 24px;
             font-weight: 700;
             line-height: 1.1;
             text-align: center;
@@ -486,6 +486,12 @@
                     {{ job.quantity|default:"-" }}
                 </span>
             </div>
+            <div class="summary-line">
+                <span class="summary-label">Metal:</span>
+                <span class="summary-value">
+                    {{ job.metal_description|default:"-" }}
+                </span>
+            </div>
             </div>
 
             <div class="envelope-style-photo-wrap">
@@ -583,47 +589,43 @@
             </div>
         {% endfor %}
 
+
+
+        <h2 class="section-heading">Findings</h2>
+
+        {% for job_finding in job.job_findings.all|slice:":6" %}
+            <div class="metal-part-row">
+
+                <span class="metal-part-description">
+
+                    {% if job_finding.finding.sku %}
+                        {{ job_finding.finding.sku }} —
+                    {% endif %}
+
+                    {{ job_finding.finding.name }}
+
+                    {% if job_finding.finding.metal_type %}
+                        — {{ job_finding.finding.metal_type }}
+                    {% endif %}
+
+                </span>
+
+                <span class="metal-part-qty">
+                    × {{ job_finding.qty_req }}
+                </span>
+
+            </div>
+
+        {% empty %}
+
+            <div class="requirement-empty">
+                None required
+            </div>
+
+        {% endfor %}
+
     </div>
-
-</div>
-
-<!-- Findings -->
-<div class="metal-parts-section">
-
-    <h2 class="section-heading">Findings</h2>
-
-    {% for job_finding in job.job_findings.all|slice:":6" %}
-        <div class="metal-part-row">
-
-            <span class="metal-part-description">
-
-                {% if job_finding.finding.sku %}
-                    {{ job_finding.finding.sku }} —
-                {% endif %}
-
-                {{ job_finding.finding.name }}
-
-                {% if job_finding.finding.metal_type %}
-                    — {{ job_finding.finding.metal_type }}
-                {% endif %}
-
-            </span>
-
-            <span class="metal-part-qty">
-                × {{ job_finding.qty_req }}
-            </span>
-
-        </div>
-
-    {% empty %}
-
-        <div class="requirement-empty">
-            None required
-        </div>
-
-    {% endfor %}
-
-</div>
+    </div>
 
         <!-- Bottom repeated job information -->
         <div class="bottom-section">

@@ -54,6 +54,18 @@
                     {{ job.due|date:"M j, Y"|default:"—" }}
                 </span>
             </div>
+            <div class="job-detail-item">
+                <span class="job-detail-label">Quantity</span>
+                <span class="job-detail-value">
+                    {{ job.quantity|default:"—" }}
+                </span>
+            </div>
+            <div class="job-detail-item">
+                <span class="job-detail-label">Metal</span>
+                <span class="job-detail-value">
+                    {{ job.metal_description|default:"-"}}
+                </span>
+            </div>
 
             <div class="job-detail-item">
                 <span class="job-detail-label">Assigned To</span>

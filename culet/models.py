@@ -214,7 +214,11 @@ class Job(models.Model):
     stamp = models.CharField(default="", blank=True, max_length=80)
     notes = models.TextField(default="", blank=True)
     quantity = models.PositiveIntegerField(default=1)
-
+    metal_description = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+    )
     active = models.BooleanField(default=True)
     shipped = models.BooleanField(default=False)
     in_work = models.BooleanField(default=False)

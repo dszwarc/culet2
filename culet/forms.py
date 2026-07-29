@@ -265,6 +265,7 @@ class JobForm(forms.ModelForm):
             "style",
             "size",
             "quantity",
+            "metal_description",
             "stamp",
             "due",
             "notes",
@@ -282,6 +283,11 @@ class JobForm(forms.ModelForm):
                     "step": "1",
                 }
             ),
+            "metal_description": forms.TextInput(
+                attrs={
+                    "placeholder": "Enter metal description",
+                }
+            ),
             "stamp": text_widget("Stamp / hallmark"),
             "due": date_widget(),
             "notes": textarea_widget("Add notes for the shop...", rows=4),
@@ -290,6 +296,7 @@ class JobForm(forms.ModelForm):
             "repair_reasons": "Repair Reason(s)",
             "stock_num": "Stock #",
             "quantity": "Qty",
+            "metal_description": "Metal Description",
             "assigned_to": "Assigned To",
         }
 
