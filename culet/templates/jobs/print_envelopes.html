@@ -122,7 +122,7 @@
         .top-due-date {
             margin-top: 0;
             overflow: hidden;
-            font-size: 17px;
+            font-size: 20px;
             font-weight: 700;
             line-height: 1.1;
             text-align: center;
@@ -436,12 +436,9 @@
 {% for job in jobs %}
     <div class="label">
 
-        <!-- Top barcode and primary job identification -->
-<!-- Top barcode, job identification, and style photo -->
-<!-- Full-width barcode, stock number, due date, style, and photo -->
     <div class="top-section">
 
-        <!-- Barcode and stock number span the full envelope width -->
+        <!-- Barcode, stock number, and due date span the full envelope width -->
         <div class="top-identification">
             <svg
                 class="barcode top-barcode"
@@ -455,6 +452,14 @@
             <div class="top-stock-number">
                 {{ job.stock_num|default:"-" }}
             </div>
+            <div class="top-due-date">
+                Due:
+                {% if job.due %}
+                    {{ job.due|date:"m/d/Y" }}
+                {% else %}
+                    -
+                {% endif %}
+            </div>
         </div>
 
         <!-- Due date and style on left; photo on right -->
@@ -462,14 +467,7 @@
 
             <div class="top-details-text">
 
-                <div class="top-due-date">
-                    Due:
-                    {% if job.due %}
-                        {{ job.due|date:"m/d/Y" }}
-                    {% else %}
-                        -
-                    {% endif %}
-                </div>
+
 
                 <div class="top-style">
                     {{ job.style|default:"-" }}
@@ -488,24 +486,6 @@
                     {{ job.quantity|default:"-" }}
                 </span>
             </div>
-
-            <div class="summary-line">
-                <span class="summary-label">Metal:</span>
-                <span class="summary-value">
-                    {% for metal in job.job_metals.all %}
-                        {% if forloop.first %}
-                            {% if metal.metal_type %}
-                                {{ metal.metal_type }}
-                            {% else %}
-                                {{ metal.part }}
-                            {% endif %}
-                        {% endif %}
-                    {% empty %}
-                        -
-                    {% endfor %}
-                </span>
-            </div>
-
             </div>
 
             <div class="envelope-style-photo-wrap">
@@ -590,14 +570,6 @@
 
                 <span class="requirement-description">
                     {{ metal.part.sku }}
-
-                    {% if metal.part.description %}
-                        — {{ metal.part.description }}
-                    {% endif %}
-
-                    {% if metal.metal_type %}
-                        — {{ metal.metal_type }}
-                    {% endif %}
                 </span>
 
                 <span class="requirement-qty">
