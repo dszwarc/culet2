@@ -1,46 +1,307 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container">
-    <h1>Open Piecework</h1>
 
-    {% if piecework_lines %}
-        <table class="index_table">
-            <tr>
-                <th>Memo</th>
-                <th>Assigned To</th>
-                <th>Job #</th>
-                <th>Style</th>
-                <th>Customer</th>
-                <th>Due Back</th>
-                <th>Actions</th>
-            </tr>
+<div class="filter-panel">
 
-            {% for line in piecework_lines %}
-                <tr class="{% if forloop.counter|divisibleby:2 %}even_row{% else %}odd_row{% endif %}">
-                    <td>{{ line.memo.id }}</td>
-                    <td>{{ line.memo.assigned_to }}</td>
-                    <td>
-                        <a href="{% url 'culet:job_detail' line.job.id %}">
-                            {{ line.job.barcode }}
-                        </a>
-                    </td>
-                    <td>{{ line.job.style }}</td>
-                    <td>{{ line.job.customer }}</td>
-                    <td>{{ line.memo.due_back }}</td>
-                    <td>
-                        <a class="btn btn-primary" href="{% url 'culet:piecework_print' line.memo.id %}">
-                            Print
-                        </a>
-                        <a class="btn btn-primary" href="{% url 'culet:piecework_return' line.memo.id %}">
-                            Return
-                        </a>
-                    </td>
-                </tr>
-            {% endfor %}
-        </table>
-    {% else %}
-        <p>No jobs are currently out as piecework.</p>
-    {% endif %}
+    <div class="filter-header">
+        <div>
+            <h1 class="filter-title">Filter Open Piecework</h1>
+        </div>
+    </div>
+
+    <form method="get" class="filter-form">
+
+        {% for field in filter.form %}
+            <div class="filter-field">
+                <label for="{{ field.id_for_label }}">
+                    {{ field.label }}
+                </label>
+
+                {{ field }}
+
+                {% if field.errors %}
+                    <div class="field-error">
+                        {{ field.errors }}
+                    </div>
+                {% endif %}
+            </div>
+        {% endfor %}
+
+        <div class="filter-actions">
+            <button type="submit" class="btn btn-primary">
+                Apply Filters
+            </button>
+
+            <a
+                href="{% url 'culet:piecework_open' %}"
+                class="btn btn-secondary"
+            >
+                Clear
+            </a>
+        </div>
+
+    </form>
+
 </div>
+
+
+{% if piecework_lines %}
+
+    <div class="list-total" style="font-weight: bold; margin:2px;">
+        {{ page_obj.paginator.count }}
+        open piecework
+        job{{ page_obj.paginator.count|pluralize }}
+    </div>
+
+    <div class="table-container">
+        <table class="index_table">
+            <thead>
+                <tr>
+                    <th
+                        class="{% if current_sort == 'memo' %}sorted-column{% endif %}"
+                    >
+                        <a href="?{{ sort_links.memo }}">
+                            Memo
+
+                            {% with field="memo" %}
+                                {% include "includes/sort_arrow.html" %}
+                            {% endwith %}
+                        </a>
+                    </th>
+
+                    <th
+                        class="{% if current_sort == 'assigned_to' %}sorted-column{% endif %}"
+                    >
+                        <a href="?{{ sort_links.assigned_to }}">
+                            Assigned To
+
+                            {% with field="assigned_to" %}
+                                {% include "includes/sort_arrow.html" %}
+                            {% endwith %}
+                        </a>
+                    </th>
+
+                    <th
+                        class="{% if current_sort == 'stock_num' %}sorted-column{% endif %}"
+                    >
+                        <a href="?{{ sort_links.stock_num }}">
+                            Stock Number
+
+                            {% with field="stock_num" %}
+                                {% include "includes/sort_arrow.html" %}
+                            {% endwith %}
+                        </a>
+                    </th>
+
+                    <th
+                        class="{% if current_sort == 'style' %}sorted-column{% endif %}"
+                    >
+                        <a href="?{{ sort_links.style }}">
+                            Style
+
+                            {% with field="style" %}
+                                {% include "includes/sort_arrow.html" %}
+                            {% endwith %}
+                        </a>
+                    </th>
+
+                    <th
+                        class="{% if current_sort == 'customer' %}sorted-column{% endif %}"
+                    >
+                        <a href="?{{ sort_links.customer }}">
+                            Customer
+
+                            {% with field="customer" %}
+                                {% include "includes/sort_arrow.html" %}
+                            {% endwith %}
+                        </a>
+                    </th>
+
+                    <th
+                        class="{% if current_sort == 'due_back' %}sorted-column{% endif %}"
+                    >
+                        <a href="?{{ sort_links.due_back }}">
+                            Due Back
+
+                            {% with field="due_back" %}
+                                {% include "includes/sort_arrow.html" %}
+                            {% endwith %}
+                        </a>
+                    </th>
+
+                    <th class="table-actions-column">
+                        Actions
+                    </th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for line in piecework_lines %}
+                    <tr>
+                        <td>
+                            {{ line.memo.memo_num }}
+                        </td>
+
+                        <td>
+                            {{ line.memo.assigned_to }}
+                        </td>
+
+                        <td>
+                            <a
+                                href="{% url 'culet:job_detail' line.job.id %}"
+                            >
+                                {{ line.job.stock_num }}
+                            </a>
+                        </td>
+
+                        <td>
+                            {{ line.job.style|default:"—" }}
+                        </td>
+
+                        <td>
+                            {{ line.job.customer|default:"—" }}
+                        </td>
+
+                        <td
+                            {% if line.memo.due_back %}
+                                class="
+                                    {% if line.memo.due_back < today %}
+                                        past_due
+                                    {% endif %}
+                                "
+                            {% endif %}
+                        >
+                            {{ line.memo.due_back|date:"M j, Y"|default:"—" }}
+                        </td>
+
+                        <td>
+                            <div class="table-actions">
+                                <a
+                                    class="btn btn-secondary btn-sm"
+                                    href="{% url 'culet:piecework_print' line.memo.id %}"
+                                    target="_blank"
+                                    rel="noopener"
+                                >
+                                    Print
+                                </a>
+
+                                <a
+                                    class="btn btn-primary btn-sm"
+                                    href="{% url 'culet:piecework_return' line.memo.id %}"
+                                >
+                                    Return
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+{% else %}
+
+    <div class="empty-state">
+        <h2>No open piecework found</h2>
+
+        <p>
+            No jobs match the selected filters.
+        </p>
+
+        {% if request.GET %}
+            <a
+                href="{% url 'culet:piecework_open' %}"
+                class="btn btn-secondary"
+            >
+                Clear Filters
+            </a>
+        {% endif %}
+    </div>
+
+{% endif %}
+
+
+{% if is_paginated and page_obj.paginator.num_pages > 1 %}
+    <nav
+        class="pagination-nav"
+        aria-label="Open piecework pagination"
+    >
+        <div class="pagination-controls">
+
+            {% if page_obj.has_previous %}
+                <a
+                    class="pagination-button pagination-edge"
+                    href="?{% if query_params %}{{ query_params }}&{% endif %}page=1"
+                >
+                    &laquo; First
+                </a>
+
+                <a
+                    class="pagination-button"
+                    href="?{% if query_params %}{{ query_params }}&{% endif %}page={{ page_obj.previous_page_number }}"
+                >
+                    Previous
+                </a>
+            {% else %}
+                <span class="pagination-button pagination-edge is-disabled">
+                    &laquo; First
+                </span>
+
+                <span class="pagination-button is-disabled">
+                    Previous
+                </span>
+            {% endif %}
+
+            <span class="pagination-status">
+                <span class="pagination-status-label">
+                    Page
+                </span>
+
+                <strong>{{ page_obj.number }}</strong>
+
+                <span>of</span>
+
+                <strong>
+                    {{ page_obj.paginator.num_pages }}
+                </strong>
+            </span>
+
+            {% if page_obj.has_next %}
+                <a
+                    class="pagination-button"
+                    href="?{% if query_params %}{{ query_params }}&{% endif %}page={{ page_obj.next_page_number }}"
+                >
+                    Next
+                </a>
+
+                <a
+                    class="pagination-button pagination-edge"
+                    href="?{% if query_params %}{{ query_params }}&{% endif %}page={{ page_obj.paginator.num_pages }}"
+                >
+                    Last &raquo;
+                </a>
+            {% else %}
+                <span class="pagination-button is-disabled">
+                    Next
+                </span>
+
+                <span class="pagination-button pagination-edge is-disabled">
+                    Last &raquo;
+                </span>
+            {% endif %}
+
+        </div>
+    </nav>
+{% endif %}
+
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        if (typeof initializeComboBoxes === "function") {
+            initializeComboBoxes();
+        }
+    });
+</script>
+
 {% endblock %}

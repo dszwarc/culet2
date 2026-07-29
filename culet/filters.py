@@ -453,3 +453,78 @@ class MetalVendorLotFilter(django_filters.FilterSet):
             "received_after",
             "received_before",
         ]
+
+class OpenPieceworkFilter(django_filters.FilterSet):
+    assigned_to = django_filters.ModelChoiceFilter(
+        label="Assigned To",
+        field_name="memo__assigned_to",
+        queryset=(
+            Employee.objects
+            .select_related(
+                "user",
+                "department",
+            )
+            .filter(user__is_active=True)
+            .order_by(
+                "user__last_name",
+                "user__first_name",
+            )
+        ),
+        empty_label="All employees",
+        widget=forms.Select(
+            attrs={
+                "class": "combo-box",
+                "data-placeholder": "All employees",
+            }
+        ),
+    )
+
+    stock_num = django_filters.CharFilter(
+        label="Stock Number",
+        field_name="job__stock_num",
+        lookup_expr="icontains",
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": "Enter stock number",
+            }
+        ),
+    )
+
+    memo_num = django_filters.CharFilter(
+        label="Memo Number",
+        field_name="memo__memo_num",
+        lookup_expr="icontains",
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": "Enter memo number",
+            }
+        ),
+    )
+
+    customer = django_filters.ModelChoiceFilter(
+        label="Customer",
+        field_name="job__customer",
+        queryset=Customer.objects.order_by("name"),
+        empty_label="All customers",
+        widget=forms.Select(
+            attrs={
+                "class": "combo-box",
+                "data-placeholder": "All customers",
+            }
+        ),
+    )
+
+    due_back = django_filters.DateFilter(
+        label="Due Back On or Before",
+        field_name="memo__due_back",
+        lookup_expr="lte",
+        widget=forms.DateInput(
+            attrs={
+                "type": "date",
+            }
+        ),
+    )
+
+    class Meta:
+        model = PieceworkMemoLine
+        fields = []

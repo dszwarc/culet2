@@ -13,7 +13,7 @@ from django.contrib import messages
 from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
-from .filters import JobFilter, ActivityFilter, StyleFilter, JobReportFilter, MetalVendorLotFilter
+from .filters import JobFilter, ActivityFilter, StyleFilter, JobReportFilter, MetalVendorLotFilter, OpenPieceworkFilter
 from datetime import timedelta, datetime, time, date
 from collections import defaultdict
 from decimal import Decimal
@@ -5042,26 +5042,115 @@ class PieceworkCreateView(
         )
 
 
-class PieceworkOpenListView(LoginRequiredMixin, generic.ListView):
+class PieceworkOpenListView(
+    LoginRequiredMixin,
+    generic.ListView,
+):
     model = PieceworkMemoLine
     template_name = "piecework/open.html"
     context_object_name = "piecework_lines"
+    paginate_by = 50
+
+    SORT_FIELDS = {
+        "memo": "memo__memo_num",
+        "assigned_to": "memo__assigned_to__user__last_name",
+        "stock_num": "job__stock_num",
+        "style": "job__style__name",
+        "customer": "job__customer__name",
+        "due_back": "memo__due_back",
+    }
+
+    DEFAULT_SORT = "due_back"
 
     def get_queryset(self):
-        return (
+        queryset = (
             PieceworkMemoLine.objects
-            .filter(job__is_piecework=True, memo__returned_at__isnull=True)
+            .filter(
+                job__is_piecework=True,
+                memo__returned_at__isnull=True,
+            )
             .select_related(
                 "memo",
                 "memo__assigned_to",
+                "memo__assigned_to__user",
                 "memo__created_by",
+                "memo__created_by__user",
                 "job",
                 "job__customer",
                 "job__style",
                 "job__location",
             )
-            .order_by("memo__assigned_to", "memo__created_at")
         )
+
+        self.filter = OpenPieceworkFilter(
+            self.request.GET or None,
+            queryset=queryset,
+        )
+
+        sort = self.request.GET.get(
+            "sort",
+            self.DEFAULT_SORT,
+        )
+
+        direction = self.request.GET.get(
+            "direction",
+            "asc",
+        )
+
+        if sort not in self.SORT_FIELDS:
+            sort = self.DEFAULT_SORT
+
+        if direction not in ("asc", "desc"):
+            direction = "asc"
+
+        self.current_sort = sort
+        self.current_direction = direction
+
+        order_field = self.SORT_FIELDS[sort]
+
+        if direction == "desc":
+            order_field = f"-{order_field}"
+
+        return self.filter.qs.order_by(
+            order_field,
+            "memo__memo_num",
+            "job__stock_num",
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context["filter"] = self.filter
+        context["current_sort"] = self.current_sort
+        context["current_direction"] = self.current_direction
+
+        query_params = self.request.GET.copy()
+        query_params.pop("page", None)
+
+        context["query_params"] = query_params.urlencode()
+
+        sort_links = {}
+
+        for key in self.SORT_FIELDS:
+            params = self.request.GET.copy()
+            params.pop("page", None)
+
+            next_direction = "asc"
+
+            if (
+                self.current_sort == key
+                and self.current_direction == "asc"
+            ):
+                next_direction = "desc"
+
+            params["sort"] = key
+            params["direction"] = next_direction
+
+            sort_links[key] = params.urlencode()
+
+        context["sort_links"] = sort_links
+
+        return context
 
 
 class PieceworkReturnView(
