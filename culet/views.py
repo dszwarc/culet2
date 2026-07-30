@@ -3958,32 +3958,37 @@ class BulkJobShipView(
             BulkJobShipForm(),
         )
 
-        context["formset"] = kwargs.get(
-            "formset",
-            JobShipLineFormSet(
-                prefix="ship_lines",
-            ),
-        )
-
         return context
+
+    @staticmethod
+    def parse_identifiers(value):
+        """
+        Split textarea contents on commas, whitespace, tabs,
+        carriage returns, or newlines.
+        """
+        if not value:
+            return []
+
+        return [
+            item.strip()
+            for item in re.split(r"[\s,]+", value)
+            if item.strip()
+        ]
+
+    def render_invalid_form(self, form):
+        return self.render_to_response(
+            self.get_context_data(
+                form=form,
+            )
+        )
 
     def post(self, request, *args, **kwargs):
         form = BulkJobShipForm(
             request.POST,
         )
 
-        formset = JobShipLineFormSet(
-            request.POST,
-            prefix="ship_lines",
-        )
-
-        if not form.is_valid() or not formset.is_valid():
-            return self.render_to_response(
-                self.get_context_data(
-                    form=form,
-                    formset=formset,
-                )
-            )
+        if not form.is_valid():
+            return self.render_invalid_form(form)
 
         employee = get_object_or_404(
             Employee,
@@ -3995,43 +4000,27 @@ class BulkJobShipView(
             "",
         )
 
-        barcodes = []
-
-        for line_form in formset:
-            barcode = line_form.cleaned_data.get(
-                "barcode",
+        barcodes = self.parse_identifiers(
+            form.cleaned_data.get(
+                "barcodes",
+                "",
             )
+        )
 
-            if barcode:
-                barcode = (
-                    barcode
-                    .strip()
-                    .replace("\n", "")
-                    .replace("\r", "")
-                    .replace("\t", "")
-                )
-
-            if barcode:
-                barcodes.append(barcode)
-
-        if not barcodes:
-            messages.error(
-                request,
-                "Scan at least one barcode.",
+        stock_numbers = self.parse_identifiers(
+            form.cleaned_data.get(
+                "stock_numbers",
+                "",
             )
+        )
 
-            return self.render_to_response(
-                self.get_context_data(
-                    form=form,
-                    formset=formset,
-                )
-            )
+        duplicate_barcodes = self.find_duplicates(
+            barcodes,
+        )
 
-        duplicate_barcodes = sorted({
-            barcode
-            for barcode in barcodes
-            if barcodes.count(barcode) > 1
-        })
+        duplicate_stock_numbers = self.find_duplicates(
+            stock_numbers,
+        )
 
         if duplicate_barcodes:
             messages.error(
@@ -4042,18 +4031,26 @@ class BulkJobShipView(
                 ),
             )
 
-            return self.render_to_response(
-                self.get_context_data(
-                    form=form,
-                    formset=formset,
-                )
+        if duplicate_stock_numbers:
+            messages.error(
+                request,
+                (
+                    "Duplicate stock number(s): "
+                    + ", ".join(duplicate_stock_numbers)
+                ),
             )
 
-        jobs_by_barcode = {}
+        if duplicate_barcodes or duplicate_stock_numbers:
+            return self.render_invalid_form(form)
+
+        jobs = []
+        entered_identifiers = {}
 
         missing_barcodes = []
-        already_shipped_barcodes = []
-        in_work_barcodes = []
+        missing_stock_numbers = []
+
+        already_shipped = []
+        in_work = []
 
         for barcode in barcodes:
             job = (
@@ -4072,23 +4069,44 @@ class BulkJobShipView(
                 missing_barcodes.append(barcode)
                 continue
 
-            if job.shipped:
-                already_shipped_barcodes.append(
-                    barcode,
+            entered_identifiers.setdefault(
+                job.pk,
+                [],
+            ).append(
+                f"barcode {barcode}"
+            )
+
+            if job not in jobs:
+                jobs.append(job)
+
+        for stock_number in stock_numbers:
+            job = (
+                Job.objects
+                .select_related(
+                    "assigned_to",
+                    "holder",
+                )
+                .filter(
+                    stock_num__iexact=stock_number,
+                )
+                .first()
+            )
+
+            if not job:
+                missing_stock_numbers.append(
+                    stock_number,
                 )
                 continue
 
-            has_open_activity = Activity.objects.filter(
-                job=job,
-                active=True,
-                end__isnull=True,
-            ).exists()
+            entered_identifiers.setdefault(
+                job.pk,
+                [],
+            ).append(
+                f"stock number {stock_number}"
+            )
 
-            if has_open_activity:
-                in_work_barcodes.append(barcode)
-                continue
-
-            jobs_by_barcode[barcode] = job
+            if job not in jobs:
+                jobs.append(job)
 
         if missing_barcodes:
             messages.error(
@@ -4099,58 +4117,120 @@ class BulkJobShipView(
                 ),
             )
 
-            return self.render_to_response(
-                self.get_context_data(
-                    form=form,
-                    formset=formset,
-                )
-            )
-
-        if already_shipped_barcodes:
+        if missing_stock_numbers:
             messages.error(
                 request,
                 (
-                    "Already shipped barcode(s): "
-                    + ", ".join(
-                        already_shipped_barcodes
-                    )
+                    "No job found for stock number(s): "
+                    + ", ".join(missing_stock_numbers)
                 ),
             )
 
-            return self.render_to_response(
-                self.get_context_data(
-                    form=form,
-                    formset=formset,
+        duplicate_jobs = {
+            job_pk: identifiers
+            for job_pk, identifiers
+            in entered_identifiers.items()
+            if len(identifiers) > 1
+        }
+
+        if duplicate_jobs:
+            duplicate_descriptions = []
+
+            for job in jobs:
+                identifiers = duplicate_jobs.get(
+                    job.pk,
                 )
+
+                if not identifiers:
+                    continue
+
+                duplicate_descriptions.append(
+                    (
+                        f"{job.stock_num} "
+                        f"({', '.join(identifiers)})"
+                    )
+                )
+
+            messages.error(
+                request,
+                (
+                    "The same job was entered more than once: "
+                    + "; ".join(duplicate_descriptions)
+                ),
             )
 
-        if in_work_barcodes:
+        if (
+            missing_barcodes
+            or missing_stock_numbers
+            or duplicate_jobs
+        ):
+            return self.render_invalid_form(form)
+
+        job_ids = [
+            job.pk
+            for job in jobs
+        ]
+
+        jobs_with_open_activity = set(
+            Activity.objects.filter(
+                job_id__in=job_ids,
+                active=True,
+                end__isnull=True,
+            ).values_list(
+                "job_id",
+                flat=True,
+            )
+        )
+
+        valid_jobs = []
+
+        for job in jobs:
+            if job.shipped:
+                already_shipped.append(
+                    job.stock_num,
+                )
+                continue
+
+            if job.pk in jobs_with_open_activity:
+                in_work.append(
+                    job.stock_num,
+                )
+                continue
+
+            valid_jobs.append(job)
+
+        if already_shipped:
+            messages.error(
+                request,
+                (
+                    "Already shipped job(s): "
+                    + ", ".join(already_shipped)
+                ),
+            )
+
+        if in_work:
             messages.error(
                 request,
                 (
                     "These jobs are currently being worked on "
                     "and must be stopped before shipping: "
-                    + ", ".join(in_work_barcodes)
+                    + ", ".join(in_work)
                 ),
             )
 
-            return self.render_to_response(
-                self.get_context_data(
-                    form=form,
-                    formset=formset,
-                )
-            )
+        if already_shipped or in_work:
+            return self.render_invalid_form(form)
 
-        shipped_count = 0
-        shipped_status = JobStatus.objects.get(
+        shipped_status = get_object_or_404(
+            JobStatus,
             name__iexact="Shipped",
         )
 
-        with transaction.atomic():
-            for barcode in barcodes:
-                job = jobs_by_barcode[barcode]
+        shipped_count = 0
 
-                # Clear the job's assignment and record the movement.
+        with transaction.atomic():
+            for job in valid_jobs:
+                # Clear the job's assignment and record movement.
                 job, assignment_movement = move_job(
                     job=job,
                     movement_type="shipped-unassigned",
@@ -4158,7 +4238,7 @@ class BulkJobShipView(
                     performed_by=employee,
                 )
 
-                # Clear physical possession and record the movement.
+                # Clear physical possession and record movement.
                 job, holder_movement = move_job(
                     job=job,
                     movement_type="shipped-released",
@@ -4201,6 +4281,35 @@ class BulkJobShipView(
         )
 
         return redirect(self.success_url)
+
+    @staticmethod
+    def find_duplicates(values):
+        """
+        Return case-insensitive duplicate values while preserving
+        a readable version of each value.
+        """
+        counts = {}
+        display_values = {}
+
+        for value in values:
+            normalized_value = value.casefold()
+
+            counts[normalized_value] = (
+                counts.get(normalized_value, 0)
+                + 1
+            )
+
+            display_values.setdefault(
+                normalized_value,
+                value,
+            )
+
+        return sorted(
+            display_values[normalized_value]
+            for normalized_value, count
+            in counts.items()
+            if count > 1
+        )
     
 #Printing
 class JobEnvelopePrintView(LoginRequiredMixin, generic.DetailView):

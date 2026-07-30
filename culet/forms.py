@@ -222,15 +222,68 @@ JobShipLineFormSet = formset_factory(
 )
 
 
+from django import forms
+
+
 class BulkJobShipForm(forms.Form):
+    barcodes = forms.CharField(
+        required=False,
+        label="Ship by Barcode",
+        widget=forms.Textarea(
+            attrs={
+                "class": "form-control",
+                "rows": 12,
+                "placeholder": (
+                    "Scan or paste barcodes here.\n"
+                    "Use one per line, or separate them with commas or tabs."
+                ),
+                "autofocus": True,
+            }
+        ),
+    )
+
+    stock_numbers = forms.CharField(
+        required=False,
+        label="Ship by Stock Number",
+        widget=forms.Textarea(
+            attrs={
+                "class": "form-control",
+                "rows": 12,
+                "placeholder": (
+                    "Enter or paste stock numbers here.\n"
+                    "Use one per line, or separate them with commas or tabs."
+                ),
+            }
+        ),
+    )
+
     notes = forms.CharField(
         required=False,
         label="Shipping Notes",
-        widget=forms.Textarea(attrs={
-            "class": BASE_INPUT_CLASS,
-            "rows": 3,
-        }),
+        widget=forms.Textarea(
+            attrs={
+                "class": "form-control",
+                "rows": 3,
+                "placeholder": "Optional shipping notes",
+            }
+        ),
     )
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        barcodes = cleaned_data.get("barcodes", "").strip()
+        stock_numbers = cleaned_data.get(
+            "stock_numbers",
+            "",
+        ).strip()
+
+        if not barcodes and not stock_numbers:
+            raise forms.ValidationError(
+                "Enter at least one barcode or stock number."
+            )
+
+        return cleaned_data
 
 class JobWeightLookupForm(forms.Form):
     barcode = forms.IntegerField(required=False, label="Barcode")
@@ -986,6 +1039,7 @@ class JobTransferMemoForm(forms.ModelForm):
                 "class": "form-control",
                 "rows": 10,
                 "placeholder": "Scan or enter one barcode per line",
+                "autofocus":"True",
             }
         ),
         help_text="Scan or enter one job barcode per line.",

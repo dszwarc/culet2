@@ -1,78 +1,143 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container">
+<div class="page-container ship-jobs-page">
 
-    <h1>Ship Jobs</h1>
+    <div class="page-header">
+        <h1>Ship Jobs</h1>
+        <p>
+            Scan barcodes or enter stock numbers for the jobs being shipped.
+        </p>
+    </div>
 
-    <p>Scan one barcode per line, then submit to mark those jobs as shipped.</p>
-
-    <form method="post" class="form-card">
+    <form method="post" class="form-card ship-jobs-form">
         {% csrf_token %}
 
-        {{ form.non_field_errors }}
-        {{ formset.management_form }}
+        {% if form.non_field_errors %}
+            <div class="alert alert-danger">
+                {{ form.non_field_errors }}
+            </div>
+        {% endif %}
 
-        <div id="ship-lines">
-            {% for line_form in formset %}
-                <div class="ship-line">
-                    {{ line_form.barcode.label_tag }}
-                    {{ line_form.barcode }}
-                    {{ line_form.barcode.errors }}
-                </div>
-            {% endfor %}
+        <div class="ship-entry-grid">
+
+            <div class="ship-entry-field">
+                <label for="{{ form.barcodes.id_for_label }}">
+                    {{ form.barcodes.label }}
+                </label>
+
+                <p class="field-help">
+                    Scan or paste one or more barcodes.
+                </p>
+
+                {{ form.barcodes }}
+
+                {% if form.barcodes.errors %}
+                    <div class="field-errors">
+                        {{ form.barcodes.errors }}
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="ship-entry-field">
+                <label for="{{ form.stock_numbers.id_for_label }}">
+                    {{ form.stock_numbers.label }}
+                </label>
+
+                <p class="field-help">
+                    Enter or paste one or more stock numbers.
+                </p>
+
+                {{ form.stock_numbers }}
+
+                {% if form.stock_numbers.errors %}
+                    <div class="field-errors">
+                        {{ form.stock_numbers.errors }}
+                    </div>
+                {% endif %}
+            </div>
+
         </div>
 
-        <button type="button" class="btn btn-secondary" id="add-ship-line">
-            Add Another Barcode
-        </button>
+        <div class="ship-notes-field">
+            <label for="{{ form.notes.id_for_label }}">
+                {{ form.notes.label }}
+            </label>
 
-        <p>
-            {{ form.notes.label_tag }}
             {{ form.notes }}
-            {{ form.notes.errors }}
-        </p>
 
-        <button
-            type="submit"
-            class="btn btn-primary"
-            onclick="return confirm('Ship all scanned jobs?');"
-        >
-            Ship Jobs
-        </button>
+            {% if form.notes.errors %}
+                <div class="field-errors">
+                    {{ form.notes.errors }}
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="form-actions">
+            <button
+                type="submit"
+                class="btn btn-primary"
+                onclick="return confirm('Ship all entered jobs?');"
+            >
+                Ship Jobs
+            </button>
+        </div>
     </form>
 
 </div>
 
-<script>
-    document.addEventListener("DOMContentLoaded", function () {
-        const addButton = document.getElementById("add-ship-line");
-        const linesContainer = document.getElementById("ship-lines");
-        const totalFormsInput = document.getElementById("id_ship_lines-TOTAL_FORMS");
+<style>
+    .ship-entry-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1.25rem;
+        margin-bottom: 1.25rem;
+    }
 
-        addButton.addEventListener("click", function () {
-            const formIndex = parseInt(totalFormsInput.value, 10);
+    .ship-entry-field {
+        min-width: 0;
+    }
 
-            const newLine = document.createElement("div");
-            newLine.classList.add("ship-line");
+    .ship-entry-field label,
+    .ship-notes-field label {
+        display: block;
+        margin-bottom: 0.35rem;
+        font-weight: 600;
+    }
 
-            newLine.innerHTML = `
-                <label for="id_ship_lines-${formIndex}-barcode">Barcode:</label>
-                <input
-                    type="text"
-                    name="ship_lines-${formIndex}-barcode"
-                    class="{{ formset.forms.0.fields.barcode.widget.attrs.class }}"
-                    placeholder="Scan barcode"
-                    id="id_ship_lines-${formIndex}-barcode"
-                >
-            `;
+    .ship-entry-field textarea,
+    .ship-notes-field textarea {
+        width: 100%;
+        box-sizing: border-box;
+    }
 
-            linesContainer.appendChild(newLine);
-            totalFormsInput.value = formIndex + 1;
+    .field-help {
+        margin: 0 0 0.5rem;
+        color: #6b7280;
+        font-size: 0.875rem;
+    }
 
-            const newInput = document.getElementById(`id_ship_lines-${formIndex}-barcode`);
-            newInput.focus();
-        });
-    });
-</script>
+    .ship-notes-field {
+        margin-bottom: 1.25rem;
+    }
+
+    .form-actions {
+        display: flex;
+        justify-content: flex-end;
+    }
+
+    @media (max-width: 768px) {
+        .ship-entry-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .form-actions {
+            justify-content: stretch;
+        }
+
+        .form-actions .btn {
+            width: 100%;
+        }
+    }
+</style>
 {% endblock %}
