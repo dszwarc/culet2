@@ -5047,10 +5047,6 @@ class PieceworkCreateView(
                 Job.objects
                 .select_for_update()
                 .filter(pk__in=job_ids)
-                .select_related(
-                    "assigned_to",
-                    "holder",
-                )
             )
         }
 
@@ -5395,21 +5391,26 @@ class PieceworkReturnView(
 
     @transaction.atomic
     def post(self, request, *args, **kwargs):
-        memo = self.get_object()
+        # Lock only the memo row.
+        # Do not use select_related() on this locked queryset.
+        memo = (
+            PieceworkMemo.objects
+            .select_for_update()
+            .get(pk=self.kwargs["pk"])
+        )
 
         if memo.returned_at:
             messages.info(
                 request,
                 (
                     f"Piecework memo {memo.memo_num} "
-                    f"has already been returned."
+                    "has already been returned."
                 ),
             )
 
             return redirect(
                 "culet:piecework_open",
             )
-
 
         returned_by = get_employee(
             request.user,
@@ -5420,26 +5421,93 @@ class PieceworkReturnView(
             code="piecework",
         )
 
-        returned_at = timezone.now()
-        returned_count = 0
-
-        lines = (
+        lines = list(
             memo.lines
             .select_related(
                 "job",
-                "job__assigned_to",
-                "job__holder",
             )
             .all()
         )
 
-        for line in lines:
-            job = line.job
-
-            piecework_start = (
-                job.piecework_assigned_at
-                or memo.created_at
+        if not lines:
+            messages.error(
+                request,
+                (
+                    f"Piecework memo {memo.memo_num} "
+                    "does not contain any jobs."
+                ),
             )
+
+            return redirect(
+                "culet:piecework_open",
+            )
+
+        job_ids = [
+            line.job_id
+            for line in lines
+        ]
+
+        # Lock only the Job rows.
+        # No select_related() here because assigned_to
+        # and holder are nullable foreign keys.
+        locked_jobs = {
+            job.pk: job
+            for job in (
+                Job.objects
+                .select_for_update()
+                .filter(pk__in=job_ids)
+            )
+        }
+
+        # A job should never be on another open memo.
+        # If old inconsistent data exists, stop before
+        # changing anything.
+        duplicate_open_lines = list(
+            PieceworkMemoLine.objects
+            .filter(
+                job_id__in=job_ids,
+                memo__returned_at__isnull=True,
+            )
+            .exclude(
+                memo_id=memo.pk,
+            )
+            .select_related(
+                "job",
+                "memo",
+            )
+        )
+
+        if duplicate_open_lines:
+            details = ", ".join(
+                (
+                    f"{line.job.stock_num} "
+                    f"on {line.memo.memo_num}"
+                )
+                for line in duplicate_open_lines
+            )
+
+            messages.error(
+                request,
+                (
+                    f"Memo {memo.memo_num} cannot be returned "
+                    "because these jobs are also on another "
+                    f"open piecework memo: {details}."
+                ),
+            )
+
+            return redirect(
+                "culet:piecework_open",
+            )
+
+        returned_at = timezone.now()
+        returned_count = 0
+
+        for line in lines:
+            job = locked_jobs[line.job_id]
+
+            # This activity belongs to this memo, so use
+            # this memo's creation time.
+            piecework_start = memo.created_at
 
             Activity.objects.create(
                 job=job,
