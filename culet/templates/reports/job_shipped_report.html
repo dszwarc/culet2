@@ -14,71 +14,11 @@
         </div>
     </div>
 
-    <div class="filter-panel">
+{% url "culet:job_shipped_report" as shipped_filter_clear_url %}
 
-        <div class="filter-header">
-            <div>
-                <h2 class="filter-title">
-                    Filter Shipments
-                </h2>
-
-                <p class="filter-subtitle">
-                    Search by shipping date, job number, barcode,
-                    customer, style, employee, or job due date.
-                </p>
-            </div>
-        </div>
-
-        <form method="get" class="filter-form">
-
-            {% for field in filter.form %}
-                <div class="filter-field">
-                    <label for="{{ field.id_for_label }}">
-                        {{ field.label }}
-                    </label>
-
-                    {{ field }}
-
-                    {% if field.errors %}
-                        <div class="field-error">
-                            {{ field.errors }}
-                        </div>
-                    {% endif %}
-                </div>
-            {% endfor %}
-
-            <div class="filter-actions">
-                <button
-                    type="submit"
-                    class="btn btn-primary"
-                >
-                    Apply Filters
-                </button>
-
-                <a
-                    href="{% url 'culet:job_shipped_report' %}"
-                    class="filter-clear"
-                >
-                    Clear
-                </a>
-            </div>
-
-        </form>
-
-    </div>
+{% include "includes/filter_panel.html" with filter=filter filter_title="Filter Shipments" filter_subtitle="Search by shipping date, job number, barcode, customer, style, employee, or job due date." filter_clear_url=shipped_filter_clear_url %}
 
     <div class="report-summary-grid">
-
-        <div class="report-summary-card">
-            <span class="report-summary-label">
-                Jobs Shipped
-            </span>
-
-            <strong class="report-summary-value">
-                {{ total_shipped }}
-            </strong>
-        </div>
-
         <div class="report-summary-card">
             <span class="report-summary-label">
                 Days Counted
@@ -96,6 +36,24 @@
 
             <strong class="report-summary-value">
                 {{ average_per_day|floatformat:2 }}
+            </strong>
+        </div>
+        <div class="report-summary-card">
+            <span class="report-summary-label">
+                On-Time Rate
+            </span>
+
+            <strong class="report-summary-value">
+                {{ on_time_display }}
+            </strong>
+        </div>
+        <div class="report-summary-card">
+            <span class="report-summary-label">
+                Average Delivery Rate
+            </span>
+
+            <strong class="report-summary-value">
+                {{ average_schedule_display }}
             </strong>
         </div>
 

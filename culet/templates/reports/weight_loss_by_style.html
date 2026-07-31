@@ -5,10 +5,9 @@
 
   <h1>Weight Loss % by Style</h1>
 
-  <form method="get" class="job-card">
-    {{ form.as_p }}
-    <button type="submit" class="btn btn-primary">Run Report</button>
-  </form>
+{% url "culet:report_weight_loss_by_style" as clear_url %}
+
+{% include "includes/filter_panel.html" with filter_form=form filter_errors=form.errors filter_title="Weight Loss Filters" filter_subtitle="Choose the styles, jobs, steps, or date range to include in the weight-loss report." filter_clear_url=clear_url filter_button_text="Run Report" %}
 
   <div class="job-card">
     <h2>Style Summary</h2>

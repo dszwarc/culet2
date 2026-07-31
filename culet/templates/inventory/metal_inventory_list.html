@@ -4,14 +4,9 @@
 
 <h1>Metal Inventory</h1>
 
-<form method="get" class="mb-3">
-    <div class="form-row">
-        {{ filter_form.q.label_tag }}
-        {{ filter_form.q }}
-        <button type="submit" class="btn btn-primary">Filter</button>
-        <a href="{% url 'culet:metal_inventory_list' %}" class="btn btn-secondary">Clear</a>
-    </div>
-</form>
+{% url "culet:metal_inventory_list" as clear_url %}
+
+{% include "includes/filter_panel.html" with filter_form=filter_form filter_errors=filter_form.errors filter_title="Filter Metal Inventory" filter_subtitle="Search metal inventory by part number or description." filter_clear_url=clear_url %}
 
 <table class="table">
     <thead>

@@ -1022,13 +1022,35 @@ class JobsByHolderReportForm(forms.Form):
     )
 
     employee = forms.ModelChoiceField(
-        queryset=Employee.objects
+        queryset=(
+            Employee.objects
             .select_related("user")
-            .order_by("user__last_name", "user__first_name"),
+            .order_by(
+                "user__last_name",
+                "user__first_name",
+            )
+        ),
         required=False,
         label="Employee",
         widget=select_widget(),
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.fields["department"].widget.attrs.update(
+            {
+                "class": "form-control combo-box",
+                "data-placeholder": "All departments",
+            }
+        )
+
+        self.fields["employee"].widget.attrs.update(
+            {
+                "class": "form-control combo-box",
+                "data-placeholder": "All employees",
+            }
+        )
 
 
 class JobTransferMemoForm(forms.ModelForm):

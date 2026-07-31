@@ -16,12 +16,9 @@
     </table>
 </div>
 
-<div class="filter_box">
-    <form method="get" action="">
-        {{filter.form}}
-        <button class="btn btn-primary" type="submit">Search</button>
-    </form>
-</div>
+{% url "culet:reporting" as clear_url %}
+
+{% include "includes/filter_panel.html" with filter_form=filter.form filter_errors=filter.form.errors filter_title="Filter Activity" filter_subtitle="Filter employee activity by job, employee, operation, style, or date." filter_clear_url=clear_url %}
 
 
     {% if activities %}

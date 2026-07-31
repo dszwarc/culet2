@@ -8,13 +8,10 @@
         <h2>{{ total_jobs }} active job(s) currently held</h2>
     </div>
 
-    <form method="get" class="filter-form">
-        {{ form.as_p }}
+{% url "culet:report_jobs_by_holder" as clear_url %}
 
-        <button type="submit" class="btn btn-primary">Filter</button>
-        <a href="{% url 'culet:report_jobs_by_holder' %}" class="btn btn-secondary">Clear</a>
-    </form>
-
+{% include "includes/filter_panel.html" with filter_form=form filter_errors=form.errors filter_title="Filter Jobs by Holder" filter_subtitle="Choose the report criteria below." filter_clear_url=clear_url %}
+    
     {% if department_rows %}
         {% for dept_row in department_rows %}
             <div class="report-section">

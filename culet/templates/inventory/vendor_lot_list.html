@@ -20,53 +20,9 @@
     </div>
 </div>
 
-<div class="filter-panel">
-    <div class="filter-header">
-        <div>
-            <h2 class="filter-title">
-                Filter Vendor Lots
-            </h2>
+{% url "culet:metal_vendor_lot_list" as clear_url %}
 
-            <p class="filter-subtitle">
-                Search by lot number, vendor, or received date.
-            </p>
-        </div>
-    </div>
-
-    <form method="get" class="filter-form">
-        {% for field in filter.form %}
-            <div class="filter-field">
-                <label for="{{ field.id_for_label }}">
-                    {{ field.label }}
-                </label>
-
-                {{ field }}
-
-                {% if field.errors %}
-                    <div class="field-error">
-                        {{ field.errors }}
-                    </div>
-                {% endif %}
-            </div>
-        {% endfor %}
-
-        <div class="filter-actions">
-            <button
-                type="submit"
-                class="btn btn-primary"
-            >
-                Apply Filters
-            </button>
-
-            <a
-                href="{% url 'culet:metal_vendor_lot_list' %}"
-                class="filter-clear"
-            >
-                Clear
-            </a>
-        </div>
-    </form>
-</div>
+{% include "includes/filter_panel.html" with filter_form=filter.form filter_errors=filter.form.errors filter_title="Filter Vendor Lots" filter_subtitle="Search by lot number, vendor, or received date." filter_clear_url=clear_url %}
 
 {% if vendor_lots %}
     <div class="table-wrap sticky-table-wrap">

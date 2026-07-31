@@ -4773,8 +4773,8 @@ class JobShippedReportView(
     def get_filter_data(self):
         filter_data = self.request.GET.copy()
 
-        # Only apply the automatic current-month range when the page
-        # was opened without any query-string filters.
+        # Apply the current-month date range only when the page
+        # is opened without any query-string filters.
         if not filter_data:
             today = timezone.localdate()
             first_day = today.replace(day=1)
@@ -4843,17 +4843,77 @@ class JobShippedReportView(
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        # This queryset includes every filtered result, not only the
-        # current page.
+        # Includes every filtered shipment, not only the current
+        # pagination page.
         filtered_shipments = self.filter.qs
 
         total_shipped = filtered_shipments.count()
+
+        # Calculate the average schedule difference and on-time rate
+        # in one pass through the filtered shipments.
+        schedule_values = []
+        total_with_due_date = 0
+        on_time_count = 0
+
+        for shipment in filtered_shipments:
+            days = shipment.schedule_difference_days
+
+            if days is None:
+                continue
+
+            schedule_values.append(days)
+            total_with_due_date += 1
+
+            # Early and exactly on the due date both count as on time.
+            if days <= 0:
+                on_time_count += 1
+
+        if schedule_values:
+            average_schedule = (
+                sum(schedule_values)
+                / len(schedule_values)
+            )
+        else:
+            average_schedule = None
+
+        if average_schedule is None:
+            average_schedule_display = "—"
+
+        elif abs(average_schedule) < 0.05:
+            average_schedule_display = "On schedule"
+
+        elif average_schedule > 0:
+            average_schedule_display = (
+                f"{average_schedule:.1f} days late"
+            )
+
+        else:
+            average_schedule_display = (
+                f"{abs(average_schedule):.1f} days early"
+            )
+
+        if total_with_due_date:
+            on_time_percentage = (
+                on_time_count
+                / total_with_due_date
+            ) * 100
+
+            on_time_display = (
+                f"{on_time_percentage:.1f}% "
+                f"({on_time_count}/{total_with_due_date})"
+            )
+        else:
+            on_time_display = "—"
+
+        filter_form_is_valid = (
+            self.filter.form.is_valid()
+        )
 
         shipped_after = (
             self.filter.form.cleaned_data.get(
                 "shipped_after",
             )
-            if self.filter.form.is_valid()
+            if filter_form_is_valid
             else None
         )
 
@@ -4861,7 +4921,7 @@ class JobShippedReportView(
             self.filter.form.cleaned_data.get(
                 "shipped_before",
             )
-            if self.filter.form.is_valid()
+            if filter_form_is_valid
             else None
         )
 
@@ -4906,6 +4966,12 @@ class JobShippedReportView(
         context["total_shipped"] = total_shipped
         context["days_count"] = days_count
         context["average_per_day"] = average_per_day
+        context["average_schedule_display"] = (
+            average_schedule_display
+        )
+        context["on_time_display"] = (
+            on_time_display
+        )
         context["daily_rows"] = daily_rows
 
         context["current_sort"] = (
@@ -4918,8 +4984,8 @@ class JobShippedReportView(
         query_params = self.request.GET.copy()
         query_params.pop("page", None)
 
-        # The initial current-month dates were added internally, rather
-        # than appearing in request.GET. Add them to pagination links.
+        # The initial current-month dates are added internally rather
+        # than appearing in request.GET, so add them to pagination links.
         if not self.request.GET:
             for key in (
                 "shipped_after",

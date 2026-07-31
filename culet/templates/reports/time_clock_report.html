@@ -5,13 +5,9 @@
 
     <h1>Downtime Report</h1>
 
-    <form method="get" class="report-form">
-        {{ form.as_p }}
+{% url "culet:report_time_clock" as clear_url %}
 
-        <button type="submit" class="btn btn-primary">
-            Run Report
-        </button>
-    </form>
+{% include "includes/filter_panel.html" with filter_form=form filter_errors=form.errors filter_title="Downtime Report Filters" filter_subtitle="Choose the employee and date range used to calculate labor and downtime." filter_clear_url=clear_url filter_button_text="Run Report" %}
 
     {% if employee_rows %}
         <hr>

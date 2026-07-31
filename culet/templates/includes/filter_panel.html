@@ -1,0 +1,118 @@
+<div
+    class="filter-panel"
+    data-filter-panel
+    data-mobile-open="{% if filter_errors or secondary_filter_errors %}true{% else %}false{% endif %}"
+>
+    <button
+        type="button"
+        class="filter-toggle"
+        data-filter-toggle
+        aria-expanded="false"
+    >
+        <span class="filter-toggle-text">
+            <span class="filter-toggle-title">
+                {{ filter_title|default:"Filters" }}
+            </span>
+
+            <span
+                class="filter-active-count"
+                data-filter-active-count
+                hidden
+            ></span>
+        </span>
+
+        <span
+            class="filter-toggle-icon"
+            aria-hidden="true"
+        >
+            ▾
+        </span>
+    </button>
+
+    <div class="filter-header">
+        <div>
+            <h2 class="filter-title">
+                {{ filter_title|default:"Filters" }}
+            </h2>
+
+            {% if filter_subtitle %}
+                <p class="filter-subtitle">
+                    {{ filter_subtitle }}
+                </p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div
+        class="filter-panel-body"
+        data-filter-panel-body
+    >
+        <form
+            method="get"
+            class="filter-form"
+            data-filter-form
+        >
+            {% for field in filter_form %}
+                <div class="filter-field">
+                    <label for="{{ field.id_for_label }}">
+                        {{ field.label }}
+                    </label>
+
+                    {{ field }}
+
+                    {% if field.help_text %}
+                        <div class="filter-help-text">
+                            {{ field.help_text }}
+                        </div>
+                    {% endif %}
+
+                    {% if field.errors %}
+                        <div class="field-error">
+                            {{ field.errors }}
+                        </div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+
+            {% if secondary_filter_form %}
+                {% for field in secondary_filter_form %}
+                    <div class="filter-field">
+                        <label for="{{ field.id_for_label }}">
+                            {{ field.label }}
+                        </label>
+
+                        {{ field }}
+
+                        {% if field.help_text %}
+                            <div class="filter-help-text">
+                                {{ field.help_text }}
+                            </div>
+                        {% endif %}
+
+                        {% if field.errors %}
+                            <div class="field-error">
+                                {{ field.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            {% endif %} 
+
+            <div class="filter-actions">
+                <button
+                    type="submit"
+                    class="btn btn-primary filter-submit"
+                >
+                    {{ filter_button_text|default:"Apply Filters" }}
+                </button>
+
+                <a
+                    href="{{ filter_clear_url }}"
+                    class="filter-clear"
+                >
+                    Clear
+                </a>
+            </div>
+        </form>
+    </div>
+</div>

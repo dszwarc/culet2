@@ -4,66 +4,11 @@
 <div class="page-container">
     <h1>Inactive Jobs Report</h1>
 
-    <div class="filter-panel">
-        <div class="filter-header">
-            <div>
-                <h2 class="filter-title">Report Settings</h2>
-                <p class="filter-subtitle">
-                    Choose the minimum inactive period, then optionally filter the results.
-                </p>
-            </div>
-        </div>
-
-        <form method="get" class="filter-form">
-            {% for field in form %}
-                <div class="filter-field">
-                    <label for="{{ field.id_for_label }}">
-                        {{ field.label }}
-                    </label>
-
-                    {{ field }}
-
-                    {% if field.errors %}
-                        <div class="field-error">
-                            {{ field.errors }}
-                        </div>
-                    {% endif %}
-                </div>
-            {% endfor %}
-
-            {% if filter %}
-                {% for field in filter.form %}
-                    <div class="filter-field">
-                        <label for="{{ field.id_for_label }}">
-                            {{ field.label }}
-                        </label>
-
-                        {{ field }}
-
-                        {% if field.errors %}
-                            <div class="field-error">
-                                {{ field.errors }}
-                            </div>
-                        {% endif %}
-                    </div>
-                {% endfor %}
-            {% endif %}
-
-            <div class="filter-actions">
-                <button type="submit" class="btn btn-primary">
-                    Apply Filters
-                </button>
-
-                <a
-                    href="{% url 'culet:report_inactive_jobs' %}"
-                    class="filter-clear"
-                >
-                    Clear
-                </a>
-            </div>
-        </form>
-    </div>
-
+{% if filter %}
+    {% include "includes/filter_panel.html" with filter_form=form secondary_filter_form=filter.form filter_errors=form.errors filter_title="Report Settings" filter_subtitle="Choose the minimum inactive period, then optionally filter the results." filter_clear_url=clear_url %}
+{% else %}
+    {% include "includes/filter_panel.html" with filter_form=form filter_errors=form.errors filter_title="Report Settings" filter_subtitle="Choose the minimum inactive period, then optionally filter the results." filter_clear_url=clear_url %}
+{% endif %}
     {% if form.is_valid %}
         <div class="job-card">
             <h2>{{ jobs|length }} inactive jobs found</h2>

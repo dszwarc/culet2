@@ -174,3 +174,109 @@ document.addEventListener("DOMContentLoaded", function () {
         "[data-autofocus-desktop='true']"
     );
 });
+
+/*
+|--------------------------------------------------------------------------
+| Reusable mobile filter panels
+|--------------------------------------------------------------------------
+*/
+
+function initializeFilterPanels() {
+    const panels = document.querySelectorAll(
+        "[data-filter-panel]"
+    );
+
+    panels.forEach(function (panel) {
+        if (panel.dataset.filterInitialized === "true") {
+            return;
+        }
+
+        panel.dataset.filterInitialized = "true";
+
+        const toggle = panel.querySelector(
+            "[data-filter-toggle]"
+        );
+
+        const countElement = panel.querySelector(
+            "[data-filter-active-count]"
+        );
+
+        if (!toggle) {
+            return;
+        }
+
+        const ignoredParameters = new Set([
+            "page",
+            "sort",
+            "direction",
+        ]);
+
+        const urlParameters = new URLSearchParams(
+            window.location.search
+        );
+
+        let activeFilterCount = 0;
+
+        urlParameters.forEach(function (value, key) {
+            if (
+                value.trim() !== "" &&
+                !ignoredParameters.has(key)
+            ) {
+                activeFilterCount += 1;
+            }
+        });
+
+        if (countElement && activeFilterCount > 0) {
+            countElement.textContent = (
+                activeFilterCount === 1
+                    ? "1 active"
+                    : `${activeFilterCount} active`
+            );
+
+            countElement.hidden = false;
+        }
+
+        const shouldOpenInitially = (
+            panel.dataset.mobileOpen === "true" ||
+            activeFilterCount > 0
+        );
+
+        function setPanelState(isOpen) {
+            panel.classList.toggle(
+                "is-open",
+                isOpen
+            );
+
+            toggle.setAttribute(
+                "aria-expanded",
+                String(isOpen)
+            );
+        }
+
+        setPanelState(shouldOpenInitially);
+
+        toggle.addEventListener(
+            "click",
+            function () {
+                setPanelState(
+                    !panel.classList.contains(
+                        "is-open"
+                    )
+                );
+            }
+        );
+    });
+}
+
+document.addEventListener(
+    "DOMContentLoaded",
+    initializeFilterPanels
+);
+
+/*
+ * Reinitialize after an HTMX page fragment is inserted.
+ */
+document.addEventListener(
+    "htmx:afterSwap",
+    initializeFilterPanels
+);

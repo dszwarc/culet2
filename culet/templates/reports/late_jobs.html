@@ -3,49 +3,9 @@
 {% block content %}
 <div class="page-container">
     <h1>Late Jobs Report</h1>
+{% url "culet:report_late_jobs" as clear_url %}
 
-    <div class="filter-panel">
-        <div class="filter-header">
-            <div>
-                <h2 class="filter-title">Filter Late Jobs</h2>
-                <p class="filter-subtitle">
-                    Search by job, customer, style, employee, status, location, or due date.
-                </p>
-            </div>
-        </div>
-
-        <form method="get" class="filter-form">
-            {% for field in filter.form %}
-                <div class="filter-field">
-                    <label for="{{ field.id_for_label }}">
-                        {{ field.label }}
-                    </label>
-
-                    {{ field }}
-
-                    {% if field.errors %}
-                        <div class="field-error">
-                            {{ field.errors }}
-                        </div>
-                    {% endif %}
-                </div>
-            {% endfor %}
-
-            <div class="filter-actions">
-                <button type="submit" class="btn btn-primary">
-                    Apply Filters
-                </button>
-
-                <a
-                    href="{% url 'culet:report_late_jobs' %}"
-                    class="filter-clear"
-                >
-                    Clear
-                </a>
-            </div>
-        </form>
-    </div>
-
+{% include "includes/filter_panel.html" with filter_form=form secondary_filter_form=filter.form filter_errors=form.errors secondary_filter_errors=filter.form.errors filter_title="Late Jobs Report" filter_subtitle="Choose the late-job criteria, then optionally narrow the results by job details." filter_clear_url=clear_url %}
     <div class="job-card">
         <p>
             <strong>Today:</strong>

@@ -3,46 +3,9 @@
 {% block content %}
 
 {% if user.is_authenticated %}
-<div class="filter-panel">
+{% url "culet:index_job" as job_filter_clear_url %}
 
-    <div class="filter-header">
-        <div>
-            <h2 class="filter-title">Filter Jobs</h2>
-            <p class="filter-subtitle">Search by job, customer, style, holder, status, or due date.</p>
-        </div>
-    </div>
-
-    <form method="get" class="filter-form">
-
-        {% for field in filter.form %}
-            <div class="filter-field">
-                <label for="{{ field.id_for_label }}">
-                    {{ field.label }}
-                </label>
-
-                {{ field }}
-
-                {% if field.errors %}
-                    <div class="field-error">
-                        {{ field.errors }}
-                    </div>
-                {% endif %}
-            </div>
-        {% endfor %}
-
-        <div class="filter-actions">
-            <button type="submit" class="btn btn-primary">
-                Apply Filters
-            </button>
-            <a href="{% url 'culet:index_job' %}" class="filter-clear">
-                Clear
-            </a>
-        </div>
-
-
-    </form>
-
-</div>
+{% include "includes/filter_panel.html" with filter=filter filter_title="Filter Jobs" filter_subtitle="Search by job, customer, style, holder, status, or due date." filter_clear_url=job_filter_clear_url %}
 
     {% if latest_job_list %}
     <div class="table-wrap sticky-table-wrap">

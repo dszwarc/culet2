@@ -4,34 +4,9 @@
 <div class="container">
     <h1>Memos</h1>
 
-    <form method="get" class="form_box">
-        <div class="filter-grid">
-            <div>
-                <label>Memo Type</label>
-                {{ form.memo_type }}
-            </div>
+{% url "culet:memo_list" as clear_url %}
 
-            <div>
-                <label>Assigned To</label>
-                {{ form.assigned_to }}
-            </div>
-
-            <div>
-                <label>Created Start</label>
-                {{ form.created_start }}
-            </div>
-
-            <div>
-                <label>Created End</label>
-                {{ form.created_end }}
-            </div>
-        </div>
-
-        <br>
-
-        <button type="submit" class="btn btn-primary">Filter</button>
-        <a href="{% url 'culet:memo_list' %}" class="btn btn-secondary">Clear</a>
-    </form>
+{% include "includes/filter_panel.html" with filter_form=form filter_errors=form.errors filter_title="Filter Memos" filter_subtitle="Filter memos by type, assigned employee, or creation date." filter_clear_url=clear_url %}
 
     <br>
 

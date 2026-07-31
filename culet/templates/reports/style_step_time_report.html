@@ -4,15 +4,9 @@
 
 <h1>Average Time Per Step by Style</h1>
 
-<form method="get" class="mb-3">
-    <div class="form-row">
-        {{ form.style.label_tag }}
-        {{ form.style }}
+{% url "culet:style_step_time_report" as clear_url %}
 
-        <button type="submit" class="btn btn-primary">Filter</button>
-        <a href="{% url 'culet:style_step_time_report' %}" class="btn btn-secondary">Clear</a>
-    </div>
-</form>
+{% include "includes/filter_panel.html" with filter_form=form filter_errors=form.errors filter_title="Filter by Style" filter_subtitle="Choose a style to review average activity time by production step." filter_clear_url=clear_url %}
 
 <table class="table">
     <thead>

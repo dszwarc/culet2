@@ -4,57 +4,9 @@
 
 {% if user.is_authenticated %}
 
-    <div class="filter-panel">
+{% url "culet:index_style" as clear_url %}
 
-        <div class="filter-header">
-            <div>
-                <h2 class="filter-title">Filter Styles</h2>
-
-                <p class="filter-subtitle">
-                    Search by style name, customer, stamp, or description.
-                </p>
-            </div>
-        </div>
-
-        <form method="get" class="filter-form">
-
-            {% for field in filter.form %}
-                <div class="filter-field">
-
-                    <label for="{{ field.id_for_label }}">
-                        {{ field.label }}
-                    </label>
-
-                    {{ field }}
-
-                    {% if field.errors %}
-                        <div class="field-error">
-                            {{ field.errors }}
-                        </div>
-                    {% endif %}
-
-                </div>
-            {% endfor %}
-
-            <div class="filter-actions">
-                <button
-                    type="submit"
-                    class="btn btn-primary"
-                >
-                    Apply Filters
-                </button>
-
-                <a
-                    href="{% url 'culet:index_style' %}"
-                    class="filter-clear"
-                >
-                    Clear
-                </a>
-            </div>
-
-        </form>
-
-    </div>
+{% include "includes/filter_panel.html" with filter_form=filter.form filter_errors=filter.form.errors filter_title="Filter Styles" filter_subtitle="Search by style name, customer, stamp, or description." filter_clear_url=clear_url %}
 
     {% if style_list %}
 

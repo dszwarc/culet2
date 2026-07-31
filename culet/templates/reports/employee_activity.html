@@ -4,13 +4,9 @@
 
 <h1>Employee Activity Report</h1>
 
-<form method="get">
-    {{ form.as_p }}
+{% url "culet:report_employee_activity" as clear_url %}
 
-    <button type="submit" class="btn btn-primary">
-        Run Report
-    </button>
-</form>
+{% include "includes/filter_panel.html" with filter_form=form filter_errors=form.errors filter_title="Employee Activity Filters" filter_subtitle="Choose an employee, date range, style, or other report criteria." filter_clear_url=clear_url filter_button_text="Run Report" %}
 
 {% if form.is_valid %}
 
