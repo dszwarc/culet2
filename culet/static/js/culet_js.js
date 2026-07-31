@@ -193,6 +193,27 @@ function initializeFilterPanels() {
 
         panel.dataset.filterInitialized = "true";
 
+        const details = panel.querySelector(
+            "[data-filter-details]"
+        );
+
+        if (details) {
+            const mobileQuery = window.matchMedia(
+                "(max-width: 767px)"
+            );
+
+            function setDetailsState(event) {
+                details.open = !event.matches;
+            }
+
+            setDetailsState(mobileQuery);
+            mobileQuery.addEventListener(
+                "change",
+                setDetailsState
+            );
+            return;
+        }
+
         const toggle = panel.querySelector(
             "[data-filter-toggle]"
         );

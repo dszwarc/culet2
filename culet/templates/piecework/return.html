@@ -6,19 +6,21 @@
 
     <p><strong>Assigned To:</strong> {{ memo.assigned_to }}</p>
     <p><strong>Created:</strong> {{ memo.created_at }}</p>
-
+    
+    {% if memo.due_back %}    
+        <p><strong>Due Back:</strong> {{ memo.due_back }}</p>
+    {% endif %}
+        
     <table class="index_table">
         <tr>
-            <th>Barcode</th>
-            <th>Name</th>
+            <th>Stock Number</th>
             <th>Style</th>
             <th>Customer</th>
         </tr>
 
         {% for line in memo.lines.all %}
             <tr>
-                <td>{{ line.job.barcode }}</td>
-                <td>{{ line.job.name }}</td>
+                <td>{{ line.job.stock_num }}</td>
                 <td>{{ line.job.style }}</td>
                 <td>{{ line.job.customer }}</td>
             </tr>

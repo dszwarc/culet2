@@ -1540,3 +1540,135 @@ form:not(td form) {
         grid-template-columns: 1fr;
     }
 }
+
+.inprocess-repair-confirmation {
+    max-width: 620px;
+    margin: 0 auto;
+    text-align: center;
+    border-left: 5px solid #c94a4a;
+    background: #fff5f5;
+}
+
+.inprocess-repair-icon {
+    margin-bottom: 0.5rem;
+    font-size: 2.5rem;
+}
+
+.inprocess-repair-confirmation h2 {
+    margin-bottom: 1.5rem;
+}
+
+.inprocess-repair-job-details {
+    max-width: 420px;
+    margin: 0 auto 1.5rem;
+    text-align: left;
+}
+
+.inprocess-repair-confirm-form .form-actions {
+    display: flex;
+    justify-content: center;
+    gap: 0.75rem;
+}
+
+@media (max-width: 600px) {
+    .inprocess-repair-confirm-form .form-actions {
+        flex-direction: column-reverse;
+    }
+
+    .inprocess-repair-confirm-form .btn {
+        width: 100%;
+    }
+}
+
+.job-row-inprocess-repair > td {
+    background-color: #fff1f1;
+}
+
+.job-row-inprocess-repair > td:first-child {
+    border-left: 5px solid #c94a4a;
+}
+
+.job-row-inprocess-repair:hover > td {
+    background-color: #ffe5e5;
+}
+
+.inprocess-repair-badge {
+    display: inline-flex;
+    align-items: center;
+
+    margin-top: 0.25rem;
+    padding: 0.25rem 0.55rem;
+
+    border-radius: 999px;
+    background-color: #c94a4a;
+    color: #fff;
+
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1.2;
+    text-transform: uppercase;
+}
+
+.mobile-job-card-repair {
+    background-color: #fff1f1;
+    border-color: #dda3a3;
+    border-left: 5px solid #c94a4a;
+}
+
+.mobile-repair-banner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+
+    margin: -0.25rem -0.25rem 0.9rem;
+    padding: 0.45rem 0.7rem;
+
+    border-radius: 0.45rem;
+    background-color: #c94a4a;
+    color: #fff;
+
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.mobile-repair-banner svg {
+    flex-shrink: 0;
+}
+
+.mobile-job-stock-value,
+.mobile-job-due-value,
+.mobile-job-style-value {
+    display: block;
+    font-weight: 600;
+}
+
+.mobile-repair-details {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+
+    border-top: 1px solid rgba(201, 74, 74, 0.22);
+}
+
+.mobile-repair-activity {
+    color: #9f3535;
+    font-size: 0.88rem;
+    font-weight: 700;
+}
+
+.mobile-job-card-repair .mobile-job-button.btn-danger {
+    background-color: #b83f3f;
+    border-color: #b83f3f;
+}
+
+.mobile-job-card-repair .mobile-job-button.btn-danger:hover {
+    background-color: #9e3333;
+    border-color: #9e3333;
+}

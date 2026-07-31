@@ -64,14 +64,14 @@ class JobFilter(django_filters.FilterSet):
             }
         ),
     )
-    in_work = django_filters.TypedChoiceFilter(
+    in_work = django_filters.ChoiceFilter(
         label="In Work",
         choices=(
             ("", "All"),
             ("true", "Yes"),
             ("false", "No"),
         ),
-        coerce=lambda value: value == "true",
+        method="filter_in_work",
     )
     assigned_to = django_filters.ModelChoiceFilter(
         queryset=(
@@ -132,6 +132,50 @@ class JobFilter(django_filters.FilterSet):
         ),
     )
 
+    shipped = django_filters.ChoiceFilter(
+        label="Shipped",
+        choices=(
+            ("", "All"),
+            ("true", "Yes"),
+            ("false", "No"),
+        ),
+        method="filter_shipped",
+    )
+
+    def filter_shipped(
+        self,
+        queryset,
+        name,
+        value,
+    ):
+        if value == "":
+            return queryset
+
+        return queryset.filter(
+            shipped=value == "true",
+        )
+
+    def filter_in_work(
+        self,
+        queryset,
+        name,
+        value,
+    ):
+        if value == "":
+            return queryset
+
+        if value == "true":
+            return queryset.filter(
+                in_work=True,
+            )
+
+        if value == "false":
+            return queryset.filter(
+                in_work=False,
+            )
+
+        return queryset
+
     class Meta:
         model = Job
 
@@ -144,7 +188,6 @@ class JobFilter(django_filters.FilterSet):
             "in_work",
             "holder",
             "holder_department",
-            "location",
             "shipped",
             "due_date",
         ]

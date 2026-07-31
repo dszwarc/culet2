@@ -39,6 +39,11 @@ urlpatterns = [
     path("jobs/<int:pk>/start/",views.StartWorkView.as_view(),name="job_start",),
     path("my-jobs/scan-to-start/",views.ScanToStartView.as_view(),name="scan_to_start",),
     path("activities/<int:pk>/stop/<int:job_id>",views.stopWork,name="stop_work"),
+    path(
+        "jobs/inprocess-repair/",
+        views.InProcessRepairView.as_view(),
+        name="inprocess_repair",
+    ),
     path("jobs/my_jobs/", views.MyJobListView.as_view(), name="my_jobs"),
     path("jobs/assign",views.AssignJobView.as_view(), name="assign_job"),
     #path("jobs/receive-and-assign/",views.ReceiveAndAssignJobsView.as_view(),name="receive_and_assign_jobs",),

@@ -129,6 +129,14 @@ class Employee(models.Model):
             ),
         )
 
+    can_inprocess_repair = models.BooleanField(
+        default=False, verbose_name="Can receive in-process repairs", 
+        help_text=(
+            "Allow this employee to receive and start in-process repairs" 
+            "from other employees."
+            ),
+        )
+
     @property
     def active_activities(self):
         return self.activity_set.filter(active=True,end__isnull=True)

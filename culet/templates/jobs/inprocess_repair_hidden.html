@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="page-container inprocess-repair-page">
+
+    <div class="page-header">
+        <h1>In-Process Repair</h1>
+
+        {% if not job %}
+            <p>
+                Scan the job that you are accepting for repair.
+            </p>
+        {% endif %}
+    </div>
+
+
+    {% if job %}
+
+        {# ================================================ #}
+        {# Confirmation                                     #}
+        {# ================================================ #}
+
+        <section class="job-section-card inprocess-repair-confirmation">
+
+            <div class="inprocess-repair-icon">
+                🛠️
+            </div>
+
+            <h2>
+                Start in-process repair on
+                {{ job.stock_num|default:job.barcode }}?
+            </h2>
+
+            <div class="inprocess-repair-job-details">
+
+                <div class="summary-line">
+                    <span class="summary-label">
+                        Stock Number:
+                    </span>
+
+                    <span class="summary-value">
+                        {{ job.stock_num|default:"—" }}
+                    </span>
+                </div>
+
+                <div class="summary-line">
+                    <span class="summary-label">
+                        Style:
+                    </span>
+
+                    <span class="summary-value">
+                        {{ job.style|default:"—" }}
+                    </span>
+                </div>
+
+                <div class="summary-line">
+                    <span class="summary-label">
+                        Customer:
+                    </span>
+
+                    <span class="summary-value">
+                        {{ job.customer|default:"—" }}
+                    </span>
+                </div>
+
+                <div class="summary-line">
+                    <span class="summary-label">
+                        Current Holder:
+                    </span>
+
+                    <span class="summary-value">
+                        {{ job.holder|default:"—" }}
+                    </span>
+                </div>
+
+            </div>
+
+            <form
+                method="post"
+                class="inprocess-repair-confirm-form"
+            >
+                {% csrf_token %}
+
+                <input
+                    type="hidden"
+                    name="action"
+                    value="start"
+                >
+
+                <input
+                    type="hidden"
+                    name="job_id"
+                    value="{{ job.pk }}"
+                >
+
+                <div class="form-actions">
+
+                    <a
+                        href="{% url 'culet:inprocess_repair' %}"
+                        class="btn btn-outline-secondary"
+                    >
+                        Cancel
+                    </a>
+
+                    <button
+                        type="submit"
+                        class="btn btn-danger btn-lg"
+                    >
+                        Start Repair
+                    </button>
+
+                </div>
+
+            </form>
+
+        </section>
+
+
+    {% else %}
+
+        {# ================================================ #}
+        {# Scanner form                                     #}
+        {# ================================================ #}
+
+        <section class="scan-to-start-card">
+
+            <form
+                method="post"
+                action="{% url 'culet:inprocess_repair' %}"
+                id="inprocess-repair-scan-form"
+            >
+                {% csrf_token %}
+
+                <input
+                    type="hidden"
+                    name="action"
+                    value="lookup"
+                >
+
+                <input
+                    type="hidden"
+                    name="barcode"
+                    id="inprocess-repair-barcode"
+                >
+
+                <button
+                    type="button"
+                    class="
+                        btn
+                        btn-danger
+                        btn-lg
+                        culet-scanner-btn
+                        js-culet-scanner-btn
+                    "
+                    id="inprocess-repair-scan-button"
+                    data-target="inprocess-repair-barcode"
+                    data-auto-submit="true"
+                >
+                    📷 Scan Job
+                </button>
+
+            </form>
+
+        </section>
+
+    {% endif %}
+
+</div>
+
+
+{% if open_scanner %}
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const scannerButton = document.getElementById(
+                "inprocess-repair-scan-button"
+            );
+
+            if (scannerButton) {
+                scannerButton.click();
+            }
+        });
+    </script>
+
+{% endif %}
+
+{% include "includes/barcode_scanner.html" with overlay_only=True %}
+
+{% endblock %}

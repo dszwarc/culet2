@@ -13,6 +13,7 @@ from django.contrib import messages
 from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
 from .filters import JobFilter, ActivityFilter, StyleFilter, JobReportFilter, MetalVendorLotFilter, OpenPieceworkFilter, JobShipFilter
 from datetime import timedelta, datetime, time, date
 from collections import defaultdict
@@ -25,6 +26,7 @@ import logging
 logger = logging.getLogger("culet")
 from django.contrib.auth.views import PasswordChangeView
 from collections import OrderedDict, Counter
+
 
 from .services import (
     clock_in_employee,
@@ -40,6 +42,8 @@ from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.forms import SetPasswordForm
 
 from .models import (
+    TimeClock,
+    Activity,
     JobMovement,
     MovementType,
     Department,
@@ -349,28 +353,33 @@ class JobListView(LoginRequiredMixin, generic.ListView):
     DEFAULT_SORT = "due"
 
     def get_queryset(self):
-        jobs = Job.objects.select_related(
-            "style",
-            "assigned_to",
-            "assigned_to__user",
-            "assigned_to__department",
-            "holder",
-            "holder__user",
-            "holder__department",
-            "location",
-            "customer",
-            "status",
+        jobs = (
+            Job.objects
+            .select_related(
+                "style",
+                "assigned_to",
+                "assigned_to__user",
+                "assigned_to__department",
+                "holder",
+                "holder__user",
+                "holder__department",
+                "customer",
+                "status",
+            )
         )
 
-        filter_data = self.request.GET.copy()
-
         # Hide shipped jobs by default.
-        # Users can still change the Shipped filter when needed.
-        if "shipped" not in filter_data:
-            filter_data["shipped"] = "false"
+        #
+        # Apply this to the queryset rather than inserting a fake
+        # value into request.GET. If the user explicitly selects a
+        # Shipped filter option, JobFilter controls the result.
+        if "shipped" not in self.request.GET:
+            jobs = jobs.filter(
+                shipped=False,
+            )
 
         self.filter = JobFilter(
-            filter_data,
+            self.request.GET or None,
             queryset=jobs,
         )
 
@@ -387,7 +396,10 @@ class JobListView(LoginRequiredMixin, generic.ListView):
         if sort not in self.SORT_FIELDS:
             sort = self.DEFAULT_SORT
 
-        if direction not in ["asc", "desc"]:
+        if direction not in {
+            "asc",
+            "desc",
+        }:
             direction = "asc"
 
         self.current_sort = sort
@@ -462,26 +474,41 @@ class MyJobListView(
     def get_queryset(self):
         employee = self.get_employee()
 
+        active_repair_activity = Activity.objects.filter(
+            job=OuterRef("pk"),
+            employee=employee,
+            active=True,
+            end__isnull=True,
+            step__code="repair",
+        )
+
         active_activity = Activity.objects.filter(
             job=OuterRef("pk"),
+            employee=employee,
             active=True,
+            end__isnull=True,
         )
 
         return (
             Job.objects
             .filter(
-                assigned_to=employee,
                 holder=employee,
                 shipped=False,
                 is_piecework=False,
             )
             .annotate(
                 has_active_work=Exists(active_activity),
+                has_active_repair=Exists(active_repair_activity),
+            )
+            .filter(
+                Q(assigned_to=employee)
+                | Q(has_active_repair=True),
             )
             .prefetch_related(
                 "activity_set",
             )
             .order_by(
+                "-has_active_repair",
                 "-has_active_work",
                 F("due").asc(nulls_last=True),
                 "stock_num",
@@ -2644,57 +2671,387 @@ class ScanToStartView(
             pk=job.pk,
         )
 
+class InProcessRepairView(
+    LoginRequiredMixin,
+    generic.View,
+):
+    template_name = "jobs/inprocess_repair.html"
+
+    def get_employee(self):
+        return get_object_or_404(
+            Employee,
+            user=self.request.user,
+        )
+
+    def dispatch(self, request, *args, **kwargs):
+        employee = self.get_employee()
+
+        if not employee.can_inprocess_repair:
+            messages.error(
+                request,
+                (
+                    "You do not have permission to perform "
+                    "in-process repairs."
+                ),
+            )
+            return redirect("culet:home")
+
+        return super().dispatch(
+            request,
+            *args,
+            **kwargs,
+        )
+
+    def get(self, request, *args, **kwargs):
+        return render(
+            request,
+            self.template_name,
+            {
+                "job": None,
+                "open_scanner": True,
+            },
+        )
+
+    def find_job(self, barcode):
+        return (
+            Job.objects
+            .select_related(
+                "assigned_to",
+                "holder",
+                "style",
+                "customer",
+            )
+            .filter(
+                barcode=barcode,
+            )
+            .first()
+        )
+
+    def get_validation_error(
+        self,
+        *,
+        job,
+        repairing_employee,
+    ):
+        if not repairing_employee.clocked_in:
+            return (
+                "Please clock in before accepting an "
+                "in-process repair."
+            )
+
+        if not job.active:
+            return (
+                f"Job {job.stock_num or job.barcode} is inactive."
+            )
+
+        if job.shipped:
+            return (
+                f"Job {job.stock_num or job.barcode} "
+                "has already been shipped."
+            )
+
+        if job.is_piecework:
+            return (
+                f"Job {job.stock_num or job.barcode} is currently "
+                "assigned as piecework."
+            )
+
+        if job.assigned_to is None:
+            return (
+                f"Job {job.stock_num or job.barcode} is not "
+                "assigned to an employee."
+            )
+
+        if job.holder is None:
+            return (
+                f"Job {job.stock_num or job.barcode} does not "
+                "currently have a holder."
+            )
+
+        if job.holder == repairing_employee:
+            return (
+                f"You already hold job "
+                f"{job.stock_num or job.barcode}."
+            )
+
+        if job.holder_id != job.assigned_to_id:
+            return (
+                f"Job {job.stock_num or job.barcode} cannot be "
+                "transferred for an in-process repair because "
+                "its holder and assigned employee do not match."
+            )
+
+        repair_is_already_active = Activity.objects.filter(
+            job=job,
+            step__code="repair",
+            active=True,
+            end__isnull=True,
+        ).exists()
+
+        if repair_is_already_active:
+            return (
+                f"Job {job.stock_num or job.barcode} already "
+                "has an active repair activity."
+            )
+
+        return None
+
+    def post(self, request, *args, **kwargs):
+        repairing_employee = self.get_employee()
+
+        action = request.POST.get(
+            "action",
+            "lookup",
+        )
+
+        if action == "start":
+            return self.start_repair(
+                request=request,
+                repairing_employee=repairing_employee,
+            )
+
+        return self.confirm_repair(
+            request=request,
+            repairing_employee=repairing_employee,
+        )
+
+    def confirm_repair(
+        self,
+        *,
+        request,
+        repairing_employee,
+    ):
+        barcode = request.POST.get(
+            "barcode",
+            "",
+        ).strip()
+
+        if not barcode:
+            messages.error(
+                request,
+                "Please scan or enter a job barcode.",
+            )
+            return redirect(
+                "culet:inprocess_repair",
+            )
+
+        job = self.find_job(barcode)
+
+        if job is None:
+            messages.error(
+                request,
+                f"No job was found with barcode {barcode}.",
+            )
+            return redirect(
+                "culet:inprocess_repair",
+            )
+
+        validation_error = self.get_validation_error(
+            job=job,
+            repairing_employee=repairing_employee,
+        )
+
+        if validation_error:
+            messages.error(
+                request,
+                validation_error,
+            )
+            return redirect(
+                "culet:inprocess_repair",
+            )
+
+        return render(
+            request,
+            self.template_name,
+            {
+                "job": job,
+                "open_scanner": False,
+            },
+        )
+
+    @transaction.atomic
+    def start_repair(
+        self,
+        *,
+        request,
+        repairing_employee,
+    ):
+        job_id = request.POST.get(
+            "job_id",
+        )
+
+        job = (
+            Job.objects
+            .select_for_update(of=("self",))
+            .select_related(
+                "assigned_to",
+                "holder",
+                "style",
+                "customer",
+            )
+            .filter(
+                pk=job_id,
+            )
+            .first()
+        )
+
+        if job is None:
+            messages.error(
+                request,
+                "The selected job could not be found.",
+            )
+            return redirect(
+                "culet:inprocess_repair",
+            )
+
+        validation_error = self.get_validation_error(
+            job=job,
+            repairing_employee=repairing_employee,
+        )
+
+        if validation_error:
+            messages.error(
+                request,
+                validation_error,
+            )
+            return redirect(
+                "culet:inprocess_repair",
+            )
+
+        repair_step = (
+            ActivityStep.objects
+            .filter(
+                code="repair",
+            )
+            .first()
+        )
+
+        if repair_step is None:
+            messages.error(
+                request,
+                (
+                    'The activity step with code "repair" '
+                    "has not been configured."
+                ),
+            )
+            return redirect(
+                "culet:inprocess_repair",
+            )
+
+        previous_holder = job.holder
+        started_at = timezone.now()
+
+        open_activities = (
+            Activity.objects
+            .select_for_update()
+            .filter(
+                job=job,
+                active=True,
+                end__isnull=True,
+            )
+        )
+
+        for activity in open_activities:
+            stop_activity(
+                activity,
+                stopped_at=started_at,
+            )
+
+        job, movement = move_job(
+            job=job,
+            movement_type="repair",
+            to_employee=repairing_employee,
+            performed_by=repairing_employee,
+        )
+
+        Activity.objects.create(
+            job=job,
+            employee=repairing_employee,
+            step=repair_step,
+            start=started_at,
+            active=True,
+        )
+
+        if not job.in_work:
+            job.in_work = True
+            job.save(
+                update_fields=[
+                    "in_work",
+                    "last_updated",
+                ],
+            )
+
+        messages.success(
+            request,
+            (
+                f"In-process repair started on "
+                f"{job.stock_num or job.barcode}. "
+                f"Transferred from {previous_holder}."
+            ),
+        )
+
+        return redirect(
+            "culet:my_jobs",
+        )
+
 @login_required
+@transaction.atomic
 def stopWork(request, pk, job_id):
     if request.method != "POST":
         return redirect("culet:my_jobs")
 
     employee = request.user.employee
 
-    job = get_object_or_404(
-        Job,
-        id=job_id,
-        assigned_to=employee,
-        holder=employee,
-    )
-
     act = get_object_or_404(
-        Activity,
+        Activity.objects.select_for_update(),
         id=pk,
-        job=job,
+        job_id=job_id,
         employee=employee,
         active=True,
         end__isnull=True,
     )
 
+    job = get_object_or_404(
+        Job.objects.select_for_update(),
+        id=job_id,
+        holder=employee,
+        shipped=False,
+    )
+
     stop_activity(act)
 
-    messages.success(request, f"Job {job.barcode} has been stopped. ({act.name})")
+    if act.step.code == "repair":
+        return_employee = job.assigned_to
+
+        if return_employee:
+            messages.success(
+                request,
+                (
+                    f"In-process repair on job "
+                    f"{job.stock_num or job.barcode} has been completed. "
+                    f"Return the job to {return_employee} "
+                    "so they can receive it."
+                ),
+            )
+        else:
+            messages.success(
+                request,
+                (
+                    f"In-process repair on job "
+                    f"{job.stock_num or job.barcode} has been completed."
+                ),
+            )
+
+    else:
+        messages.success(
+            request,
+            (
+                f"Job {job.barcode} has been stopped. "
+                f"({act.name})"
+            ),
+        )
+
     return redirect("culet:my_jobs")
-
-# def stopWork(request, pk, job_id):
-#     #NEED LOGIC TO PREVENT EMP FROM STARTING WORK THAT IS NOT ASSIGNED TO THEM OR IF THEY ARE NOT LOGGED IN
-#     act = Activity.objects.get(id=pk)
-#     if not act.end:
-#         act.end = timezone.now()
-#         act.active = False
-#         act.save()
-#     else:
-#         pass
-#     job = Job.objects.get(id=job_id)
-#     job.in_work = False
-#     job.save()
-#     # return HttpResponseRedirect(reverse('culet:index_job'))
-#     messages.success(request,f"Job {job.barcode} has been stopped. ({act.name})")
-#     return HttpResponseRedirect(reverse('culet:my_jobs'))
-
-from django.contrib import messages
-from django.contrib.auth.decorators import login_required
-from django.shortcuts import redirect
-from django.utils import timezone
-
-from .models import TimeClock, Activity
-
 
 @login_required
 def clock_in(request):

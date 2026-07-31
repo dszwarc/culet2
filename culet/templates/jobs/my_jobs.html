@@ -99,13 +99,21 @@
                             >
 
                                 <td>
+                                    <div>
                                         {{ job.stock_num|default:"No stock #" }}
+
+
+                                    {% if job.has_active_repair %}
+                                        <span class="inprocess-repair-badge">
+                                            In-Process Repair &nbsp;
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-hammer" viewBox="0 0 16 16">
+                                            <path d="M9.972 2.508a.5.5 0 0 0-.16-.556l-.178-.129a5 5 0 0 0-2.076-.783C6.215.862 4.504 1.229 2.84 3.133H1.786a.5.5 0 0 0-.354.147L.146 4.567a.5.5 0 0 0 0 .706l2.571 2.579a.5.5 0 0 0 .708 0l1.286-1.29a.5.5 0 0 0 .146-.353V5.57l8.387 8.873A.5.5 0 0 0 14 14.5l1.5-1.5a.5.5 0 0 0 .017-.689l-9.129-8.63c.747-.456 1.772-.839 3.112-.839a.5.5 0 0 0 .472-.334"/>
+                                        </svg>
+                                        </span>
+                                    {% endif %}
+                                    
+                                    </div>
                                 </td>
-                            <td>
-
-                                    {{ job.stock_num|default:"No stock #" }}
-
-                            </td>
 
 
                                 <td>
@@ -179,7 +187,11 @@
                                                 class="btn btn-danger"
                                                 onclick="return confirm('Stop work on Job {{ job.stock_num|default:job.barcode|escapejs }}?');"
                                             >
-                                                Stop Work
+                                                {% if job.has_active_repair %}
+                                                    Finish Repair
+                                                {% else %}
+                                                    Stop Work
+                                                {% endif %}
                                             </button>
 
                                         </form>
@@ -215,7 +227,15 @@
 
                 {% for job in latest_job_list %}
 
-                    <article class="mobile-job-card">
+                    <article
+                        class="
+                            mobile-job-card
+                            {% if job.has_active_repair %}
+                                mobile-job-card-repair
+                            {% endif %}
+                        "
+                    >
+
 
                         <div class="mobile-job-card-header">
 
@@ -225,10 +245,27 @@
                                     Stock #
                                 </span>
 
-                            
-                                {{ job.stock_num|default:"No stock #" }}
-                            
-                        </div>
+                                <span class="mobile-job-stock-value">
+                                    {{ job.stock_num|default:"No stock #" }}
+                                            {% if job.has_active_repair %}
+                                                    <span class="inprocess-repair-badge">
+                                                        In-Process Repair&nbsp;
+                                                        <svg
+                                                            xmlns="http://www.w3.org/2000/svg"
+                                                            width="15"
+                                                            height="15"
+                                                            fill="currentColor"
+                                                            class="bi bi-hammer"
+                                                            viewBox="0 0 16 16"
+                                                            aria-hidden="true"
+                                                        >
+                                                            <path d="M9.972 2.508a.5.5 0 0 0-.16-.556l-.178-.129a5 5 0 0 0-2.076-.783C6.215.862 4.504 1.229 2.84 3.133H1.786a.5.5 0 0 0-.354.147L.146 4.567a.5.5 0 0 0 0 .706l2.571 2.579a.5.5 0 0 0 .708 0l1.286-1.29a.5.5 0 0 0 .146-.353V5.57l8.387 8.873A.5.5 0 0 0 14 14.5l1.5-1.5a.5.5 0 0 0 .017-.689l-9.129-8.63c.747-.456 1.772-.839 3.112-.839a.5.5 0 0 0 .472-.334"/>
+                                                        </svg>
+                                                    </span>
+                                            {% endif %}
+                                </span>
+
+                            </div>
 
 
                             <div
@@ -244,15 +281,19 @@
                                     Due
                                 </span>
 
-                                {% if job.due %}
+                                <span class="mobile-job-due-value">
 
-                                    {{ job.due|date:"n/j/y" }}
+                                    {% if job.due %}
 
-                                {% else %}
+                                        {{ job.due|date:"n/j/y" }}
 
-                                    —
+                                    {% else %}
 
-                                {% endif %}
+                                        —
+
+                                    {% endif %}
+
+                                </span>
 
                             </div>
 
@@ -265,11 +306,12 @@
                                 Style
                             </span>
 
-                            <span>
+                            <span class="mobile-job-style-value">
                                 {{ job.style|default:"—" }}
                             </span>
 
                         </div>
+                        
 
 
                         <div class="mobile-job-action">
@@ -334,10 +376,15 @@
                                         "
                                         onclick="return confirm('Stop work on Job {{ job.stock_num|default:job.barcode|escapejs }}?');"
                                     >
-                                        Stop Work
+                                        {% if job.has_active_repair %}
+                                            Finish Repair
+                                        {% else %}
+                                            Stop Work
+                                        {% endif %}
                                     </button>
 
                                 </form>
+
 
                             {% else %}
 

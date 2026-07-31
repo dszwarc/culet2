@@ -5,7 +5,7 @@
     <h1>Late Jobs Report</h1>
 {% url "culet:report_late_jobs" as clear_url %}
 
-{% include "includes/filter_panel.html" with filter_form=form secondary_filter_form=filter.form filter_errors=form.errors secondary_filter_errors=filter.form.errors filter_title="Late Jobs Report" filter_subtitle="Choose the late-job criteria, then optionally narrow the results by job details." filter_clear_url=clear_url %}
+{% include "includes/filter_panel.html" with filter=filter filter_errors=filter.form.errors filter_title="Late Jobs Filters" filter_subtitle="Narrow late jobs by customer, style, status, employee, holder, location, or due date." filter_clear_url=clear_url %}
     <div class="job-card">
         <p>
             <strong>Today:</strong>
