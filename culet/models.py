@@ -361,6 +361,68 @@ class JobShip(models.Model):
     class Meta:
         ordering = ["-shipped_at"]
 
+    @property
+    def schedule_difference_days(self):
+        """
+        Positive number:
+            Job shipped late.
+
+        Zero:
+            Job shipped on its due date.
+
+        Negative number:
+            Job shipped ahead of schedule.
+        """
+        if not self.job.due or not self.shipped_at:
+            return None
+
+        shipped_date = timezone.localdate(
+            self.shipped_at,
+        )
+
+        return (
+            shipped_date - self.job.due
+        ).days
+
+    @property
+    def schedule_difference_display(self):
+        days = self.schedule_difference_days
+
+        if days is None:
+            return "—"
+
+        if days == 0:
+            return "On schedule"
+
+        if days == 1:
+            return "1 day late"
+
+        if days > 1:
+            return f"{days} days late"
+
+        days_ahead = abs(days)
+
+        if days_ahead == 1:
+            return "1 day early"
+
+        return f"{days_ahead} days early"
+
+    @property
+    def schedule_difference_css_class(self):
+        days = self.schedule_difference_days
+
+        if days is None:
+            return ""
+
+        if days > 0:
+            return "schedule-late"
+
+        if days < 0:
+            return "schedule-early"
+
+        return "schedule-on-time"
+
+
     def __str__(self):
         return f"{self.job} shipped at {self.shipped_at}"
     

@@ -2,89 +2,393 @@
 
 {% block content %}
 
-<h1>Jobs Shipped Report</h1>
+<div class="page-container shipped-jobs-page">
 
-<form method="get" class="mb-3">
-    <div class="form-row">
-        {{ form.start_date.label_tag }}
-        {{ form.start_date }}
-
-        {{ form.end_date.label_tag }}
-        {{ form.end_date }}
-
-        {{ form.style.label_tag }}
-        {{ form.style }}
-
-        {{ form.customer.label_tag }}
-        {{ form.customer }}
-
-        <button type="submit" class="btn btn-primary">Filter</button>
-        <a href="{% url 'culet:job_shipped_report' %}" class="btn btn-secondary">Clear</a>
+    <div class="page-header">
+        <div>
+            <h1>Jobs Shipped</h1>
+            <p>
+                Review shipped jobs, shipping dates, and performance
+                against each job's due date.
+            </p>
+        </div>
     </div>
-</form>
 
-<div class="report-summary">
-    <p><strong>Total Jobs Shipped:</strong> {{ total_shipped }}</p>
-    <p><strong>Days Counted:</strong> {{ days_count }}</p>
-    <p><strong>Average Per Day:</strong> {{ average_per_day|floatformat:2 }}</p>
+    <div class="filter-panel">
+
+        <div class="filter-header">
+            <div>
+                <h2 class="filter-title">
+                    Filter Shipments
+                </h2>
+
+                <p class="filter-subtitle">
+                    Search by shipping date, job number, barcode,
+                    customer, style, employee, or job due date.
+                </p>
+            </div>
+        </div>
+
+        <form method="get" class="filter-form">
+
+            {% for field in filter.form %}
+                <div class="filter-field">
+                    <label for="{{ field.id_for_label }}">
+                        {{ field.label }}
+                    </label>
+
+                    {{ field }}
+
+                    {% if field.errors %}
+                        <div class="field-error">
+                            {{ field.errors }}
+                        </div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+
+            <div class="filter-actions">
+                <button
+                    type="submit"
+                    class="btn btn-primary"
+                >
+                    Apply Filters
+                </button>
+
+                <a
+                    href="{% url 'culet:job_shipped_report' %}"
+                    class="filter-clear"
+                >
+                    Clear
+                </a>
+            </div>
+
+        </form>
+
+    </div>
+
+    <div class="report-summary-grid">
+
+        <div class="report-summary-card">
+            <span class="report-summary-label">
+                Jobs Shipped
+            </span>
+
+            <strong class="report-summary-value">
+                {{ total_shipped }}
+            </strong>
+        </div>
+
+        <div class="report-summary-card">
+            <span class="report-summary-label">
+                Days Counted
+            </span>
+
+            <strong class="report-summary-value">
+                {{ days_count }}
+            </strong>
+        </div>
+
+        <div class="report-summary-card">
+            <span class="report-summary-label">
+                Average Per Day
+            </span>
+
+            <strong class="report-summary-value">
+                {{ average_per_day|floatformat:2 }}
+            </strong>
+        </div>
+
+    </div>
+
+    <section class="report-section">
+
+        <div class="report-section-header">
+            <div>
+                <h2>Daily Totals</h2>
+                <p>
+                    Total jobs shipped on each date in the
+                    selected period.
+                </p>
+            </div>
+        </div>
+
+        <div class="table-wrap shipped-daily-table-wrap">
+            <table class="index_table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Jobs Shipped</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for row in daily_rows %}
+                        <tr>
+                            <td>
+                                {{ row.shipped_day|date:"m/d/Y" }}
+                            </td>
+
+                            <td>
+                                {{ row.total }}
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="2">
+                                No shipments found.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+    </section>
+
+    <section class="report-section">
+
+        <div class="report-section-header">
+            <div>
+                <h2>Shipment Detail</h2>
+
+                <p>
+                    Showing up to 100 jobs per page.
+                </p>
+            </div>
+        </div>
+
+        {% if shipments %}
+
+            <div class="table-wrap sticky-table-wrap">
+                <table class="index_table freeze-row">
+
+                    <thead>
+                        <tr>
+                            <th class="{% if current_sort == 'shipped_at' %}sorted-column{% endif %}">
+                                <a href="?{{ sort_links.shipped_at }}">
+                                    Shipped
+                                    {% with field="shipped_at" %}
+                                        {% include "includes/sort_arrow.html" %}
+                                    {% endwith %}
+                                </a>
+                            </th>
+
+                            <th class="{% if current_sort == 'stock_num' %}sorted-column{% endif %}">
+                                <a href="?{{ sort_links.stock_num }}">
+                                    Stock #
+                                    {% with field="stock_num" %}
+                                        {% include "includes/sort_arrow.html" %}
+                                    {% endwith %}
+                                </a>
+                            </th>
+
+                            <th class="{% if current_sort == 'barcode' %}sorted-column{% endif %}">
+                                <a href="?{{ sort_links.barcode }}">
+                                    Barcode
+                                    {% with field="barcode" %}
+                                        {% include "includes/sort_arrow.html" %}
+                                    {% endwith %}
+                                </a>
+                            </th>
+
+                            <th class="{% if current_sort == 'style' %}sorted-column{% endif %}">
+                                <a href="?{{ sort_links.style }}">
+                                    Style
+                                    {% with field="style" %}
+                                        {% include "includes/sort_arrow.html" %}
+                                    {% endwith %}
+                                </a>
+                            </th>
+
+                            <th class="{% if current_sort == 'customer' %}sorted-column{% endif %}">
+                                <a href="?{{ sort_links.customer }}">
+                                    Customer
+                                    {% with field="customer" %}
+                                        {% include "includes/sort_arrow.html" %}
+                                    {% endwith %}
+                                </a>
+                            </th>
+
+                            <th class="{% if current_sort == 'due' %}sorted-column{% endif %}">
+                                <a href="?{{ sort_links.due }}">
+                                    Due
+                                    {% with field="due" %}
+                                        {% include "includes/sort_arrow.html" %}
+                                    {% endwith %}
+                                </a>
+                            </th>
+
+                            <th>
+                                Schedule
+                            </th>
+
+                            <th class="{% if current_sort == 'shipped_by' %}sorted-column{% endif %}">
+                                <a href="?{{ sort_links.shipped_by }}">
+                                    Shipped By
+                                    {% with field="shipped_by" %}
+                                        {% include "includes/sort_arrow.html" %}
+                                    {% endwith %}
+                                </a>
+                            </th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for shipment in shipments %}
+                            <tr>
+                                <td>
+                                    {{ shipment.shipped_at|date:"m/d/Y g:i A" }}
+                                </td>
+
+                                <td>
+                                    <a href="{{ shipment.job.get_absolute_url }}">
+                                        {{ shipment.job.stock_num|default:"—" }}
+                                    </a>
+                                </td>
+
+                                <td>
+                                    {{ shipment.job.barcode|default:"—" }}
+                                </td>
+
+                                <td>
+                                    {{ shipment.job.style|default:"—" }}
+                                </td>
+
+                                <td>
+                                    {{ shipment.job.customer|default:"—" }}
+                                </td>
+
+                                <td>
+                                    {{ shipment.job.due|date:"m/d/Y" }}
+                                </td>
+
+                                <td>
+                                    <span class="schedule-result {{ shipment.schedule_difference_css_class }}">
+                                        {{ shipment.schedule_difference_display }}
+                                    </span>
+                                </td>
+
+                                <td>
+                                    {{ shipment.shipped_by }}
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="8">
+                                    No shipped jobs match the
+                                    selected filters.
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+
+                </table>
+            </div>
+
+        {% else %}
+
+            <div class="empty-state">
+                <p>
+                    No shipped jobs match the selected filters.
+                </p>
+            </div>
+
+        {% endif %}
+
+    </section>
+
+    {% if is_paginated %}
+        {% if page_obj.paginator.num_pages > 1 %}
+
+            <nav
+                class="pagination-nav"
+                aria-label="Shipped jobs pagination"
+            >
+                <div class="pagination-controls">
+
+                    {% if page_obj.has_previous %}
+
+                        <a
+                            class="pagination-button pagination-edge"
+                            href="?{% if query_params %}{{ query_params }}&{% endif %}page=1"
+                            aria-label="Go to first page"
+                        >
+                            &laquo; First
+                        </a>
+
+                        <a
+                            class="pagination-button"
+                            href="?{% if query_params %}{{ query_params }}&{% endif %}page={{ page_obj.previous_page_number }}"
+                            aria-label="Go to previous page"
+                        >
+                            Previous
+                        </a>
+
+                    {% else %}
+
+                        <span class="pagination-button pagination-edge is-disabled">
+                            &laquo; First
+                        </span>
+
+                        <span class="pagination-button is-disabled">
+                            Previous
+                        </span>
+
+                    {% endif %}
+
+                    <span class="pagination-status">
+                        <span class="pagination-status-label">
+                            Page
+                        </span>
+
+                        <strong>
+                            {{ page_obj.number }}
+                        </strong>
+
+                        <span>of</span>
+
+                        <strong>
+                            {{ page_obj.paginator.num_pages }}
+                        </strong>
+                    </span>
+
+                    {% if page_obj.has_next %}
+
+                        <a
+                            class="pagination-button"
+                            href="?{% if query_params %}{{ query_params }}&{% endif %}page={{ page_obj.next_page_number }}"
+                            aria-label="Go to next page"
+                        >
+                            Next
+                        </a>
+
+                        <a
+                            class="pagination-button pagination-edge"
+                            href="?{% if query_params %}{{ query_params }}&{% endif %}page={{ page_obj.paginator.num_pages }}"
+                            aria-label="Go to last page"
+                        >
+                            Last &raquo;
+                        </a>
+
+                    {% else %}
+
+                        <span class="pagination-button is-disabled">
+                            Next
+                        </span>
+
+                        <span class="pagination-button pagination-edge is-disabled">
+                            Last &raquo;
+                        </span>
+
+                    {% endif %}
+
+                </div>
+            </nav>
+
+        {% endif %}
+    {% endif %}
+
 </div>
-
-<h2>Daily Totals</h2>
-
-<table class="table">
-    <thead>
-        <tr>
-            <th>Date</th>
-            <th>Jobs Shipped</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for row in daily_rows %}
-            <tr>
-                <td>{{ row.shipped_day }}</td>
-                <td>{{ row.total }}</td>
-            </tr>
-        {% empty %}
-            <tr>
-                <td colspan="2">No shipments found.</td>
-            </tr>
-        {% endfor %}
-    </tbody>
-</table>
-
-<h2>Shipment Detail</h2>
-
-<table class="table">
-    <thead>
-        <tr>
-            <th>Shipped At</th>
-            <th>Barcode</th>
-            <th>Stock #</th>
-            <th>Style</th>
-            <th>Customer</th>
-            <th>Shipped By</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for shipment in shipments %}
-            <tr>
-                <td>{{ shipment.shipped_at }}</td>
-                <td>
-                    <a href="{% url 'culet:job_detail' shipment.job.pk %}">
-                        {{ shipment.job.barcode }}
-                    </a>
-                </td>
-                <td>{{ shipment.job.stock_num|default:"" }}</td>
-                <td>{{ shipment.job.style }}</td>
-                <td>{{ shipment.job.customer }}</td>
-                <td>{{ shipment.shipped_by }}</td>
-            </tr>
-        {% empty %}
-            <tr>
-                <td colspan="6">No shipped jobs found.</td>
-            </tr>
-        {% endfor %}
-    </tbody>
-</table>
 
 {% endblock content %}

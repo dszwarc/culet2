@@ -1439,3 +1439,96 @@ form:not(td form) {
     text-transform: uppercase;
     letter-spacing: .08em;
 }
+
+.report-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin: 1rem 0 1.5rem;
+}
+
+.report-summary-card {
+    padding: 0.85rem 1rem;
+    border: 1px solid #dfe4ea;
+    border-radius: 0.65rem;
+    background: #ffffff;
+    text-align: center;
+}
+
+.report-summary-label {
+    display: block;
+    margin-bottom: 0.2rem;
+    color: #667085;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.report-summary-value {
+    display: block;
+    font-size: 1.35rem;
+    line-height: 1.2;
+}
+
+.report-section {
+    margin-top: 1.5rem;
+}
+
+.report-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 1rem;
+    margin-bottom: 0.65rem;
+}
+
+.report-section-header h2 {
+    margin: 0;
+}
+
+.report-section-header p {
+    margin: 0.2rem 0 0;
+    color: #667085;
+}
+
+.shipped-daily-table-wrap {
+    max-width: 36rem;
+}
+
+.schedule-result {
+    display: inline-block;
+    min-width: 6.5rem;
+    padding: 0.25rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.schedule-late {
+    color: #9f1c1c;
+    background: #fee2e2;
+}
+
+.schedule-early {
+    color: #176b3a;
+    background: #dcfce7;
+}
+
+.schedule-on-time {
+    color: #344054;
+    background: #eaecf0;
+}
+
+@media (max-width: 700px) {
+    .report-summary-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .report-section-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}

@@ -13,7 +13,7 @@ from django.contrib import messages
 from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
-from .filters import JobFilter, ActivityFilter, StyleFilter, JobReportFilter, MetalVendorLotFilter, OpenPieceworkFilter
+from .filters import JobFilter, ActivityFilter, StyleFilter, JobReportFilter, MetalVendorLotFilter, OpenPieceworkFilter, JobShipFilter
 from datetime import timedelta, datetime, time, date
 from collections import defaultdict
 from decimal import Decimal
@@ -4748,15 +4748,49 @@ class PieceworkPrintView(LoginRequiredMixin, generic.DetailView):
         context["memo_title"] = "Piecework Memo"
         return context
     
-class JobShippedReportView(LoginRequiredMixin, generic.TemplateView):
+class JobShippedReportView(
+    LoginRequiredMixin,
+    generic.ListView,
+):
+    model = JobShip
     template_name = "reports/job_shipped_report.html"
+    context_object_name = "shipments"
+    paginate_by = 100
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
+    SORT_FIELDS = {
+        "shipped_at": "shipped_at",
+        "barcode": "job__barcode",
+        "stock_num": "job__stock_num",
+        "style": "job__style__name",
+        "customer": "job__customer__name",
+        "due": "job__due",
+        "shipped_by": "shipped_by__user__last_name",
+    }
 
-        form = JobShippedReportForm(self.request.GET or None)
+    DEFAULT_SORT = "shipped_at"
+    DEFAULT_DIRECTION = "desc"
 
-        shipments = (
+    def get_filter_data(self):
+        filter_data = self.request.GET.copy()
+
+        # Only apply the automatic current-month range when the page
+        # was opened without any query-string filters.
+        if not filter_data:
+            today = timezone.localdate()
+            first_day = today.replace(day=1)
+
+            filter_data["shipped_after"] = (
+                first_day.isoformat()
+            )
+
+            filter_data["shipped_before"] = (
+                today.isoformat()
+            )
+
+        return filter_data
+
+    def get_base_queryset(self):
+        return (
             JobShip.objects
             .select_related(
                 "job",
@@ -4765,63 +4799,176 @@ class JobShippedReportView(LoginRequiredMixin, generic.TemplateView):
                 "shipped_by",
                 "shipped_by__user",
             )
-            .order_by("-shipped_at")
         )
 
-        start_date = None
-        end_date = None
+    def get_queryset(self):
+        self.filter_data = self.get_filter_data()
 
-        if form.is_valid():
-            start_date = form.cleaned_data.get("start_date")
-            end_date = form.cleaned_data.get("end_date")
-            style = form.cleaned_data.get("style")
-            customer = form.cleaned_data.get("customer")
+        self.filter = JobShipFilter(
+            self.filter_data,
+            queryset=self.get_base_queryset(),
+        )
 
-            if start_date:
-                shipments = shipments.filter(shipped_at__date__gte=start_date)
+        queryset = self.filter.qs
 
-            if end_date:
-                shipments = shipments.filter(shipped_at__date__lte=end_date)
+        sort = self.request.GET.get(
+            "sort",
+            self.DEFAULT_SORT,
+        )
 
-            if style:
-                shipments = shipments.filter(job__style=style)
+        direction = self.request.GET.get(
+            "direction",
+            self.DEFAULT_DIRECTION,
+        )
 
-            if customer:
-                shipments = shipments.filter(job__customer=customer)
+        if sort not in self.SORT_FIELDS:
+            sort = self.DEFAULT_SORT
 
-        total_shipped = shipments.count()
+        if direction not in ("asc", "desc"):
+            direction = self.DEFAULT_DIRECTION
 
-        if start_date and end_date:
-            days_count = (end_date - start_date).days + 1
+        self.current_sort = sort
+        self.current_direction = direction
+
+        order_field = self.SORT_FIELDS[sort]
+
+        if direction == "desc":
+            order_field = f"-{order_field}"
+
+        return queryset.order_by(
+            order_field,
+            "-pk",
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # This queryset includes every filtered result, not only the
+        # current page.
+        filtered_shipments = self.filter.qs
+
+        total_shipped = filtered_shipments.count()
+
+        shipped_after = (
+            self.filter.form.cleaned_data.get(
+                "shipped_after",
+            )
+            if self.filter.form.is_valid()
+            else None
+        )
+
+        shipped_before = (
+            self.filter.form.cleaned_data.get(
+                "shipped_before",
+            )
+            if self.filter.form.is_valid()
+            else None
+        )
+
+        if shipped_after and shipped_before:
+            days_count = (
+                shipped_before - shipped_after
+            ).days + 1
         else:
-            shipped_dates = (
-                shipments
-                .annotate(shipped_day=TruncDate("shipped_at"))
+            days_count = (
+                filtered_shipments
+                .annotate(
+                    shipped_day=TruncDate(
+                        "shipped_at",
+                    )
+                )
                 .values("shipped_day")
                 .distinct()
                 .count()
             )
-            days_count = shipped_dates or 1
 
-        average_per_day = total_shipped / days_count if days_count else 0
+        average_per_day = (
+            total_shipped / days_count
+            if days_count
+            else 0
+        )
 
         daily_rows = (
-            shipments
-            .annotate(shipped_day=TruncDate("shipped_at"))
+            filtered_shipments
+            .annotate(
+                shipped_day=TruncDate(
+                    "shipped_at",
+                )
+            )
             .values("shipped_day")
-            .annotate(total=Count("id"))
+            .annotate(
+                total=Count("id"),
+            )
             .order_by("-shipped_day")
         )
 
-        context["form"] = form
-        context["shipments"] = shipments
+        context["filter"] = self.filter
         context["total_shipped"] = total_shipped
         context["days_count"] = days_count
         context["average_per_day"] = average_per_day
         context["daily_rows"] = daily_rows
 
+        context["current_sort"] = (
+            self.current_sort
+        )
+        context["current_direction"] = (
+            self.current_direction
+        )
+
+        query_params = self.request.GET.copy()
+        query_params.pop("page", None)
+
+        # The initial current-month dates were added internally, rather
+        # than appearing in request.GET. Add them to pagination links.
+        if not self.request.GET:
+            for key in (
+                "shipped_after",
+                "shipped_before",
+            ):
+                if key in self.filter_data:
+                    query_params[key] = (
+                        self.filter_data[key]
+                    )
+
+        context["query_params"] = (
+            query_params.urlencode()
+        )
+
+        sort_links = {}
+
+        for key in self.SORT_FIELDS:
+            params = self.request.GET.copy()
+            params.pop("page", None)
+
+            if not self.request.GET:
+                params["shipped_after"] = (
+                    self.filter_data[
+                        "shipped_after"
+                    ]
+                )
+                params["shipped_before"] = (
+                    self.filter_data[
+                        "shipped_before"
+                    ]
+                )
+
+            next_direction = "asc"
+
+            if (
+                self.current_sort == key
+                and self.current_direction == "asc"
+            ):
+                next_direction = "desc"
+
+            params["sort"] = key
+            params["direction"] = next_direction
+
+            sort_links[key] = params.urlencode()
+
+        context["sort_links"] = sort_links
+
         return context
-    
+
 class StyleStepTimeReportView(LoginRequiredMixin, generic.TemplateView):
     template_name = "reports/style_step_time_report.html"
 

@@ -528,3 +528,121 @@ class OpenPieceworkFilter(django_filters.FilterSet):
     class Meta:
         model = PieceworkMemoLine
         fields = []
+
+class JobShipFilter(django_filters.FilterSet):
+    shipped_after = django_filters.DateFilter(
+        field_name="shipped_at",
+        lookup_expr="date__gte",
+        label="Shipped From",
+        widget=forms.DateInput(
+            attrs={
+                "type": "date",
+            }
+        ),
+    )
+
+    shipped_before = django_filters.DateFilter(
+        field_name="shipped_at",
+        lookup_expr="date__lte",
+        label="Shipped Through",
+        widget=forms.DateInput(
+            attrs={
+                "type": "date",
+            }
+        ),
+    )
+
+    stock_num = django_filters.CharFilter(
+        field_name="job__stock_num",
+        lookup_expr="icontains",
+        label="Stock Number",
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": "Search stock number",
+            }
+        ),
+    )
+
+    barcode = django_filters.CharFilter(
+        field_name="job__barcode",
+        lookup_expr="icontains",
+        label="Barcode",
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": "Search barcode",
+                "inputmode": "numeric",
+            }
+        ),
+    )
+
+    due_after = django_filters.DateFilter(
+        field_name="job__due",
+        lookup_expr="gte",
+        label="Due From",
+        widget=forms.DateInput(
+            attrs={
+                "type": "date",
+            }
+        ),
+    )
+
+    due_before = django_filters.DateFilter(
+        field_name="job__due",
+        lookup_expr="lte",
+        label="Due Through",
+        widget=forms.DateInput(
+            attrs={
+                "type": "date",
+            }
+        ),
+    )
+
+    style = django_filters.ModelChoiceFilter(
+        field_name="job__style",
+        queryset=Style.objects.order_by("name"),
+        empty_label="All styles",
+        label="Style",
+        widget=forms.Select(
+            attrs={
+                "class": "combo-box",
+                "data-placeholder": "All styles",
+            }
+        ),
+    )
+
+    customer = django_filters.ModelChoiceFilter(
+        field_name="job__customer",
+        queryset=Customer.objects.order_by("name"),
+        empty_label="All customers",
+        label="Customer",
+        widget=forms.Select(
+            attrs={
+                "class": "combo-box",
+                "data-placeholder": "All customers",
+            }
+        ),
+    )
+
+    shipped_by = django_filters.ModelChoiceFilter(
+        field_name="shipped_by",
+        queryset=Employee.objects.filter(
+            active=True,
+        ).select_related(
+            "user",
+        ).order_by(
+            "user__last_name",
+            "user__first_name",
+        ),
+        empty_label="All employees",
+        label="Shipped By",
+        widget=forms.Select(
+            attrs={
+                "class": "combo-box",
+                "data-placeholder": "All employees",
+            }
+        ),
+    )
+
+    class Meta:
+        model = JobShip
+        fields = []
