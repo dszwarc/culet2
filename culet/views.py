@@ -20,7 +20,7 @@ from collections import defaultdict
 from decimal import Decimal
 from itertools import chain
 from operator import itemgetter
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
 import re
 import logging
 logger = logging.getLogger("culet")
@@ -37,6 +37,10 @@ from .services import (
     move_job,
     stop_activity,
     sync_job_in_work,
+    start_work_batch,
+    stop_work_batch,
+    validate_batch_jobs,
+    parse_barcode_input,
 )
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.forms import SetPasswordForm
@@ -79,10 +83,12 @@ from .models import (
     JobTransferMemo,
     JobTransferMemoLine,
     PieceworkMemo,
+    WorkBatch,
 )
 
 from .forms import (
     StartWorkForm,
+    BatchStartForm,
     RepairLookupForm,
     RepairCreateForm,
     QualityInspectionForm,
@@ -480,6 +486,7 @@ class MyJobListView(
             active=True,
             end__isnull=True,
             step__code="repair",
+            batch__isnull=True,
         ).order_by("-start", "-pk")
 
         active_activity = Activity.objects.filter(
@@ -487,7 +494,16 @@ class MyJobListView(
             employee=employee,
             active=True,
             end__isnull=True,
+            batch__isnull=True,
         ).order_by("-start", "-pk")
+
+        active_batch_activity = Activity.objects.filter(
+            job=OuterRef("pk"),
+            employee=employee,
+            active=True,
+            end__isnull=True,
+            batch__active=True,
+        ).order_by("-batch__started_at", "-pk")
 
         return (
             Job.objects
@@ -515,14 +531,26 @@ class MyJobListView(
                     active_activity.values("pk")[:1],
                     output_field=IntegerField(),
                 ),
+                active_batch_start=Subquery(
+                    active_batch_activity.values("batch__started_at")[:1],
+                    output_field=DateTimeField(),
+                ),
+                active_batch_id=Subquery(
+                    active_batch_activity.values("batch_id")[:1],
+                    output_field=IntegerField(),
+                ),
             )
             .annotate(
-                # Repair wins if inconsistent legacy data contains more than
-                # one open activity for the employee and job.
+                # Deterministic precedence for inconsistent legacy data is
+                # repair, then batch, then ordinary individual work.
                 running_start=Case(
                     When(
                         active_repair_start__isnull=False,
                         then=F("active_repair_start"),
+                    ),
+                    When(
+                        active_batch_start__isnull=False,
+                        then=F("active_batch_start"),
                     ),
                     default=F("active_work_start"),
                     output_field=DateTimeField(),
@@ -539,6 +567,10 @@ class MyJobListView(
                     When(
                         active_repair_start__isnull=False,
                         then=Value("repair"),
+                    ),
+                    When(
+                        active_batch_start__isnull=False,
+                        then=Value("batch"),
                     ),
                     When(
                         active_work_start__isnull=False,
@@ -565,6 +597,42 @@ class MyJobListView(
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+
+        active_batch = (
+            WorkBatch.objects
+            .filter(employee=self.get_employee(), active=True)
+            .select_related("step")
+            .prefetch_related(
+                models.Prefetch(
+                    "activities",
+                    queryset=Activity.objects.filter(
+                        active=True,
+                        end__isnull=True,
+                    ).select_related(
+                        "job__style",
+                        "job__customer",
+                    ).order_by("job__due", "job__stock_num"),
+                    to_attr="open_activities",
+                ),
+            )
+            .first()
+        )
+
+        context["active_work_batch"] = active_batch
+        if active_batch:
+            context["latest_job_list"] = [
+                job
+                for job in context["latest_job_list"]
+                if job.active_batch_id != active_batch.pk
+            ]
+        context["my_jobs_total_count"] = (
+            len(context["latest_job_list"])
+            + (
+                len(active_batch.open_activities)
+                if active_batch
+                else 0
+            )
+        )
 
         context["activity_start_form"] = ActivityStartForm(
             employee=self.get_employee(),
@@ -1914,32 +1982,6 @@ class AssignJobView(
 ):
     template_name = "jobs/assign.html"
 
-    @staticmethod
-    def parse_barcodes(jobs_text):
-        """Return normalized barcodes in first-seen order and repeat count."""
-        parsed_barcodes = [
-            barcode.strip()
-            for barcode in re.split(
-                r"[\s,;]+",
-                jobs_text,
-            )
-            if barcode.strip()
-        ]
-
-        unique_barcodes = []
-        seen_barcodes = set()
-        duplicate_barcode_count = 0
-
-        for barcode in parsed_barcodes:
-            if barcode in seen_barcodes:
-                duplicate_barcode_count += 1
-                continue
-
-            seen_barcodes.add(barcode)
-            unique_barcodes.append(barcode)
-
-        return unique_barcodes, duplicate_barcode_count
-
     def get_employees(self):
         return (
             Employee.objects
@@ -2044,10 +2086,9 @@ class AssignJobView(
         # - tabs
         # - commas
         # - semicolons
-        (
-            submitted_barcodes,
-            duplicate_barcode_count,
-        ) = self.parse_barcodes(jobs_text)
+        parsed_barcodes = parse_barcode_input(jobs_text)
+        submitted_barcodes = parsed_barcodes.values
+        duplicate_barcode_count = parsed_barcodes.duplicate_count
 
         redirect_url = reverse(
             "culet:assign_job",
@@ -2323,15 +2364,15 @@ class AssignJobView(
                     else "barcodes"
                 )
                 repeated_barcode_message = (
-                    f", {duplicate_barcode_count} repeated "
-                    f"{repeated_barcode_word} ignored"
+                    f" {duplicate_barcode_count} repeated "
+                    f"{repeated_barcode_word} ignored."
                 )
 
             messages.success(
                 request,
                 (
                     f"{assigned_count} {job_word} "
-                    f"assigned{repeated_barcode_message}."
+                    f"assigned.{repeated_barcode_message}"
                 ),
             )
         else:
@@ -2377,15 +2418,23 @@ class ReturnJobView(
         context["return_employees"] = (
             self.get_return_employees()
         )
+        context.setdefault("barcodes_text", "")
+        context.setdefault("selected_employee_id", "")
 
         return context
 
+    def render_form_with_errors(self, *, barcodes_text, employee_id):
+        return self.render_to_response(
+            self.get_context_data(
+                barcodes_text=barcodes_text,
+                selected_employee_id=employee_id,
+            ),
+        )
+
     def post(self, request, *args, **kwargs):
-        submitted_barcodes = [
-            barcode.strip()
-            for barcode in request.POST.getlist("jobs")
-            if barcode.strip()
-        ]
+        barcodes_text = request.POST.get("barcodes", "")
+        parsed_barcodes = parse_barcode_input(barcodes_text)
+        submitted_barcodes = parsed_barcodes.values
 
         employee_id = request.POST.get(
             "employee",
@@ -2397,35 +2446,37 @@ class ReturnJobView(
                 request,
                 "Please enter or scan at least one job barcode.",
             )
-            return redirect("culet:return_job")
+            return self.render_form_with_errors(
+                barcodes_text=barcodes_text,
+                employee_id=employee_id,
+            )
+
+        invalid_barcodes = []
+        for barcode in submitted_barcodes:
+            try:
+                int(barcode)
+            except ValueError:
+                invalid_barcodes.append(barcode)
+
+        if invalid_barcodes:
+            messages.error(
+                request,
+                "Invalid numeric barcode(s): " + ", ".join(invalid_barcodes),
+            )
+            return self.render_form_with_errors(
+                barcodes_text=barcodes_text,
+                employee_id=employee_id,
+            )
 
         if not employee_id:
             messages.error(
                 request,
                 "Please select the employee receiving these jobs.",
             )
-            return redirect("culet:return_job")
-
-        duplicate_barcodes = sorted({
-            barcode
-            for barcode in submitted_barcodes
-            if submitted_barcodes.count(barcode) > 1
-        })
-
-        if duplicate_barcodes:
-            barcode_word = (
-                "barcode"
-                if len(duplicate_barcodes) == 1
-                else "barcodes"
+            return self.render_form_with_errors(
+                barcodes_text=barcodes_text,
+                employee_id=employee_id,
             )
-
-            messages.error(
-                request,
-                f"The following {barcode_word} "
-                "were entered more than once: "
-                + ", ".join(duplicate_barcodes),
-            )
-            return redirect("culet:return_job")
 
         return_employee = get_object_or_404(
             self.get_return_employees(),
@@ -2460,7 +2511,10 @@ class ReturnJobView(
                 "No job was found for the following barcode(s): "
                 + ", ".join(missing_barcodes),
             )
-            return redirect("culet:return_job")
+            return self.render_form_with_errors(
+                barcodes_text=barcodes_text,
+                employee_id=employee_id,
+            )
 
         returned_count = 0
 
@@ -2485,11 +2539,24 @@ class ReturnJobView(
                 else "jobs"
             )
 
+            duplicate_message = ""
+            if parsed_barcodes.duplicate_count:
+                duplicate_word = (
+                    "barcode was"
+                    if parsed_barcodes.duplicate_count == 1
+                    else "barcodes were"
+                )
+                duplicate_message = (
+                    f" {parsed_barcodes.duplicate_count} repeated "
+                    f"{duplicate_word} ignored."
+                )
+
             messages.success(
                 request,
                 (
                     f"{returned_count} {job_word} "
                     f"returned to {return_employee}."
+                    f"{duplicate_message}"
                 ),
             )
         else:
@@ -2502,6 +2569,103 @@ class ReturnJobView(
             )
 
         return redirect("culet:return_job")
+
+
+class BatchStartView(LoginRequiredMixin, generic.TemplateView):
+    template_name = "jobs/batch_start.html"
+
+    def get_employee(self):
+        return get_object_or_404(Employee, user=self.request.user)
+
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated and not self.get_employee().can_start_batch:
+            raise PermissionDenied("You do not have permission to start batch work.")
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.setdefault("form", BatchStartForm(employee=self.get_employee()))
+        return context
+
+    def post(self, request, *args, **kwargs):
+        employee = self.get_employee()
+        form = BatchStartForm(request.POST, employee=employee)
+        if not form.is_valid():
+            return self.render_to_response(self.get_context_data(form=form))
+
+        barcodes = form.cleaned_data["barcodes"]
+        matching_jobs = list(Job.objects.filter(barcode__in=barcodes))
+        jobs_by_barcode = {str(job.barcode): job for job in matching_jobs}
+        missing = [barcode for barcode in barcodes if barcode not in jobs_by_barcode]
+        if missing:
+            form.add_error(
+                "barcodes",
+                "No job was found for: " + ", ".join(missing),
+            )
+            return self.render_to_response(self.get_context_data(form=form))
+
+        jobs = [jobs_by_barcode[barcode] for barcode in barcodes]
+        errors = validate_batch_jobs(
+            employee=employee,
+            jobs=jobs,
+            step=form.cleaned_data["step"],
+        )
+        if errors:
+            for error in errors:
+                form.add_error(None, error)
+            return self.render_to_response(self.get_context_data(form=form))
+
+        if request.POST.get("action") != "confirm":
+            return self.render_to_response(
+                self.get_context_data(form=form, review_jobs=jobs),
+            )
+
+        try:
+            batch = start_work_batch(
+                employee=employee,
+                jobs=jobs,
+                step=form.cleaned_data["step"],
+            )
+        except ValidationError as exc:
+            for error in exc.messages:
+                form.add_error(None, error)
+            return self.render_to_response(self.get_context_data(form=form))
+
+        messages.success(
+            request,
+            (
+                f"{batch.activities.count()} jobs added to the batch."
+                + (
+                    f" {form.parsed_barcode_input.duplicate_count} repeated "
+                    + (
+                        "barcode was ignored."
+                        if form.parsed_barcode_input.duplicate_count == 1
+                        else "barcodes were ignored."
+                    )
+                    if form.parsed_barcode_input.duplicate_count
+                    else ""
+                )
+            ),
+        )
+        return redirect("culet:my_jobs")
+
+
+class StopWorkBatchView(LoginRequiredMixin, generic.View):
+    http_method_names = ["post"]
+
+    def post(self, request, pk, *args, **kwargs):
+        batch = get_object_or_404(
+            WorkBatch,
+            pk=pk,
+            employee=request.user.employee,
+        )
+        if not batch.active:
+            messages.info(request, "This batch has already been stopped.")
+            return redirect("culet:my_jobs")
+
+        stop_work_batch(batch=batch)
+        messages.success(request, "Batch work stopped.")
+        return redirect("culet:my_jobs")
 
 
 class StartWorkView(
@@ -2520,6 +2684,13 @@ class StartWorkView(
         )
 
     def validate_job(self, request, job, employee):
+        if WorkBatch.objects.filter(employee=employee, active=True).exists():
+            messages.error(
+                request,
+                "Stop your active batch before starting individual work.",
+            )
+            return False
+
         if not job.active:
             messages.error(
                 request,
@@ -2842,6 +3013,17 @@ class InProcessRepairView(
                 "has an active repair activity."
             )
 
+        if Activity.objects.filter(
+            job=job,
+            batch__active=True,
+            active=True,
+            end__isnull=True,
+        ).exists():
+            return (
+                f"Job {job.stock_num or job.barcode} is part of "
+                "an active batch and cannot be transferred for repair."
+            )
+
         return None
 
     def post(self, request, *args, **kwargs):
@@ -3058,6 +3240,13 @@ def stopWork(request, pk, job_id):
         active=True,
         end__isnull=True,
     )
+
+    if act.batch_id:
+        messages.error(
+            request,
+            "This job is part of an active batch. Stop the batch from My Jobs.",
+        )
+        return redirect("culet:my_jobs")
 
     job = get_object_or_404(
         Job.objects.select_for_update(),

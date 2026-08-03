@@ -4,6 +4,7 @@
         class="btn btn-outline-secondary culet-scanner-btn js-culet-scanner-btn"
         data-target="{{ input_id }}"
         data-auto-submit="{{ auto_submit|default:'false' }}"
+        data-append-mode="{{ append_mode|default:'false' }}"
     >
         📷 {{ button_text|default:"Scan with Camera" }}
     </button>
@@ -26,13 +27,19 @@
                 Point your camera at the barcode on the job envelope.
             </p>
 
+            <p
+                id="culet-scanner-status"
+                class="culet-scanner-status"
+                aria-live="polite"
+            ></p>
+
             <div class="culet-scanner-actions">
                 <button
                     type="button"
                     class="btn btn-danger"
                     id="culet-scanner-cancel"
                 >
-                    Cancel
+                    Done / Close Scanner
                 </button>
             </div>
 

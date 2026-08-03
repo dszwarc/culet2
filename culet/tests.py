@@ -2,6 +2,8 @@ from datetime import timedelta
 
 from django.contrib.auth.models import User
 from django.contrib.messages import get_messages
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -17,6 +19,15 @@ from .models import (
     MovementType,
     Role,
     Style,
+    WorkBatch,
+)
+from .forms import BatchStartForm
+from .services import (
+    clock_out_employee,
+    start_work_batch,
+    stop_work_batch,
+    validate_batch_jobs,
+    parse_barcode_input,
 )
 from .views import MyJobListView
 
@@ -259,6 +270,26 @@ class AssignJobDuplicateBarcodeTests(TestCase):
         self.assertEqual(JobMovement.objects.count(), 2)
         self.assertIn("2 jobs assigned.", self.response_messages(response))
 
+    def test_page_uses_shared_textarea_scanner_and_keeps_employee_picker(self):
+        response = self.client.get(self.url)
+        content = response.content.decode()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'name="jobs_text"', count=1)
+        self.assertContains(response, 'data-target="id_jobs_text"')
+        self.assertContains(response, 'data-append-mode="true"')
+        self.assertContains(response, 'data-auto-submit="false"')
+        self.assertContains(response, 'type="button"')
+        self.assertContains(response, 'id="department-option-grid"')
+        self.assertContains(response, 'id="employee-option-grid"')
+        self.assertNotContains(response, "form-TOTAL_FORMS")
+        self.assertNotContains(response, "add-assignment-line")
+        self.assertEqual(content.count("barcode_scanner.js"), 1)
+        self.assertLess(
+            content.index('data-target="id_jobs_text"'),
+            content.index('id="id_jobs_text"'),
+        )
+
     def test_barcode_entered_twice_assigns_once_and_reports_one_repeat(self):
         job = self.make_job(12001)
 
@@ -268,7 +299,7 @@ class AssignJobDuplicateBarcodeTests(TestCase):
         self.assertEqual(job.assigned_to, self.target)
         self.assertEqual(JobMovement.objects.filter(job=job).count(), 1)
         self.assertIn(
-            "1 job assigned, 1 repeated barcode ignored.",
+            "1 job assigned. 1 repeated barcode ignored.",
             self.response_messages(response),
         )
 
@@ -279,7 +310,7 @@ class AssignJobDuplicateBarcodeTests(TestCase):
 
         self.assertEqual(JobMovement.objects.filter(job=job).count(), 1)
         self.assertIn(
-            "1 job assigned, 2 repeated barcodes ignored.",
+            "1 job assigned. 2 repeated barcodes ignored.",
             self.response_messages(response),
         )
 
@@ -291,7 +322,7 @@ class AssignJobDuplicateBarcodeTests(TestCase):
 
         self.assertEqual(JobMovement.objects.filter(job__in=[first, second]).count(), 2)
         self.assertIn(
-            "2 jobs assigned, 2 repeated barcodes ignored.",
+            "2 jobs assigned. 2 repeated barcodes ignored.",
             self.response_messages(response),
         )
 
@@ -309,7 +340,7 @@ class AssignJobDuplicateBarcodeTests(TestCase):
 
         self.assertEqual(JobMovement.objects.filter(job=job).count(), 1)
         self.assertIn(
-            "1 job assigned, 1 repeated barcode ignored.",
+            "1 job assigned. 1 repeated barcode ignored.",
             self.response_messages(response),
         )
 
@@ -322,7 +353,7 @@ class AssignJobDuplicateBarcodeTests(TestCase):
         self.assertEqual(JobMovement.objects.filter(job=already_assigned).count(), 0)
         self.assertEqual(JobMovement.objects.filter(job=newly_assigned).count(), 1)
         self.assertIn(
-            "1 job assigned, 1 repeated barcode ignored.",
+            "1 job assigned. 1 repeated barcode ignored.",
             self.response_messages(response),
         )
 
@@ -337,5 +368,458 @@ class AssignJobDuplicateBarcodeTests(TestCase):
         self.assertEqual(JobMovement.objects.count(), 0)
         self.assertIn(
             "No job was found for the following barcode(s): 99999",
+            self.response_messages(response),
+        )
+        self.assertContains(response, "18001\n99999\n99999")
+        self.assertEqual(response.context["selected_employee_id"], str(self.target.pk))
+
+
+class WorkBatchTests(TestCase):
+    def setUp(self):
+        self.department = Department.objects.create(name="Batch Department")
+        self.role = Role.objects.create(name="Batch Worker", level=10)
+        self.user = User.objects.create_user(username="batch-worker", password="test")
+        self.employee = Employee.objects.create(
+            user=self.user,
+            department=self.department,
+            role=self.role,
+            clocked_in=True,
+            can_start_batch=True,
+            must_change_password=False,
+        )
+        other_user = User.objects.create_user(username="batch-other", password="test")
+        self.other_employee = Employee.objects.create(
+            user=other_user,
+            department=self.department,
+            role=self.role,
+            clocked_in=True,
+            can_start_batch=True,
+            must_change_password=False,
+        )
+        self.customer = Customer.objects.create(
+            name="Batch Customer",
+            address="1 Batch Way",
+            email="batch@example.com",
+            phone="555-0199",
+        )
+        self.style = Style.objects.create(name="BATCH-STYLE", customer=self.customer)
+        self.step = ActivityStep.objects.create(name="Batch Setting", code="batch-setting")
+        self.step.departments.add(self.department)
+        self.client.force_login(self.user)
+
+    def make_job(self, barcode, **overrides):
+        values = {
+            "name": "Batch Job",
+            "barcode": barcode,
+            "stock_num": f"BATCH-{barcode}",
+            "style": self.style,
+            "due": timezone.localdate() + timedelta(days=7),
+            "assigned_to": self.employee,
+            "holder": self.employee,
+        }
+        values.update(overrides)
+        return Job.objects.create(**values)
+
+    def start_batch(self, count=2, started_at=None):
+        jobs = [self.make_job(20000 + index) for index in range(count)]
+        batch = start_work_batch(
+            employee=self.employee,
+            jobs=jobs,
+            step=self.step,
+            started_at=started_at,
+        )
+        return batch, jobs
+
+    def test_permission_defaults_false(self):
+        user = User.objects.create_user(username="no-batch")
+        employee = Employee.objects.create(user=user)
+        self.assertFalse(employee.can_start_batch)
+
+    def test_only_one_active_batch_per_employee(self):
+        WorkBatch.objects.create(employee=self.employee, step=self.step)
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            WorkBatch.objects.create(employee=self.employee, step=self.step)
+
+    def test_batch_form_parses_supported_delimiters_and_ignores_blanks(self):
+        form = BatchStartForm(
+            {"step": self.step.pk, "barcodes": " 1\n\n2, 3;\t4 "},
+            employee=self.employee,
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["barcodes"], ["1", "2", "3", "4"])
+
+    def test_batch_form_ignores_duplicates_and_rejects_fewer_than_two_jobs(self):
+        duplicate_form = BatchStartForm(
+            {"step": self.step.pk, "barcodes": "1\n1\n2"},
+            employee=self.employee,
+        )
+        single_form = BatchStartForm(
+            {"step": self.step.pk, "barcodes": "1"},
+            employee=self.employee,
+        )
+        self.assertTrue(duplicate_form.is_valid(), duplicate_form.errors)
+        self.assertEqual(duplicate_form.cleaned_data["barcodes"], ["1", "2"])
+        self.assertEqual(duplicate_form.parsed_barcode_input.duplicate_count, 1)
+        self.assertFalse(single_form.is_valid())
+
+    def test_start_creates_shared_batch_activities_without_moving_jobs(self):
+        started_at = timezone.now() - timedelta(minutes=3)
+        batch, jobs = self.start_batch(3, started_at)
+        activities = list(batch.activities.order_by("pk"))
+
+        self.assertEqual(len(activities), 3)
+        self.assertEqual({activity.start for activity in activities}, {started_at})
+        self.assertEqual({activity.employee_id for activity in activities}, {self.employee.pk})
+        self.assertEqual({activity.step_id for activity in activities}, {self.step.pk})
+        self.assertEqual({activity.batch_id for activity in activities}, {batch.pk})
+        for job in jobs:
+            job.refresh_from_db()
+            self.assertEqual(job.assigned_to, self.employee)
+            self.assertEqual(job.holder, self.employee)
+            self.assertTrue(job.in_work)
+
+    def test_validation_rejects_ineligible_job_and_is_all_or_nothing(self):
+        valid = self.make_job(21001)
+        shipped = self.make_job(21002, shipped=True)
+        errors = validate_batch_jobs(
+            employee=self.employee,
+            jobs=[valid, shipped],
+            step=self.step,
+        )
+        self.assertTrue(any("shipped" in error for error in errors))
+        with self.assertRaises(ValidationError):
+            start_work_batch(
+                employee=self.employee,
+                jobs=[valid, shipped],
+                step=self.step,
+            )
+        self.assertFalse(WorkBatch.objects.exists())
+        self.assertFalse(Activity.objects.exists())
+
+    def test_validation_rejects_wrong_holder_piecework_and_active_work(self):
+        wrong_holder = self.make_job(22001, holder=self.other_employee)
+        piecework = self.make_job(22002, is_piecework=True)
+        active_job = self.make_job(22003)
+        Activity.objects.create(
+            job=active_job,
+            employee=self.other_employee,
+            step=self.step,
+        )
+        errors = validate_batch_jobs(
+            employee=self.employee,
+            jobs=[wrong_holder, piecework, active_job],
+            step=self.step,
+        )
+        self.assertTrue(any("received" in error for error in errors))
+        self.assertTrue(any("piecework" in error for error in errors))
+        self.assertTrue(any("active work" in error for error in errors))
+
+    def test_employee_with_individual_work_cannot_start_batch(self):
+        jobs = [self.make_job(23001), self.make_job(23002)]
+        individual_job = self.make_job(23003)
+        Activity.objects.create(
+            job=individual_job,
+            employee=self.employee,
+            step=self.step,
+        )
+        with self.assertRaises(ValidationError):
+            start_work_batch(employee=self.employee, jobs=jobs, step=self.step)
+
+    def test_stop_allocates_elapsed_microseconds_exactly_and_stably(self):
+        started_at = timezone.now() - timedelta(seconds=10, microseconds=1)
+        batch, jobs = self.start_batch(3, started_at)
+        stopped_at = started_at + timedelta(seconds=10, microseconds=1)
+
+        stop_work_batch(batch=batch, stopped_at=stopped_at)
+
+        batch.refresh_from_db()
+        activities = list(batch.activities.order_by("pk"))
+        self.assertFalse(batch.active)
+        self.assertEqual(batch.stopped_at, stopped_at)
+        self.assertEqual({activity.end for activity in activities}, {stopped_at})
+        self.assertFalse(any(activity.active for activity in activities))
+        self.assertEqual(
+            sum((activity.duration for activity in activities), timedelta()),
+            stopped_at - started_at,
+        )
+        self.assertGreaterEqual(activities[0].duration, activities[-1].duration)
+        for job in jobs:
+            job.refresh_from_db()
+            self.assertFalse(job.in_work)
+
+    def test_ten_minutes_across_ten_jobs_allocates_one_minute_each(self):
+        started_at = timezone.now() - timedelta(minutes=10)
+        batch, _ = self.start_batch(10, started_at)
+        stop_work_batch(batch=batch, stopped_at=started_at + timedelta(minutes=10))
+        self.assertEqual(
+            {activity.duration for activity in batch.activities.all()},
+            {timedelta(minutes=1)},
+        )
+
+    def test_second_stop_is_idempotent_and_negative_stop_is_rejected(self):
+        started_at = timezone.now()
+        batch, _ = self.start_batch(2, started_at)
+        with self.assertRaises(ValidationError):
+            stop_work_batch(batch=batch, stopped_at=started_at - timedelta(seconds=1))
+        batch.refresh_from_db()
+        self.assertTrue(batch.active)
+
+        stopped_at = started_at + timedelta(seconds=5)
+        stop_work_batch(batch=batch, stopped_at=stopped_at)
+        original = list(batch.activities.values_list("duration", flat=True))
+        stop_work_batch(batch=batch, stopped_at=stopped_at + timedelta(seconds=5))
+        self.assertEqual(original, list(batch.activities.values_list("duration", flat=True)))
+
+    def test_access_and_home_tile_follow_permission(self):
+        batch_page = self.client.get(reverse("culet:batch_start"))
+        self.assertEqual(batch_page.status_code, 200)
+        self.assertContains(batch_page, 'name="barcodes"', count=1)
+        self.assertContains(batch_page, 'data-target="id_barcodes"')
+        self.assertContains(batch_page, 'data-append-mode="true"')
+        self.assertContains(batch_page, 'data-auto-submit="false"')
+        self.assertContains(self.client.get(reverse("culet:home")), "Batch Start")
+
+        self.employee.can_start_batch = False
+        self.employee.save(update_fields=["can_start_batch"])
+        self.assertEqual(self.client.get(reverse("culet:batch_start")).status_code, 403)
+        self.assertNotContains(self.client.get(reverse("culet:home")), "Batch Start")
+
+    def test_review_confirm_and_my_jobs_group(self):
+        first = self.make_job(24001)
+        second = self.make_job(24002)
+        payload = {
+            "step": self.step.pk,
+            "barcodes": "24001\n24002\n24001",
+        }
+        review = self.client.post(reverse("culet:batch_start"), payload)
+        self.assertContains(review, "Review 2 Jobs")
+        self.assertFalse(WorkBatch.objects.exists())
+
+        payload["action"] = "confirm"
+        response = self.client.post(reverse("culet:batch_start"), payload)
+        self.assertRedirects(response, reverse("culet:my_jobs"))
+        self.assertIn(
+            "2 jobs added to the batch. 1 repeated barcode was ignored.",
+            [str(message) for message in get_messages(response.wsgi_request)],
+        )
+        page = self.client.get(reverse("culet:my_jobs"))
+        self.assertContains(page, "Batch Work")
+        self.assertContains(page, "2 jobs")
+        self.assertContains(page, first.stock_num)
+        self.assertContains(page, second.stock_num)
+        self.assertContains(page, "Stop Batch", count=1)
+
+    def test_individual_start_and_stop_are_blocked_for_active_batch(self):
+        batch, jobs = self.start_batch(2)
+        extra_job = self.make_job(25003)
+        response = self.client.get(reverse("culet:job_start", args=[extra_job.pk]))
+        self.assertRedirects(response, reverse("culet:my_jobs"))
+
+        activity = batch.activities.get(job=jobs[0])
+        response = self.client.post(
+            reverse("culet:stop_work", args=[activity.pk, jobs[0].pk]),
+        )
+        self.assertRedirects(response, reverse("culet:my_jobs"))
+        batch.refresh_from_db()
+        activity.refresh_from_db()
+        self.assertTrue(batch.active)
+        self.assertTrue(activity.active)
+
+    def test_stop_view_requires_owner_and_post(self):
+        batch, _ = self.start_batch(2)
+        stop_url = reverse("culet:stop_work_batch", args=[batch.pk])
+        self.assertEqual(self.client.get(stop_url).status_code, 405)
+
+        self.client.force_login(self.other_employee.user)
+        self.assertEqual(self.client.post(stop_url).status_code, 404)
+
+        self.client.force_login(self.user)
+        response = self.client.post(stop_url)
+        self.assertRedirects(response, reverse("culet:my_jobs"))
+        batch.refresh_from_db()
+        self.assertFalse(batch.active)
+
+    def test_clock_out_stops_batch_with_allocated_total(self):
+        started_at = timezone.now() - timedelta(minutes=2)
+        batch, _ = self.start_batch(2, started_at)
+        result = clock_out_employee(self.employee)
+        batch.refresh_from_db()
+        self.assertFalse(batch.active)
+        self.assertEqual(
+            sum((duration for duration in batch.activities.values_list("duration", flat=True)), timedelta()),
+            batch.stopped_at - batch.started_at,
+        )
+        self.assertEqual(result.stopped_job_count, 2)
+
+    def test_logout_stops_batch_and_allocates_duration(self):
+        started_at = timezone.now() - timedelta(minutes=1)
+        batch, _ = self.start_batch(2, started_at)
+
+        response = self.client.post(reverse("culet:culet_logout"))
+
+        self.assertRedirects(response, reverse("login"))
+        batch.refresh_from_db()
+        self.assertFalse(batch.active)
+        self.assertEqual(
+            sum(
+                batch.activities.values_list("duration", flat=True),
+                timedelta(),
+            ),
+            batch.stopped_at - batch.started_at,
+        )
+
+    def test_clock_out_also_stops_remaining_non_batch_activity(self):
+        batch, _ = self.start_batch(2, timezone.now() - timedelta(minutes=1))
+        individual_job = self.make_job(26001)
+        individual = Activity.objects.create(
+            job=individual_job,
+            employee=self.employee,
+            step=self.step,
+            start=timezone.now() - timedelta(seconds=30),
+        )
+
+        result = clock_out_employee(self.employee)
+
+        batch.refresh_from_db()
+        individual.refresh_from_db()
+        self.assertFalse(batch.active)
+        self.assertFalse(individual.active)
+        self.assertIsNotNone(individual.end)
+        self.assertEqual(result.stopped_job_count, 3)
+
+
+class SharedBarcodeParserTests(TestCase):
+    def test_supported_delimiters_whitespace_and_empty_values(self):
+        parsed = parse_barcode_input(" 100\n\n200, 300\t400; 500 ")
+        self.assertEqual(parsed.values, ["100", "200", "300", "400", "500"])
+        self.assertEqual(parsed.duplicate_count, 0)
+        self.assertEqual(parsed.duplicate_values, [])
+
+    def test_duplicates_are_counted_and_first_seen_order_is_preserved(self):
+        parsed = parse_barcode_input("200\n100\n200\n100\n200\n300")
+        self.assertEqual(parsed.values, ["200", "100", "300"])
+        self.assertEqual(parsed.duplicate_values, ["200", "100"])
+        self.assertEqual(parsed.duplicate_count, 3)
+
+    def test_single_and_empty_input(self):
+        self.assertEqual(parse_barcode_input("123").values, ["123"])
+        self.assertEqual(parse_barcode_input(" \n\t,;").values, [])
+
+
+class ReturnJobsTextareaTests(TestCase):
+    def setUp(self):
+        department = Department.objects.create(name="Returns")
+        role = Role.objects.create(name="Return Worker", level=10)
+        self.user = User.objects.create_user(username="returner", password="test")
+        self.employee = Employee.objects.create(
+            user=self.user,
+            department=department,
+            role=role,
+            must_change_password=False,
+        )
+        manager_user = User.objects.create_user(username="return-manager")
+        self.manager = Employee.objects.create(
+            user=manager_user,
+            department=department,
+            role=role,
+            can_receive_returned_jobs=True,
+        )
+        customer = Customer.objects.create(
+            name="Return Customer",
+            address="1 Return Way",
+            email="return@example.com",
+            phone="555-0188",
+        )
+        self.style = Style.objects.create(name="RETURN-STYLE", customer=customer)
+        self.movement_type = MovementType.objects.create(
+            name="Returned to Manager",
+            code="returned-to-manager",
+            job_field=MovementType.JobField.HOLDER,
+        )
+        self.url = reverse("culet:return_job")
+        self.client.force_login(self.user)
+
+    def make_job(self, barcode):
+        return Job.objects.create(
+            name="Return Job",
+            barcode=barcode,
+            stock_num=f"RETURN-{barcode}",
+            style=self.style,
+            due=timezone.localdate() + timedelta(days=5),
+            assigned_to=self.employee,
+            holder=self.employee,
+        )
+
+    @staticmethod
+    def response_messages(response):
+        return [str(message) for message in get_messages(response.wsgi_request)]
+
+    def test_page_has_one_textarea_and_shared_append_scanner(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'name="barcodes"', count=1)
+        self.assertContains(response, 'type="button"', count=2)
+        self.assertContains(response, 'data-target="id_return_barcodes"')
+        self.assertContains(response, 'data-append-mode="true"')
+        self.assertContains(response, 'data-auto-submit="false"')
+        self.assertNotContains(response, "form-TOTAL_FORMS")
+        self.assertNotContains(response, "add-return-job-line")
+
+    def test_multiline_submission_returns_each_job_once(self):
+        first = self.make_job(31001)
+        second = self.make_job(31002)
+
+        response = self.client.post(
+            self.url,
+            {"barcodes": "31001\n31002", "employee": self.manager.pk},
+            follow=True,
+        )
+
+        first.refresh_from_db()
+        second.refresh_from_db()
+        self.assertEqual(first.holder, self.manager)
+        self.assertEqual(second.holder, self.manager)
+        self.assertEqual(JobMovement.objects.count(), 2)
+        self.assertIn(
+            f"2 jobs returned to {self.manager}.",
+            self.response_messages(response),
+        )
+
+    def test_duplicate_submission_moves_once_and_reports_repeat(self):
+        job = self.make_job(32001)
+
+        response = self.client.post(
+            self.url,
+            {"barcodes": "32001\n32001\n32001", "employee": self.manager.pk},
+            follow=True,
+        )
+
+        self.assertEqual(JobMovement.objects.filter(job=job).count(), 1)
+        self.assertIn(
+            f"1 job returned to {self.manager}. 2 repeated barcodes were ignored.",
+            self.response_messages(response),
+        )
+
+    def test_unknown_barcode_preserves_text_and_employee_selection(self):
+        response = self.client.post(
+            self.url,
+            {"barcodes": "99991\n99992", "employee": self.manager.pk},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "99991\n99992")
+        self.assertEqual(response.context["selected_employee_id"], str(self.manager.pk))
+        self.assertIn(
+            "No job was found for the following barcode(s): 99991, 99992",
+            self.response_messages(response),
+        )
+
+    def test_receiving_employee_is_still_required_and_input_is_preserved(self):
+        self.make_job(33001)
+        response = self.client.post(self.url, {"barcodes": "33001", "employee": ""})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "33001")
+        self.assertEqual(JobMovement.objects.count(), 0)
+        self.assertIn(
+            "Please select the employee receiving these jobs.",
             self.response_messages(response),
         )

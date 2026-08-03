@@ -1,6 +1,27 @@
 let culetScanner = null;
 let culetScannerInput = null;
 let culetScannerAutoSubmit = false;
+let culetScannerAppendMode = false;
+let culetScannerLastBarcode = "";
+let culetScannerLastScanAt = 0;
+
+function appendBarcodeToTextarea(textarea, barcode) {
+    const normalizedBarcode = String(barcode || "").trim();
+
+    if (!normalizedBarcode) return false;
+
+    let currentValue = textarea.value;
+
+    if (currentValue && !currentValue.endsWith("\n")) {
+        currentValue += "\n";
+    }
+
+    textarea.value = currentValue + normalizedBarcode + "\n";
+    textarea.focus();
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    return true;
+}
 
 document.addEventListener("click", async function (e) {
     const scanButton = e.target.closest(".js-culet-scanner-btn");
@@ -8,6 +29,7 @@ document.addEventListener("click", async function (e) {
 
     culetScannerInput = document.getElementById(scanButton.dataset.target);
     culetScannerAutoSubmit = scanButton.dataset.autoSubmit === "true";
+    culetScannerAppendMode = scanButton.dataset.appendMode === "true";
 
     if (!culetScannerInput) {
         alert("Scanner target input was not found.");
@@ -28,6 +50,14 @@ document.addEventListener("click", async function (e) {
 
     overlay.classList.add("is-active");
 
+    const status = document.getElementById("culet-scanner-status");
+    if (status) status.textContent = "Scanner ready.";
+
+    if (culetScanner) {
+        await stopCuletScanner();
+        overlay.classList.add("is-active");
+    }
+
     culetScanner = new Html5Qrcode("culet-scanner-reader");
 
     try {
@@ -44,11 +74,35 @@ document.addEventListener("click", async function (e) {
                 ]
             },
             async function (decodedText) {
-                culetScannerInput.value = decodedText;
+                const normalizedBarcode = String(decodedText || "").trim();
+                if (!normalizedBarcode) return;
+
+                if (culetScannerAppendMode) {
+                    const now = Date.now();
+                    if (
+                        normalizedBarcode === culetScannerLastBarcode &&
+                        now - culetScannerLastScanAt < 1500
+                    ) {
+                        culetScannerLastScanAt = now;
+                        return;
+                    }
+
+                    culetScannerLastBarcode = normalizedBarcode;
+                    culetScannerLastScanAt = now;
+                    appendBarcodeToTextarea(culetScannerInput, normalizedBarcode);
+
+                    if (status) {
+                        status.textContent = `Added barcode ${normalizedBarcode}.`;
+                    }
+                    return;
+                }
+
+                culetScannerInput.value = normalizedBarcode;
+                culetScannerInput.dispatchEvent(
+                    new Event("input", { bubbles: true })
+                );
 
                 await stopCuletScanner();
-
-                culetScannerInput.focus();
 
                 if (culetScannerAutoSubmit && culetScannerInput.form) {
                     culetScannerInput.form.requestSubmit();
@@ -81,8 +135,18 @@ async function stopCuletScanner() {
     }
 
     culetScanner = null;
+    culetScannerLastBarcode = "";
+    culetScannerLastScanAt = 0;
 
     if (overlay) {
         overlay.classList.remove("is-active");
+    }
+
+    if (culetScannerInput) {
+        culetScannerInput.focus();
+        if (typeof culetScannerInput.setSelectionRange === "function") {
+            const end = culetScannerInput.value.length;
+            culetScannerInput.setSelectionRange(end, end);
+        }
     }
 }

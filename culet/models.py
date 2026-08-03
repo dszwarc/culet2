@@ -137,6 +137,8 @@ class Employee(models.Model):
             ),
         )
 
+    can_start_batch = models.BooleanField(default=False)
+
     @property
     def active_activities(self):
         return self.activity_set.filter(active=True,end__isnull=True)
@@ -767,6 +769,36 @@ class ActivityStep(models.Model):
     def __str__(self):
         return f"{self.name}"
 
+
+class WorkBatch(models.Model):
+    employee = models.ForeignKey(
+        Employee,
+        on_delete=models.PROTECT,
+        related_name="work_batches",
+    )
+    step = models.ForeignKey(
+        ActivityStep,
+        on_delete=models.PROTECT,
+        related_name="work_batches",
+    )
+    started_at = models.DateTimeField(default=timezone.now)
+    stopped_at = models.DateTimeField(null=True, blank=True)
+    active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["employee"],
+                condition=models.Q(active=True),
+                name="one_active_work_batch_per_employee",
+            ),
+        ]
+        ordering = ["-started_at", "-pk"]
+
+    def __str__(self):
+        return f"Batch {self.pk} - {self.employee} - {self.step}"
+
 class Activity(models.Model):
     name = models.CharField(max_length=80)
     step = models.ForeignKey(ActivityStep, on_delete=models.PROTECT, null=True, blank=True, related_name="activities")
@@ -777,6 +809,13 @@ class Activity(models.Model):
     duration = models.DurationField(null=True, blank=True)
     job = models.ForeignKey(Job, blank=True, null=True, on_delete=models.CASCADE)
     active = models.BooleanField(default=True)
+    batch = models.ForeignKey(
+        WorkBatch,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="activities",
+    )
     @property
     def duration_decimal_hours(self):
         if self.duration:

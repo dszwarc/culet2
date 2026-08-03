@@ -13,7 +13,7 @@
         <div class="job-count-summary">
             <h1>My Jobs</h1>
             <div class="job-count-number">
-                {{ latest_job_list|length }}
+                {{ my_jobs_total_count }}
             </div>
 
             <div class="job-count-label">
@@ -61,6 +61,73 @@
             </form>
 
         </section>
+
+        {% if active_work_batch %}
+            <section class="batch-work-card">
+                <div class="batch-work-header">
+                    <div>
+                        <span class="batch-work-badge">Batch Work</span>
+                        <h2>{{ active_work_batch.step }}</h2>
+                        <p>
+                            {{ active_work_batch.open_activities|length }} jobs ·
+                            Started {{ active_work_batch.started_at|date:"n/j/Y g:i A" }}
+                        </p>
+                    </div>
+                    <div class="batch-work-actions">
+                        <span class="activity-timer-status">
+                            <span class="activity-timer-label">Running</span>
+                            <span
+                                class="activity-timer"
+                                data-start-time="{{ active_work_batch.started_at|date:'c' }}"
+                                data-timer-type="batch"
+                                data-batch-id="{{ active_work_batch.pk }}"
+                                role="timer"
+                            >00:00</span>
+                        </span>
+
+                    </div>
+                </div>
+
+                <div class="table-wrap job-desktop-table">
+                    <table class="index_table job_index">
+                        <thead><tr><th>Stock #</th><th>Barcode</th><th>Due Date</th></tr></thead>
+                        <tbody>
+                            {% for activity in active_work_batch.open_activities %}
+                                <tr>
+                                    <td>{{ activity.job.stock_num|default:"—" }}</td>
+                                    <td>{{ activity.job.barcode|default:"—" }}</td>
+                                    <td>{{ activity.job.due|date:"n/j/Y" }}</td>
+                                </tr>
+                            {% endfor %}
+                            <tr>
+                                <td>
+                                                            <form
+                            method="post"
+                            action="{% url 'culet:stop_work_batch' active_work_batch.pk %}"
+                        >
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-danger">
+                                Stop Batch
+                            </button>
+                        </form>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="mobile-job-list">
+                    {% for activity in active_work_batch.open_activities %}
+                        <article class="mobile-job-card batch-mobile-job-card">
+                            <strong>{{ activity.job.stock_num|default:"No stock #" }}</strong>
+                            <span>Barcode: {{ activity.job.barcode|default:"—" }}</span>
+                            <span>{{ activity.job.customer|default:"—" }}</span>
+                            <span>Due: {{ activity.job.due|date:"n/j/y" }}</span>
+                        </article>
+                    {% endfor %}
+                </div>
+            </section>
+        {% endif %}
 
 
         {# ================================================= #}
@@ -415,7 +482,7 @@
             </div>
 
 
-        {% else %}
+        {% elif not active_work_batch %}
 
             <div class="empty-state-card">
 

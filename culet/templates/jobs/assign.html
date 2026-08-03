@@ -91,6 +91,8 @@
                         Job Barcodes
                     </label>
 
+                    {% include "includes/barcode_scanner.html" with input_id="id_jobs_text" append_mode="true" auto_submit="false" button_text="Scan Job Barcode" %}
+
 
                     <textarea
                         name="jobs_text"
@@ -98,6 +100,7 @@
                         class="
                             form-control
                             assign-jobs-textarea
+                            barcode-entry-textarea
                         "
                         rows="10"
                         placeholder="Enter or paste one barcode per line"

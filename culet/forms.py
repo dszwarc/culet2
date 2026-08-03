@@ -7,6 +7,7 @@ from django.core.exceptions import ValidationError
 
 from pathlib import Path
 from PIL import Image
+from .services import parse_barcode_input
 
 from .models import (
     FailureType,
@@ -147,6 +148,59 @@ class ActivityStartForm(forms.ModelForm):
 
         self.fields["step"].queryset = qs
         self.fields["step"].empty_label = "Choose activity step"
+
+
+class BatchStartForm(forms.Form):
+    step = forms.ModelChoiceField(
+        queryset=ActivityStep.objects.none(),
+        empty_label="Choose activity step",
+        widget=forms.Select(attrs={"class": "form-control"}),
+    )
+    barcodes = forms.CharField(
+        widget=forms.Textarea(
+            attrs={
+                "class": "form-control batch-start-barcodes barcode-entry-textarea",
+                "rows": 10,
+                "placeholder": "Scan or enter at least two job barcodes",
+                "autofocus": True,
+            },
+        ),
+    )
+
+    def __init__(self, *args, employee=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        steps = ActivityStep.objects.all()
+
+        if employee and employee.department:
+            steps = steps.filter(departments=employee.department).distinct()
+        else:
+            steps = steps.none()
+
+        self.fields["step"].queryset = steps.exclude(code="piecework").order_by("name")
+
+    def clean_barcodes(self):
+        raw_barcodes = self.cleaned_data["barcodes"]
+        self.parsed_barcode_input = parse_barcode_input(raw_barcodes)
+        unique_barcodes = self.parsed_barcode_input.values
+
+        if len(unique_barcodes) < 2:
+            raise forms.ValidationError(
+                "Enter at least two distinct job barcodes."
+            )
+
+        invalid_barcodes = []
+        for barcode in unique_barcodes:
+            try:
+                int(barcode)
+            except ValueError:
+                invalid_barcodes.append(barcode)
+
+        if invalid_barcodes:
+            raise forms.ValidationError(
+                "Invalid numeric barcode(s): " + ", ".join(invalid_barcodes)
+            )
+
+        return unique_barcodes
 
 class JobWeightForm(forms.ModelForm):
     weight = forms.DecimalField(

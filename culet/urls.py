@@ -37,6 +37,8 @@ urlpatterns = [
     ),
     path("activities", views.ActivityListView.as_view(),name="activities_index"),
     path("jobs/<int:pk>/start/",views.StartWorkView.as_view(),name="job_start",),
+    path("jobs/batch/start/", views.BatchStartView.as_view(), name="batch_start"),
+    path("jobs/batch/<int:pk>/stop/", views.StopWorkBatchView.as_view(), name="stop_work_batch"),
     path("my-jobs/scan-to-start/",views.ScanToStartView.as_view(),name="scan_to_start",),
     path("activities/<int:pk>/stop/<int:job_id>",views.stopWork,name="stop_work"),
     path(

@@ -46,6 +46,7 @@ from .models import (
     StyleStone,
     TimeClock,
     Vendor,
+    WorkBatch,
 )
 
 
@@ -127,6 +128,7 @@ class EmployeeAdmin(admin.ModelAdmin):
         "department",
         "role",
         "can_qc",
+        "can_start_batch",
         "clocked_in",
         "must_change_password",
     )
@@ -142,6 +144,7 @@ class EmployeeAdmin(admin.ModelAdmin):
         "department",
         "role",
         "can_qc",
+        "can_start_batch",
         "clocked_in",
         "must_change_password",
     )
@@ -441,6 +444,7 @@ class ActivityAdmin(admin.ModelAdmin):
         "duration",
         "active",
         "is_piecework",
+        "batch",
     )
     search_fields = (
         "job__stock_num",
@@ -460,12 +464,38 @@ class ActivityAdmin(admin.ModelAdmin):
         "start",
         "end",
     )
-    autocomplete_fields = ("step", "employee", "job")
+    autocomplete_fields = ("step", "employee", "job", "batch")
     date_hierarchy = "start"
     ordering = ("-start", "-id")
     list_per_page = 50
-    list_select_related = ("job", "employee__user", "employee__department", "step")
+    list_select_related = ("job", "employee__user", "employee__department", "step", "batch")
     readonly_fields = ("duration",)
+
+
+@admin.register(WorkBatch)
+class WorkBatchAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "employee",
+        "step",
+        "started_at",
+        "stopped_at",
+        "active",
+        "activity_count",
+    )
+    list_filter = ("active", "step", "employee__department")
+    search_fields = (
+        "employee__user__first_name",
+        "employee__user__last_name",
+        "employee__user__username",
+    )
+    autocomplete_fields = ("employee", "step")
+    readonly_fields = ("created_at",)
+    list_select_related = ("employee__user", "step")
+
+    @admin.display(description="Activities")
+    def activity_count(self, obj):
+        return obj.activities.count()
 
 
 @admin.register(JobShip)

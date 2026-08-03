@@ -1,14 +1,10 @@
 {% extends "base.html" %}
 
 {% block content %}
-
 <div class="page-container return-jobs-page">
-
     <div class="page-header">
         <h1>Return Jobs</h1>
-        <p>
-            Scan one or more jobs and select the employee receiving them.
-        </p>
+        <p>Scan one or more jobs and select the employee receiving them.</p>
     </div>
 
     <form method="post" class="return-jobs-form">
@@ -16,88 +12,39 @@
 
         <section class="return-jobs-section">
             <div class="return-jobs-section-header">
-                <div>
-                    <h2>Jobs</h2>
-                    <p>
-                        Use the camera, a USB scanner, or enter each barcode manually.
-                    </p>
-                </div>
+                <h2>Jobs</h2>
+                <p>Use the camera, a USB scanner, or enter each barcode manually.</p>
             </div>
 
-            <div
-                id="return-job-lines"
-                class="return-job-lines"
-            >
-                {% for line_number in "123" %}
-                    <div class="return-job-line">
-                        <label
-                            for="return-job-{{ forloop.counter }}"
-                            class="return-job-label"
-                        >
-                            Job {{ forloop.counter }}
-                        </label>
+            <label for="id_return_barcodes" class="return-job-label">
+                Job Barcodes
+            </label>
 
-                        <div class="return-job-controls">
-                            <input
-                                type="text"
-                                inputmode="numeric"
-                                pattern="[0-9]*"
-                                name="jobs"
-                                id="return-job-{{ forloop.counter }}"
-                                class="return-job-input"
-                                placeholder="Scan or enter barcode"
-                                autocomplete="off"
-                                {% if forloop.first %}autofocus{% endif %}
-                            >
+            {% include "includes/barcode_scanner.html" with input_id="id_return_barcodes" append_mode="true" auto_submit="false" button_text="Scan Job Barcode" %}
 
-                            <button
-                                type="button"
-                                class="btn btn-outline-secondary culet-scanner-btn js-culet-scanner-btn"
-                                data-target="return-job-{{ forloop.counter }}"
-                                data-auto-submit="false"
-                            >
-                                📷 Scan
-                            </button>
-
-                            <button
-                                type="button"
-                                class="btn btn-outline-danger return-job-remove js-remove-return-line"
-                                aria-label="Remove this job line"
-                            >
-                                Remove
-                            </button>
-                        </div>
-                    </div>
-                {% endfor %}
-            </div>
-
-            <button
-                type="button"
-                id="add-return-job-line"
-                class="btn btn-outline-primary return-job-add"
-            >
-                + Add another job
-            </button>
+            <textarea
+                name="barcodes"
+                id="id_return_barcodes"
+                class="form-control barcode-entry-textarea"
+                rows="10"
+                placeholder="Scan or enter one job barcode per line"
+                autocomplete="off"
+                autocapitalize="off"
+                spellcheck="false"
+                autofocus
+            >{{ barcodes_text }}</textarea>
         </section>
 
         <section class="return-jobs-section">
             <div class="form-group return-manager-field">
-                <label for="id_employee">
-                    Return to manager
-                </label>
-
-                <select
-                    name="employee"
-                    id="id_employee"
-                    class="form-control"
-                    required
-                >
-                    <option value="">
-                        Select an employee to return to:
-                    </option>
-
+                <label for="id_employee">Return to manager</label>
+                <select name="employee" id="id_employee" class="form-control" required>
+                    <option value="">Select an employee to return to:</option>
                     {% for return_employee in return_employees %}
-                        <option value="{{ return_employee.pk }}">
+                        <option
+                            value="{{ return_employee.pk }}"
+                            {% if selected_employee_id|stringformat:"s" == return_employee.pk|stringformat:"s" %}selected{% endif %}
+                        >
                             {{ return_employee }}
                             {% if return_employee.department %}
                                 — {{ return_employee.department.name }}
@@ -107,9 +54,7 @@
                 </select>
 
                 {% if not return_employees %}
-                    <p class="return-jobs-warning">
-                        No employees are available to return to.
-                    </p>
+                    <p class="return-jobs-warning">No employees are available to return to.</p>
                 {% endif %}
             </div>
         </section>
@@ -124,159 +69,5 @@
             </button>
         </div>
     </form>
-
 </div>
-
-{# Render one shared scanner overlay for every scan button. #}
-{% include "includes/barcode_scanner.html" with overlay_only=True %}
-
-{% endblock %}
-
-
-{% block extra_js %}
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-    const linesContainer = document.getElementById("return-job-lines");
-    const addLineButton = document.getElementById("add-return-job-line");
-
-    if (!linesContainer || !addLineButton) {
-        return;
-    }
-
-    let nextLineNumber = linesContainer.querySelectorAll(
-        ".return-job-line"
-    ).length + 1;
-
-    function updateLineLabels() {
-        const lines = linesContainer.querySelectorAll(".return-job-line");
-
-        lines.forEach(function (line, index) {
-            const label = line.querySelector(".return-job-label");
-
-            if (label) {
-                label.textContent = `Job ${index + 1}`;
-            }
-        });
-    }
-
-    function createReturnJobLine() {
-        const line = document.createElement("div");
-        const inputId = `return-job-${nextLineNumber}`;
-
-        line.className = "return-job-line";
-
-        line.innerHTML = `
-            <label
-                for="${inputId}"
-                class="return-job-label"
-            >
-                Job ${nextLineNumber}
-            </label>
-
-            <div class="return-job-controls">
-                <input
-                    type="text"
-                    inputmode="numeric"
-                    pattern="[0-9]*"
-                    name="jobs"
-                    id="${inputId}"
-                    class="return-job-input"
-                    placeholder="Scan or enter barcode"
-                    autocomplete="off"
-                >
-
-                <button
-                    type="button"
-                    class="btn btn-outline-secondary culet-scanner-btn js-culet-scanner-btn"
-                    data-target="${inputId}"
-                    data-auto-submit="false"
-                >
-                    📷 Scan
-                </button>
-
-                <button
-                    type="button"
-                    class="btn btn-outline-danger return-job-remove js-remove-return-line"
-                    aria-label="Remove this job line"
-                >
-                    Remove
-                </button>
-            </div>
-        `;
-
-        linesContainer.appendChild(line);
-        nextLineNumber += 1;
-
-        const newInput = line.querySelector(".return-job-input");
-
-        if (newInput) {
-            newInput.focus();
-        }
-
-        updateLineLabels();
-    }
-
-    addLineButton.addEventListener("click", function () {
-        createReturnJobLine();
-    });
-
-    linesContainer.addEventListener("click", function (event) {
-        const removeButton = event.target.closest(
-            ".js-remove-return-line"
-        );
-
-        if (!removeButton) {
-            return;
-        }
-
-        const currentLines = linesContainer.querySelectorAll(
-            ".return-job-line"
-        );
-
-        if (currentLines.length === 1) {
-            const onlyInput = currentLines[0].querySelector(
-                ".return-job-input"
-            );
-
-            if (onlyInput) {
-                onlyInput.value = "";
-                onlyInput.focus();
-            }
-
-            return;
-        }
-
-        const line = removeButton.closest(".return-job-line");
-
-        if (line) {
-            line.remove();
-            updateLineLabels();
-        }
-    });
-
-    linesContainer.addEventListener("keydown", function (event) {
-        if (
-            event.key !== "Enter" ||
-            !event.target.matches(".return-job-input")
-        ) {
-            return;
-        }
-
-        event.preventDefault();
-
-        const inputs = Array.from(
-            linesContainer.querySelectorAll(".return-job-input")
-        );
-
-        const currentIndex = inputs.indexOf(event.target);
-        const nextInput = inputs[currentIndex + 1];
-
-        if (nextInput) {
-            nextInput.focus();
-        } else if (event.target.value.trim()) {
-            createReturnJobLine();
-        }
-    });
-});
-</script>
-{% endblock %}
+{% endblock content %}

@@ -1,4 +1,6 @@
 from dataclasses import dataclass
+from datetime import timedelta
+import re
 
 from django.db import transaction
 from django.utils import timezone
@@ -17,6 +19,7 @@ from .models import (
     JobMovement,
     MovementType,
     TimeClock,
+    WorkBatch,
 )
 
 @dataclass
@@ -34,11 +37,53 @@ class ClockInResult:
     message: str = ""
 
 
+@dataclass(frozen=True)
+class ParsedBarcodeInput:
+    values: list[str]
+    duplicate_values: list[str]
+    duplicate_count: int
+
+
+def parse_barcode_input(raw_text):
+    """Parse common barcode delimiters and deduplicate in first-seen order."""
+    values = []
+    seen = set()
+    duplicate_values = []
+    duplicate_values_seen = set()
+    duplicate_count = 0
+
+    for token in re.split(r"[\s,;]+", raw_text or ""):
+        barcode = token.strip()
+        if not barcode:
+            continue
+
+        if barcode in seen:
+            duplicate_count += 1
+            if barcode not in duplicate_values_seen:
+                duplicate_values.append(barcode)
+                duplicate_values_seen.add(barcode)
+            continue
+
+        seen.add(barcode)
+        values.append(barcode)
+
+    return ParsedBarcodeInput(
+        values=values,
+        duplicate_values=duplicate_values,
+        duplicate_count=duplicate_count,
+    )
+
+
 def stop_activity(activity, stopped_at=None):
     """
     Close one Activity and synchronize Job.in_work with the remaining
     open activities for that job.
     """
+    if activity.batch_id and activity.batch.active:
+        raise ValidationError(
+            "This activity is part of an active batch. Stop the batch instead."
+        )
+
     stopped_at = stopped_at or timezone.now()
 
     activity.end = stopped_at
@@ -69,6 +114,153 @@ def stop_activity(activity, stopped_at=None):
             job.save(update_fields=["in_work", "last_updated"])
 
     return activity
+
+
+def validate_batch_jobs(*, employee, jobs, step):
+    errors = []
+    jobs = list(jobs)
+
+    if not employee.can_start_batch:
+        errors.append("You do not have permission to start batch work.")
+
+    if len(jobs) < 2:
+        errors.append("A batch must contain at least two distinct jobs.")
+    elif len({job.pk for job in jobs}) != len(jobs):
+        errors.append("A batch cannot contain the same job more than once.")
+
+    if not employee.clocked_in:
+        errors.append("Please clock in before starting batch work.")
+
+    if not employee.department or not step.departments.filter(
+        pk=employee.department_id,
+    ).exists():
+        errors.append("That activity step is not available for your department.")
+    elif step.code == "piecework":
+        errors.append("Piecework cannot be selected for batch work.")
+
+    if WorkBatch.objects.filter(employee=employee, active=True).exists():
+        errors.append("You already have an active batch.")
+
+    if Activity.objects.filter(
+        employee=employee,
+        active=True,
+        end__isnull=True,
+        batch__isnull=True,
+    ).exists():
+        errors.append("Stop your active individual work before starting a batch.")
+
+    open_job_ids = set(
+        Activity.objects.filter(
+            job_id__in=[job.pk for job in jobs],
+            active=True,
+            end__isnull=True,
+        ).values_list("job_id", flat=True)
+    )
+
+    for job in jobs:
+        identifier = job.stock_num or job.barcode
+        if not job.active:
+            errors.append(f"Job {identifier} is inactive.")
+        elif job.shipped:
+            errors.append(f"Job {identifier} has already been shipped.")
+        elif job.is_piecework:
+            errors.append(f"Job {identifier} is assigned as piecework.")
+        elif job.assigned_to_id != employee.pk:
+            errors.append(f"Job {identifier} is not assigned to you.")
+        elif job.holder_id != employee.pk:
+            errors.append(f"Job {identifier} must be received before starting work.")
+        elif job.pk in open_job_ids:
+            errors.append(f"Job {identifier} already has active work.")
+
+    return errors
+
+
+@transaction.atomic
+def start_work_batch(*, employee, jobs, step, started_at=None):
+    employee = Employee.objects.select_for_update().get(pk=employee.pk)
+    job_ids = [job.pk for job in jobs]
+    locked_jobs_by_id = {
+        job.pk: job
+        for job in Job.objects.select_for_update().filter(pk__in=job_ids)
+    }
+
+    if len(locked_jobs_by_id) != len(set(job_ids)):
+        raise ValidationError("One or more selected jobs no longer exist.")
+
+    locked_jobs = [locked_jobs_by_id[job_id] for job_id in job_ids]
+    errors = validate_batch_jobs(employee=employee, jobs=locked_jobs, step=step)
+    if errors:
+        raise ValidationError(errors)
+
+    shared_start = started_at or timezone.now()
+    batch = WorkBatch.objects.create(
+        employee=employee,
+        step=step,
+        started_at=shared_start,
+    )
+    Activity.objects.bulk_create(
+        [
+            Activity(
+                job=job,
+                employee=employee,
+                step=step,
+                name=step.name,
+                start=shared_start,
+                active=True,
+                batch=batch,
+            )
+            for job in locked_jobs
+        ]
+    )
+    Job.objects.filter(pk__in=job_ids).update(
+        in_work=True,
+        last_updated=shared_start,
+    )
+    return batch
+
+
+@transaction.atomic
+def stop_work_batch(*, batch, stopped_at=None):
+    batch = WorkBatch.objects.select_for_update().get(pk=batch.pk)
+    if not batch.active:
+        return batch
+
+    activities = list(
+        batch.activities.select_for_update()
+        .filter(active=True, end__isnull=True)
+        .order_by("pk")
+    )
+    if not activities:
+        raise ValidationError("The active batch has no open activities.")
+
+    shared_stop = stopped_at or timezone.now()
+    elapsed = shared_stop - batch.started_at
+    total_microseconds = (
+        elapsed.days * 86_400_000_000
+        + elapsed.seconds * 1_000_000
+        + elapsed.microseconds
+    )
+    if total_microseconds < 0:
+        raise ValidationError("Batch stop time cannot precede its start time.")
+
+    base_microseconds, remainder = divmod(total_microseconds, len(activities))
+    for index, activity in enumerate(activities):
+        allocated_microseconds = base_microseconds + (index < remainder)
+        activity.end = shared_stop
+        activity.duration = timedelta(microseconds=allocated_microseconds)
+        activity.active = False
+
+    Activity.objects.bulk_update(activities, ["end", "duration", "active"])
+    job_ids = [activity.job_id for activity in activities]
+    Job.objects.filter(pk__in=job_ids).update(
+        in_work=False,
+        last_updated=shared_stop,
+    )
+
+    batch.stopped_at = shared_stop
+    batch.active = False
+    batch.save(update_fields=["stopped_at", "active"])
+    return batch
 
 
 @transaction.atomic
@@ -115,6 +307,20 @@ def clock_out_employee(employee):
     """
     now = timezone.now()
 
+    active_batch = WorkBatch.objects.filter(
+        employee=employee,
+        active=True,
+    ).first()
+    batch_activity_count = 0
+    batch_job_count = 0
+    if active_batch:
+        batch_activity_count = active_batch.activities.filter(
+            active=True,
+            end__isnull=True,
+        ).count()
+        batch_job_count = batch_activity_count
+        stop_work_batch(batch=active_batch, stopped_at=now)
+
     open_clock = (
         TimeClock.objects
         .filter(employee=employee, clock_out__isnull=True)
@@ -126,10 +332,14 @@ def clock_out_employee(employee):
         employee=employee,
         active=True,
         end__isnull=True,
+        batch__isnull=True,
     )
 
-    stopped_count = 0
-    stopped_job_count = open_activities.values("job_id").distinct().count()
+    stopped_count = batch_activity_count
+    stopped_job_count = (
+        batch_job_count
+        + open_activities.values("job_id").distinct().count()
+    )
     for activity in open_activities:
         stop_activity(activity, stopped_at=now)
         stopped_count += 1

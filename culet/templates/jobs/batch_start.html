@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-container batch-start-page">
+    <div class="page-header">
+        <h1>Batch Start</h1>
+        <p>Choose one activity step and scan at least two jobs to start together.</p>
+    </div>
+
+    <form method="post" class="job-section-card batch-start-form">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+
+        <div class="form-group">
+            <label for="{{ form.step.id_for_label }}">Activity Step</label>
+            {{ form.step }}
+            {{ form.step.errors }}
+        </div>
+
+        <div class="form-group">
+            <label for="{{ form.barcodes.id_for_label }}">Job Barcodes</label>
+            {% include "includes/barcode_scanner.html" with input_id=form.barcodes.id_for_label append_mode="true" auto_submit="false" button_text="Scan Job Barcode" %}
+            {{ form.barcodes }}
+            <p class="form-help-text">
+                Use one barcode per line. Commas, semicolons, spaces, and tabs are also accepted.
+            </p>
+            {{ form.barcodes.errors }}
+        </div>
+
+        {% if review_jobs %}
+            <section class="batch-review">
+                <h2>Review {{ review_jobs|length }} Jobs</h2>
+                <ul>
+                    {% for job in review_jobs %}
+                        <li>
+                            <strong>{{ job.stock_num|default:job.barcode }}</strong>
+                            · Barcode {{ job.barcode }} · Due {{ job.due|date:"n/j/Y" }}
+                        </li>
+                    {% endfor %}
+                </ul>
+                <button type="submit" name="action" value="confirm" class="btn btn-success">
+                    Start Batch
+                </button>
+            </section>
+        {% else %}
+            <button type="submit" name="action" value="review" class="btn btn-primary">
+                Review Batch
+            </button>
+        {% endif %}
+    </form>
+</div>
+{% endblock content %}
