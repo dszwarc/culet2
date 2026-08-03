@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 
 {% block content %}
@@ -173,11 +174,13 @@
                                         </a>
 
 
-                                    {% elif job.in_work and job.active_activity %}
+                                    {% elif job.running_activity_id %}
+
+                                        {% include "includes/activity_timer.html" with job=job %}
 
                                         <form
                                             method="post"
-                                            action="{% url 'culet:stop_work' job.active_activity.id job.id %}"
+                                            action="{% url 'culet:stop_work' job.running_activity_id job.id %}"
                                         >
 
                                             {% csrf_token %}
@@ -357,11 +360,13 @@
                                 </a>
 
 
-                            {% elif job.in_work and job.active_activity %}
+                            {% elif job.running_activity_id %}
+
+                                {% include "includes/activity_timer.html" with job=job %}
 
                                 <form
                                     method="post"
-                                    action="{% url 'culet:stop_work' job.active_activity.id job.id %}"
+                                    action="{% url 'culet:stop_work' job.running_activity_id job.id %}"
                                     class="mobile-job-form"
                                 >
 
@@ -434,3 +439,7 @@
 {% endif %}
 
 {% endblock content %}
+
+{% block extra_js %}
+    <script src="{% static 'js/activity_timers.js' %}"></script>
+{% endblock extra_js %}

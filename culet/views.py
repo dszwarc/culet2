@@ -4,7 +4,7 @@ from django.template.loader import render_to_string
 import copy
 from django.db import transaction
 from django.db import models
-from django.db.models import Exists, F, Q, Max, OuterRef, Subquery, Sum, Count, Avg, ExpressionWrapper, DurationField, DateField
+from django.db.models import Exists, F, Q, Max, OuterRef, Subquery, Sum, Count, Avg, ExpressionWrapper, DurationField, DateField, DateTimeField, IntegerField, CharField, Case, When, Value
 from django.db.models.functions import TruncDate, Coalesce
 from django.views import generic
 from django.urls import reverse_lazy, reverse
@@ -480,14 +480,14 @@ class MyJobListView(
             active=True,
             end__isnull=True,
             step__code="repair",
-        )
+        ).order_by("-start", "-pk")
 
         active_activity = Activity.objects.filter(
             job=OuterRef("pk"),
             employee=employee,
             active=True,
             end__isnull=True,
-        )
+        ).order_by("-start", "-pk")
 
         return (
             Job.objects
@@ -499,13 +499,61 @@ class MyJobListView(
             .annotate(
                 has_active_work=Exists(active_activity),
                 has_active_repair=Exists(active_repair_activity),
+                active_repair_start=Subquery(
+                    active_repair_activity.values("start")[:1],
+                    output_field=DateTimeField(),
+                ),
+                active_repair_id=Subquery(
+                    active_repair_activity.values("pk")[:1],
+                    output_field=IntegerField(),
+                ),
+                active_work_start=Subquery(
+                    active_activity.values("start")[:1],
+                    output_field=DateTimeField(),
+                ),
+                active_work_id=Subquery(
+                    active_activity.values("pk")[:1],
+                    output_field=IntegerField(),
+                ),
+            )
+            .annotate(
+                # Repair wins if inconsistent legacy data contains more than
+                # one open activity for the employee and job.
+                running_start=Case(
+                    When(
+                        active_repair_start__isnull=False,
+                        then=F("active_repair_start"),
+                    ),
+                    default=F("active_work_start"),
+                    output_field=DateTimeField(),
+                ),
+                running_activity_id=Case(
+                    When(
+                        active_repair_id__isnull=False,
+                        then=F("active_repair_id"),
+                    ),
+                    default=F("active_work_id"),
+                    output_field=IntegerField(),
+                ),
+                running_timer_type=Case(
+                    When(
+                        active_repair_start__isnull=False,
+                        then=Value("repair"),
+                    ),
+                    When(
+                        active_work_start__isnull=False,
+                        then=Value("normal"),
+                    ),
+                    default=Value(""),
+                    output_field=CharField(),
+                ),
             )
             .filter(
                 Q(assigned_to=employee)
                 | Q(has_active_repair=True),
             )
-            .prefetch_related(
-                "activity_set",
+            .select_related(
+                "style",
             )
             .order_by(
                 "-has_active_repair",

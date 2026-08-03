@@ -1609,6 +1609,35 @@ form:not(td form) {
     text-transform: uppercase;
 }
 
+.activity-timer-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 7.75rem;
+    margin: 0 0.5rem 0.35rem 0;
+    padding: 0.3rem 0.55rem;
+    border: 1px solid currentColor;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1;
+    vertical-align: middle;
+}
+
+.activity-timer-label {
+    opacity: 0.75;
+}
+
+.activity-timer {
+    min-width: 3.5rem;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.mobile-job-action .activity-timer-status {
+    flex: 0 0 auto;
+}
+
 .mobile-job-card-repair {
     background-color: #fff1f1;
     border-color: #dda3a3;

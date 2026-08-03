@@ -1,0 +1,12 @@
+{% if job.running_start %}
+    <span class="activity-timer-status">
+        <span class="activity-timer-label">Running</span>
+        <span
+            class="activity-timer"
+            data-start-time="{{ job.running_start|date:'c' }}"
+            data-timer-type="{{ job.running_timer_type }}"
+            role="timer"
+            aria-label="Elapsed work time"
+        >00:00</span>
+    </span>
+{% endif %}
