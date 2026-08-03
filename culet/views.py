@@ -1914,6 +1914,32 @@ class AssignJobView(
 ):
     template_name = "jobs/assign.html"
 
+    @staticmethod
+    def parse_barcodes(jobs_text):
+        """Return normalized barcodes in first-seen order and repeat count."""
+        parsed_barcodes = [
+            barcode.strip()
+            for barcode in re.split(
+                r"[\s,;]+",
+                jobs_text,
+            )
+            if barcode.strip()
+        ]
+
+        unique_barcodes = []
+        seen_barcodes = set()
+        duplicate_barcode_count = 0
+
+        for barcode in parsed_barcodes:
+            if barcode in seen_barcodes:
+                duplicate_barcode_count += 1
+                continue
+
+            seen_barcodes.add(barcode)
+            unique_barcodes.append(barcode)
+
+        return unique_barcodes, duplicate_barcode_count
+
     def get_employees(self):
         return (
             Employee.objects
@@ -2018,14 +2044,10 @@ class AssignJobView(
         # - tabs
         # - commas
         # - semicolons
-        submitted_barcodes = [
-            barcode.strip()
-            for barcode in re.split(
-                r"[\s,;]+",
-                jobs_text,
-            )
-            if barcode.strip()
-        ]
+        (
+            submitted_barcodes,
+            duplicate_barcode_count,
+        ) = self.parse_barcodes(jobs_text)
 
         redirect_url = reverse(
             "culet:assign_job",
@@ -2101,41 +2123,6 @@ class AssignJobView(
                     (
                         "Please enter at least one "
                         "job barcode."
-                    ),
-                )
-
-                return self.render_form_with_errors(
-                    request,
-                    jobs_text=jobs_text,
-                    selected_employee_id=employee_id,
-                )
-
-            barcode_counts = Counter(
-                submitted_barcodes,
-            )
-
-            duplicate_barcodes = sorted(
-                barcode
-                for barcode, count
-                in barcode_counts.items()
-                if count > 1
-            )
-
-            if duplicate_barcodes:
-                barcode_word = (
-                    "barcode"
-                    if len(duplicate_barcodes) == 1
-                    else "barcodes"
-                )
-
-                messages.error(
-                    request,
-                    (
-                        f"The following {barcode_word} "
-                        "were entered more than once: "
-                        + ", ".join(
-                            duplicate_barcodes,
-                        )
                     ),
                 )
 
@@ -2327,11 +2314,24 @@ class AssignJobView(
                 else "jobs"
             )
 
+            repeated_barcode_message = ""
+
+            if duplicate_barcode_count:
+                repeated_barcode_word = (
+                    "barcode"
+                    if duplicate_barcode_count == 1
+                    else "barcodes"
+                )
+                repeated_barcode_message = (
+                    f", {duplicate_barcode_count} repeated "
+                    f"{repeated_barcode_word} ignored"
+                )
+
             messages.success(
                 request,
                 (
                     f"{assigned_count} {job_word} "
-                    f"assigned to {employee}."
+                    f"assigned{repeated_barcode_message}."
                 ),
             )
         else:
