@@ -3813,12 +3813,25 @@ class JobWeightLookupView(LoginRequiredMixin, generic.FormView):
         barcode = form.cleaned_data.get("barcode")
         stock_num = form.cleaned_data.get("stock_num")
 
-        job = None
+        if barcode is not None and stock_num:
+            barcode_job = Job.objects.filter(barcode=barcode).first()
+            stock_num_job = Job.objects.filter(stock_num=stock_num).first()
 
-        if barcode:
+            if not barcode_job or not stock_num_job:
+                form.add_error(None, "No job found with the provided number.")
+                return self.form_invalid(form)
+
+            if barcode_job != stock_num_job:
+                form.add_error(
+                    None,
+                    "The barcode and stock number do not belong to the same job.",
+                )
+                return self.form_invalid(form)
+
+            job = barcode_job
+        elif barcode is not None:
             job = Job.objects.filter(barcode=barcode).first()
-
-        if not job and stock_num:
+        else:
             job = Job.objects.filter(stock_num=stock_num).first()
 
         if not job:

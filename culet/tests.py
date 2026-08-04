@@ -21,7 +21,7 @@ from .models import (
     Style,
     WorkBatch,
 )
-from .forms import BatchStartForm
+from .forms import BatchStartForm, JobWeightLookupForm
 from .services import (
     clock_out_employee,
     start_work_batch,
@@ -30,6 +30,118 @@ from .services import (
     parse_barcode_input,
 )
 from .views import MyJobListView
+
+
+class JobWeightLookupTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="weight-user", password="test")
+        self.customer = Customer.objects.create(
+            name="Weight Customer",
+            address="1 Scale Way",
+            email="weights@example.com",
+            phone="555-0199",
+        )
+        self.style = Style.objects.create(name="WEIGHT-STYLE", customer=self.customer)
+        self.url = reverse("culet:job_weight_lookup")
+        self.client.force_login(self.user)
+
+    def make_job(self, barcode, stock_num):
+        return Job.objects.create(
+            name="Weight Job",
+            barcode=barcode,
+            stock_num=stock_num,
+            style=self.style,
+            due=timezone.localdate() + timedelta(days=7),
+        )
+
+    def test_form_accepts_either_identifier_and_normalizes_stock_number(self):
+        barcode_form = JobWeightLookupForm({"barcode": " 123456 ", "stock_num": ""})
+        self.assertTrue(barcode_form.is_valid())
+        self.assertEqual(barcode_form.cleaned_data["barcode"], 123456)
+
+        stock_form = JobWeightLookupForm({"barcode": "", "stock_num": "  JOB-42  "})
+        self.assertTrue(stock_form.is_valid())
+        self.assertEqual(stock_form.cleaned_data["stock_num"], "JOB-42")
+
+    def test_form_fields_are_individually_optional_but_both_blank_is_invalid(self):
+        form = JobWeightLookupForm({"barcode": "", "stock_num": "  "})
+        self.assertFalse(form.fields["barcode"].required)
+        self.assertFalse(form.fields["stock_num"].required)
+        self.assertFalse(form.is_valid())
+        self.assertEqual(
+            form.non_field_errors(),
+            ["Enter a barcode or stock number."],
+        )
+
+    def test_get_renders_optional_fields_with_barcode_autofocus(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        form = response.context["form"]
+        self.assertIn("autofocus", form["barcode"].as_widget())
+        self.assertNotIn("autofocus", form["stock_num"].as_widget())
+        self.assertNotIn("required", form["barcode"].as_widget())
+        self.assertNotIn("required", form["stock_num"].as_widget())
+        self.assertContains(response, "Scan a barcode or enter a stock number")
+
+    def test_barcode_only_finds_job(self):
+        job = self.make_job(123456, "WEIGHT-1")
+        response = self.client.post(self.url, {"barcode": job.barcode, "stock_num": ""})
+        self.assertRedirects(
+            response,
+            reverse("culet:job_weight_create", args=[job.pk]),
+        )
+
+    def test_stock_number_only_finds_job(self):
+        job = self.make_job(123457, "WEIGHT-2")
+        response = self.client.post(self.url, {"barcode": "", "stock_num": job.stock_num})
+        self.assertRedirects(
+            response,
+            reverse("culet:job_weight_create", args=[job.pk]),
+        )
+
+    def test_matching_identifiers_find_job(self):
+        job = self.make_job(123458, "WEIGHT-3")
+        response = self.client.post(
+            self.url,
+            {"barcode": job.barcode, "stock_num": job.stock_num},
+        )
+        self.assertRedirects(
+            response,
+            reverse("culet:job_weight_create", args=[job.pk]),
+        )
+
+    def test_mismatched_identifiers_are_rejected_and_values_preserved(self):
+        first = self.make_job(123459, "WEIGHT-4")
+        second = self.make_job(123460, "WEIGHT-5")
+        response = self.client.post(
+            self.url,
+            {"barcode": first.barcode, "stock_num": second.stock_num},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            "The barcode and stock number do not belong to the same job.",
+        )
+        self.assertContains(response, str(first.barcode))
+        self.assertContains(response, second.stock_num)
+
+    def test_unknown_and_empty_submissions_redisplay_errors(self):
+        unknown = self.client.post(
+            self.url,
+            {"barcode": "999999", "stock_num": ""},
+        )
+        self.assertEqual(unknown.status_code, 200)
+        self.assertContains(unknown, "No job found with the provided number.")
+        self.assertContains(unknown, "999999")
+
+        empty = self.client.post(self.url, {"barcode": "", "stock_num": ""})
+        self.assertEqual(empty.status_code, 200)
+        self.assertContains(empty, "Enter a barcode or stock number.")
+
+    def test_login_is_required(self):
+        self.client.logout()
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 302)
 
 
 class MyJobsRunningTimerTests(TestCase):

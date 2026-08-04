@@ -340,8 +340,19 @@ class BulkJobShipForm(forms.Form):
         return cleaned_data
 
 class JobWeightLookupForm(forms.Form):
-    barcode = forms.IntegerField(required=False, label="Barcode")
+    barcode = forms.IntegerField(
+        required=False,
+        label="Barcode",
+        widget=forms.NumberInput(
+            attrs={
+                "class": "form-control",
+                "autocomplete": "off",
+                "autofocus": True,
+            },
+        ),
+    )
     stock_num = forms.CharField(
+        required=False,
         label="Stock Number",
         max_length=255,
         strip=True,
@@ -355,10 +366,11 @@ class JobWeightLookupForm(forms.Form):
     def clean(self):
         cleaned_data = super().clean()
         barcode = cleaned_data.get("barcode")
-        stock_num = cleaned_data.get("stock_num")
+        stock_num = (cleaned_data.get("stock_num") or "").strip()
+        cleaned_data["stock_num"] = stock_num
 
-        if not barcode and not stock_num:
-            raise ValidationError("Enter either a barcode number or a stock number.")
+        if barcode is None and not stock_num:
+            raise ValidationError("Enter a barcode or stock number.")
 
         return cleaned_data
 

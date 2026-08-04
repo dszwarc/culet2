@@ -11,31 +11,6 @@
         {% csrf_token %}
 
         <section class="return-jobs-section">
-            <div class="return-jobs-section-header">
-                <h2>Jobs</h2>
-                <p>Use the camera, a USB scanner, or enter each barcode manually.</p>
-            </div>
-
-            <label for="id_return_barcodes" class="return-job-label">
-                Job Barcodes
-            </label>
-
-            {% include "includes/barcode_scanner.html" with input_id="id_return_barcodes" append_mode="true" auto_submit="false" button_text="Scan Job Barcode" %}
-
-            <textarea
-                name="barcodes"
-                id="id_return_barcodes"
-                class="form-control barcode-entry-textarea"
-                rows="10"
-                placeholder="Scan or enter one job barcode per line"
-                autocomplete="off"
-                autocapitalize="off"
-                spellcheck="false"
-                autofocus
-            >{{ barcodes_text }}</textarea>
-        </section>
-
-        <section class="return-jobs-section">
             <div class="form-group return-manager-field">
                 <label for="id_employee">Return to manager</label>
                 <select name="employee" id="id_employee" class="form-control" required>
@@ -68,6 +43,31 @@
                 Return Jobs
             </button>
         </div>
+        <section class="return-jobs-section">
+            <div class="return-jobs-section-header">
+                <h2>Jobs</h2>
+                <p>Use the camera, a USB scanner, or enter each barcode manually.</p>
+            </div>
+
+            <label for="id_return_barcodes" class="return-job-label">
+                Job Barcodes
+            </label>
+
+            {% include "includes/barcode_scanner.html" with input_id="id_return_barcodes" append_mode="true" auto_submit="false" button_text="Scan Job Barcode" %}
+
+            <textarea
+                name="barcodes"
+                id="id_return_barcodes"
+                class="form-control barcode-entry-textarea"
+                rows="10"
+                placeholder="Scan or enter one job barcode per line"
+                autocomplete="off"
+                autocapitalize="off"
+                spellcheck="false"
+                autofocus
+            >{{ barcodes_text }}</textarea>
+        </section>
+
     </form>
 </div>
 {% endblock content %}
