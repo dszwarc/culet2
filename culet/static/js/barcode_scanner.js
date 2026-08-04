@@ -1,7 +1,8 @@
 let culetScanner = null;
 let culetScannerInput = null;
 let culetScannerAutoSubmit = false;
-let culetScannerAppendMode = false;
+let culetScannerMode = "replace";
+let culetScannerScanAccepted = false;
 let culetScannerLastBarcode = "";
 let culetScannerLastScanAt = 0;
 
@@ -23,13 +24,49 @@ function appendBarcodeToTextarea(textarea, barcode) {
     return true;
 }
 
+function replaceBarcodeValue(input, barcode) {
+    const normalizedBarcode = String(barcode || "").trim();
+
+    if (!normalizedBarcode) return false;
+
+    input.value = normalizedBarcode;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    return true;
+}
+
+function restoreScannerTargetFocus(target) {
+    if (!target || target.type === "hidden") return;
+
+    target.focus();
+
+    const supportsTextSelection =
+        target.tagName === "TEXTAREA" ||
+        (
+            target.tagName === "INPUT" &&
+            ["text", "search", "tel", "url", "password", "email"].includes(target.type)
+        );
+
+    if (!supportsTextSelection) return;
+
+    try {
+        const end = target.value.length;
+        target.setSelectionRange(end, end);
+    } catch (err) {
+        // Focus restoration must never block scanner cleanup or submission.
+    }
+}
+
 document.addEventListener("click", async function (e) {
     const scanButton = e.target.closest(".js-culet-scanner-btn");
     if (!scanButton) return;
 
     culetScannerInput = document.getElementById(scanButton.dataset.target);
     culetScannerAutoSubmit = scanButton.dataset.autoSubmit === "true";
-    culetScannerAppendMode = scanButton.dataset.appendMode === "true";
+    culetScannerMode = scanButton.dataset.scannerMode || (
+        scanButton.dataset.appendMode === "true" ? "append-lines" : "replace"
+    );
+    culetScannerScanAccepted = false;
 
     if (!culetScannerInput) {
         alert("Scanner target input was not found.");
@@ -77,7 +114,7 @@ document.addEventListener("click", async function (e) {
                 const normalizedBarcode = String(decodedText || "").trim();
                 if (!normalizedBarcode) return;
 
-                if (culetScannerAppendMode) {
+                if (culetScannerMode === "append-lines") {
                     const now = Date.now();
                     if (
                         normalizedBarcode === culetScannerLastBarcode &&
@@ -97,16 +134,20 @@ document.addEventListener("click", async function (e) {
                     return;
                 }
 
-                culetScannerInput.value = normalizedBarcode;
-                culetScannerInput.dispatchEvent(
-                    new Event("input", { bubbles: true })
-                );
+                if (culetScannerScanAccepted) return;
+                culetScannerScanAccepted = true;
 
-                await stopCuletScanner();
+                const targetInput = culetScannerInput;
+                const targetForm = targetInput.form;
+                const shouldAutoSubmit = culetScannerAutoSubmit;
 
-                if (culetScannerAutoSubmit && culetScannerInput.form) {
-                    culetScannerInput.form.requestSubmit();
+                replaceBarcodeValue(targetInput, normalizedBarcode);
+
+                if (shouldAutoSubmit && targetForm) {
+                    targetForm.requestSubmit();
                 }
+
+                await stopCuletScanner({ restoreFocus: false });
             }
         );
     } catch (err) {
@@ -121,7 +162,7 @@ document.addEventListener("click", async function (e) {
     }
 });
 
-async function stopCuletScanner() {
+async function stopCuletScanner({ restoreFocus = true } = {}) {
     const overlay = document.getElementById("culet-scanner-overlay");
 
     if (culetScanner) {
@@ -142,11 +183,13 @@ async function stopCuletScanner() {
         overlay.classList.remove("is-active");
     }
 
-    if (culetScannerInput) {
-        culetScannerInput.focus();
-        if (typeof culetScannerInput.setSelectionRange === "function") {
-            const end = culetScannerInput.value.length;
-            culetScannerInput.setSelectionRange(end, end);
-        }
+    if (restoreFocus) {
+        restoreScannerTargetFocus(culetScannerInput);
     }
 }
+
+window.CuletBarcodeScanner = {
+    appendBarcodeToTextarea,
+    replaceBarcodeValue,
+    restoreScannerTargetFocus
+};

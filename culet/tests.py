@@ -153,6 +153,21 @@ class MyJobsRunningTimerTests(TestCase):
         self.assertContains(response, job.stock_num)
         self.assertNotContains(response, 'class="activity-timer"')
 
+    def test_scan_to_start_uses_replace_mode_and_auto_submit(self):
+        self.make_job()
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("culet:my_jobs"))
+        content = response.content.decode()
+
+        self.assertContains(response, "Scan to Start")
+        self.assertContains(response, 'name="barcode"', count=1)
+        self.assertContains(response, 'id="scan-to-start-barcode"', count=1)
+        self.assertContains(response, 'data-target="scan-to-start-barcode"')
+        self.assertContains(response, 'data-scanner-mode="replace"')
+        self.assertContains(response, 'data-append-mode="false"')
+        self.assertContains(response, 'data-auto-submit="true"')
+        self.assertEqual(content.count('id="culet-scanner-overlay"'), 1)
+
     def test_repair_precedes_normal_if_conflicting_activities_exist(self):
         job = self.make_job()
         normal = Activity.objects.create(
@@ -194,6 +209,149 @@ class MyJobsRunningTimerTests(TestCase):
         with self.assertNumQueries(1):
             results = list(view.get_queryset())
             self.assertEqual(len(results), 6)
+
+
+class ScanToStartRegressionTests(TestCase):
+    def setUp(self):
+        self.department = Department.objects.create(name="Scan Production")
+        self.role = Role.objects.create(name="Scan Worker")
+        self.user = User.objects.create_user(username="scanner", password="test")
+        self.employee = Employee.objects.create(
+            user=self.user,
+            department=self.department,
+            role=self.role,
+            clocked_in=True,
+            can_start_batch=True,
+            must_change_password=False,
+        )
+        self.customer = Customer.objects.create(
+            name="Scan Customer",
+            address="1 Scan Way",
+            email="scan@example.com",
+            phone="555-0166",
+        )
+        self.style = Style.objects.create(name="SCAN-STYLE", customer=self.customer)
+        self.step = ActivityStep.objects.create(name="Scan Assembly", code="scan-assm")
+        self.step.departments.add(self.department)
+        self.scan_url = reverse("culet:scan_to_start")
+        self.client.force_login(self.user)
+
+    def make_job(self, suffix="1", **overrides):
+        values = {
+            "name": "Scan Job",
+            "stock_num": f"SCAN-{suffix}",
+            "style": self.style,
+            "due": timezone.localdate() + timedelta(days=5),
+            "assigned_to": self.employee,
+            "holder": self.employee,
+        }
+        values.update(overrides)
+        return Job.objects.create(**values)
+
+    @staticmethod
+    def response_messages(response):
+        return [str(message) for message in get_messages(response.wsgi_request)]
+
+    def test_scanned_whitespace_and_trailing_newline_redirect_to_step_selection(self):
+        job = self.make_job()
+        response = self.client.post(
+            self.scan_url,
+            {"barcode": f"  {job.barcode}\n"},
+        )
+        self.assertRedirects(
+            response,
+            reverse("culet:job_start", args=[job.pk]),
+            fetch_redirect_response=False,
+        )
+
+        step_page = self.client.get(response.url)
+        self.assertEqual(step_page.status_code, 200)
+        self.assertContains(step_page, job.name)
+        self.assertContains(step_page, self.step.name)
+
+    def test_complete_scan_workflow_creates_activity_through_start_view(self):
+        job = self.make_job()
+        scan_response = self.client.post(self.scan_url, {"barcode": job.barcode})
+
+        response = self.client.post(
+            scan_response.url,
+            {"step": self.step.pk},
+        )
+
+        self.assertRedirects(response, reverse("culet:my_jobs"))
+        activity = Activity.objects.get(job=job)
+        self.assertEqual(activity.employee, self.employee)
+        self.assertEqual(activity.step, self.step)
+        self.assertTrue(activity.active)
+        self.assertIsNone(activity.end)
+
+    def test_blank_and_unknown_scans_return_clear_errors(self):
+        blank = self.client.post(self.scan_url, {"barcode": " \n "})
+        self.assertRedirects(blank, reverse("culet:my_jobs"))
+        self.assertIn(
+            "Please scan or enter a job barcode.",
+            self.response_messages(blank),
+        )
+
+        unknown = self.client.post(self.scan_url, {"barcode": "999999"})
+        self.assertRedirects(unknown, reverse("culet:my_jobs"))
+        self.assertIn(
+            "Barcode 999999 was not found in your assigned jobs.",
+            self.response_messages(unknown),
+        )
+
+    def test_scan_preserves_shipped_and_holder_validation(self):
+        shipped = self.make_job("SHIPPED", shipped=True)
+        shipped_scan = self.client.post(self.scan_url, {"barcode": shipped.barcode})
+        shipped_result = self.client.get(shipped_scan.url)
+        self.assertRedirects(shipped_result, reverse("culet:my_jobs"))
+        self.assertIn("This job has already been shipped.", self.response_messages(shipped_result))
+
+        other_user = User.objects.create_user(username="scan-holder")
+        other_employee = Employee.objects.create(user=other_user)
+        wrong_holder = self.make_job("HOLDER", holder=other_employee)
+        holder_scan = self.client.post(self.scan_url, {"barcode": wrong_holder.barcode})
+        holder_result = self.client.get(holder_scan.url)
+        self.assertRedirects(holder_result, reverse("culet:my_jobs"))
+        self.assertIn(
+            "You must receive this job before starting work.",
+            self.response_messages(holder_result),
+        )
+
+    def test_active_work_is_rejected_during_start_submission(self):
+        job = self.make_job()
+        Activity.objects.create(
+            job=job,
+            employee=self.employee,
+            step=self.step,
+        )
+        scan_response = self.client.post(self.scan_url, {"barcode": job.barcode})
+        response = self.client.post(scan_response.url, {"step": self.step.pk})
+        self.assertRedirects(response, reverse("culet:my_jobs"))
+        self.assertEqual(Activity.objects.filter(job=job).count(), 1)
+        self.assertIn(
+            f"Job {job.barcode} is already in work.",
+            self.response_messages(response),
+        )
+
+    def test_active_batch_blocks_scanned_individual_start(self):
+        jobs = [self.make_job("BATCH-1"), self.make_job("BATCH-2")]
+        batch = start_work_batch(
+            employee=self.employee,
+            jobs=jobs,
+            step=self.step,
+        )
+        extra_job = self.make_job("EXTRA")
+
+        scan_response = self.client.post(self.scan_url, {"barcode": extra_job.barcode})
+        response = self.client.get(scan_response.url)
+
+        self.assertRedirects(response, reverse("culet:my_jobs"))
+        self.assertTrue(WorkBatch.objects.get(pk=batch.pk).active)
+        self.assertIn(
+            "Stop your active batch before starting individual work.",
+            self.response_messages(response),
+        )
 
 
 class AssignJobDuplicateBarcodeTests(TestCase):
@@ -278,6 +436,7 @@ class AssignJobDuplicateBarcodeTests(TestCase):
         self.assertContains(response, 'name="jobs_text"', count=1)
         self.assertContains(response, 'data-target="id_jobs_text"')
         self.assertContains(response, 'data-append-mode="true"')
+        self.assertContains(response, 'data-scanner-mode="append-lines"')
         self.assertContains(response, 'data-auto-submit="false"')
         self.assertContains(response, 'type="button"')
         self.assertContains(response, 'id="department-option-grid"')
@@ -576,6 +735,7 @@ class WorkBatchTests(TestCase):
         self.assertContains(batch_page, 'name="barcodes"', count=1)
         self.assertContains(batch_page, 'data-target="id_barcodes"')
         self.assertContains(batch_page, 'data-append-mode="true"')
+        self.assertContains(batch_page, 'data-scanner-mode="append-lines"')
         self.assertContains(batch_page, 'data-auto-submit="false"')
         self.assertContains(self.client.get(reverse("culet:home")), "Batch Start")
 
@@ -761,6 +921,7 @@ class ReturnJobsTextareaTests(TestCase):
         self.assertContains(response, 'type="button"', count=2)
         self.assertContains(response, 'data-target="id_return_barcodes"')
         self.assertContains(response, 'data-append-mode="true"')
+        self.assertContains(response, 'data-scanner-mode="append-lines"')
         self.assertContains(response, 'data-auto-submit="false"')
         self.assertNotContains(response, "form-TOTAL_FORMS")
         self.assertNotContains(response, "add-return-job-line")
