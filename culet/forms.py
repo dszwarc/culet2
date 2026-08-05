@@ -1232,6 +1232,14 @@ class StyleStepTimeReportForm(forms.Form):
     )
 
 class PieceworkMemoCreateForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["assigned_to"].queryset = (
+            Employee.objects.filter(active=True, user__is_active=True)
+            .select_related("user")
+            .order_by("user__last_name", "user__first_name", "user__username")
+        )
+
     class Meta:
         model = PieceworkMemo
         fields = ["assigned_to", "due_back", "notes"]

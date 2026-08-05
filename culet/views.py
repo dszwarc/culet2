@@ -263,12 +263,12 @@ def get_employee(user):
 def find_job_by_scan(scan):
     scan = scan.strip()
 
-    query = Q(barcode=scan)
+    query = Q()
 
     job_field_names = {field.name for field in Job._meta.get_fields()}
 
-    if "barcode" in job_field_names:
-        query |= Q(barcode=scan)
+    if "barcode" in job_field_names and scan.isdecimal():
+        query |= Q(barcode=int(scan))
 
     if "stock_num" in job_field_names:
         query |= Q(stock_num=scan)
@@ -686,10 +686,8 @@ class MyPieceworkListView(
         return (
             Job.objects
             .filter(
-                assigned_to=employee,
-                is_piecework=True,
-                shipped=False,
-                active=True,
+                pieceworkmemoline__memo__assigned_to=employee,
+                pieceworkmemoline__memo__returned_at__isnull=True,
             )
             .select_related(
                 "style",
@@ -697,6 +695,9 @@ class MyPieceworkListView(
                 "assigned_to",
                 "holder",
                 "status",
+            )
+            .prefetch_related(
+                "pieceworkmemoline_set__memo",
             )
             .annotate(
                 piecework_return_date=Subquery(
@@ -717,6 +718,7 @@ class MyPieceworkListView(
                 ),
                 "stock_num",
             )
+            .distinct()
         )
 
 class ReceiveListView(LoginRequiredMixin, generic.ListView):
@@ -5789,25 +5791,8 @@ class PieceworkCreateView(
                 ),
             )
 
-        piecework_location, created = (
-            Location.objects.get_or_create(
-                name="Piecework",
-                defaults={
-                    "active": True,
-                },
-            )
-        )
-
-        from_location, created = (
-            Location.objects.get_or_create(
-                name="Office",
-                defaults={
-                    "active": True,
-                },
-            )
-        )
-
-        missing_scans = []
+        validation_errors = []
+        duplicate_scans = []
         seen_job_ids = set()
 
         # Store the scan used for each resolved job so
@@ -5818,13 +5803,13 @@ class PieceworkCreateView(
             job = find_job_by_scan(scan)
 
             if not job:
-                missing_scans.append(
+                validation_errors.append(
                     f"{scan} - job not found",
                 )
                 continue
 
             if job.pk in seen_job_ids:
-                missing_scans.append(
+                duplicate_scans.append(
                     f"{scan} - duplicate scan",
                 )
                 continue
@@ -5852,11 +5837,6 @@ class PieceworkCreateView(
             item["job_id"]
             for item in resolved_jobs
         ]
-
-        scan_by_job_id = {
-            item["job_id"]: item["scan"]
-            for item in resolved_jobs
-        }
 
         # Lock the jobs before validating piecework status.
         # Every piecework creation path should lock Job rows
@@ -5899,19 +5879,19 @@ class PieceworkCreateView(
             job = locked_jobs.get(job_id)
 
             if job is None:
-                missing_scans.append(
+                validation_errors.append(
                     f"{scan} - job no longer exists",
                 )
                 continue
 
             if not job.active:
-                missing_scans.append(
+                validation_errors.append(
                     f"{scan} - inactive",
                 )
                 continue
 
             if job.shipped:
-                missing_scans.append(
+                validation_errors.append(
                     f"{scan} - already shipped",
                 )
                 continue
@@ -5921,7 +5901,7 @@ class PieceworkCreateView(
             )
 
             if open_line:
-                missing_scans.append(
+                validation_errors.append(
                     (
                         f"{scan} - already on open "
                         f"piecework memo "
@@ -5934,7 +5914,7 @@ class PieceworkCreateView(
             # piecework. Do not silently overwrite inconsistent
             # data.
             if job.is_piecework:
-                missing_scans.append(
+                validation_errors.append(
                     (
                         f"{scan} - marked as piecework, "
                         "but no open piecework memo was found; "
@@ -5954,7 +5934,7 @@ class PieceworkCreateView(
             )
 
             if has_open_activity:
-                missing_scans.append(
+                validation_errors.append(
                     (
                         f"{scan} - currently being "
                         "worked on"
@@ -5964,16 +5944,11 @@ class PieceworkCreateView(
 
             found_jobs.append(job)
 
-        if not found_jobs:
-            error_message = (
-                "No valid jobs were found."
-            )
+        if validation_errors or not found_jobs:
+            error_message = "No piecework memo was created."
 
-            if missing_scans:
-                error_message += (
-                    " "
-                    + ", ".join(missing_scans)
-                )
+            if validation_errors:
+                error_message += " " + ", ".join(validation_errors)
 
             messages.error(
                 request,
@@ -5983,6 +5958,17 @@ class PieceworkCreateView(
             return redirect(
                 "culet:piecework_create",
             )
+
+        # Reference rows are resolved only after every requested job has
+        # passed validation. They remain part of this atomic transaction.
+        piecework_location, _ = Location.objects.get_or_create(
+            name="Piecework",
+            defaults={"active": True},
+        )
+        from_location, _ = Location.objects.get_or_create(
+            name="Office",
+            defaults={"active": True},
+        )
 
         memo = memo_form.save(
             commit=False,
@@ -6034,12 +6020,12 @@ class PieceworkCreateView(
                 ],
             )
 
-        if missing_scans:
+        if duplicate_scans:
             messages.warning(
                 request,
                 (
                     "Some scans were skipped: "
-                    + ", ".join(missing_scans)
+                    + ", ".join(duplicate_scans)
                 ),
             )
 

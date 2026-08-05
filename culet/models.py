@@ -1191,6 +1191,14 @@ class PieceworkMemoLine(models.Model):
     job = models.ForeignKey(Job, on_delete=models.PROTECT)
     notes = models.CharField(max_length=255, blank=True)
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["memo", "job"],
+                name="unique_job_per_piecework_memo",
+            ),
+        ]
+
 
 
 

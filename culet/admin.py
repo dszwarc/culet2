@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.db.models import Q
 
 from .models import (
     MovementType,
@@ -48,6 +49,25 @@ from .models import (
     Vendor,
     WorkBatch,
 )
+
+
+class NumericSearchAdminMixin:
+    """Add exact integer searches without passing text into integer fields."""
+
+    numeric_search_fields = ()
+
+    def get_search_results(self, request, queryset, search_term):
+        base_queryset = queryset
+        queryset, may_have_duplicates = super().get_search_results(
+            request, queryset, search_term
+        )
+        normalized = search_term.strip()
+        if normalized.isdecimal():
+            numeric_query = Q()
+            for field_name in self.numeric_search_fields:
+                numeric_query |= Q(**{field_name: int(normalized)})
+            queryset |= base_queryset.filter(numeric_query)
+        return queryset, may_have_duplicates
 
 
 # -----------------------------------------------------------------------------
@@ -128,6 +148,8 @@ class EmployeeAdmin(admin.ModelAdmin):
         "department",
         "role",
         "can_qc",
+        "can_inprocess_repair",
+        "can_receive_returned_jobs",
         "can_start_batch",
         "clocked_in",
         "must_change_password",
@@ -144,6 +166,8 @@ class EmployeeAdmin(admin.ModelAdmin):
         "department",
         "role",
         "can_qc",
+        "can_inprocess_repair",
+        "can_receive_returned_jobs",
         "can_start_batch",
         "clocked_in",
         "must_change_password",
@@ -187,16 +211,18 @@ class TimeClockAdmin(admin.ModelAdmin):
 
 
 @admin.register(Customer)
-class CustomerAdmin(admin.ModelAdmin):
+class CustomerAdmin(NumericSearchAdminMixin, admin.ModelAdmin):
     list_display = ("name", "number", "email", "phone")
-    search_fields = ("name", "=number", "email", "phone", "address")
+    search_fields = ("name", "email", "phone", "address")
+    numeric_search_fields = ("number",)
     ordering = ("name",)
 
 
 @admin.register(Vendor)
-class VendorAdmin(admin.ModelAdmin):
+class VendorAdmin(NumericSearchAdminMixin, admin.ModelAdmin):
     list_display = ("name", "number", "email", "phone")
-    search_fields = ("name", "=number", "email", "phone", "address")
+    search_fields = ("name", "email", "phone", "address")
+    numeric_search_fields = ("number",)
     ordering = ("name",)
 
 
@@ -304,7 +330,7 @@ class FindingStockAdmin(admin.ModelAdmin):
 
 
 @admin.register(Job)
-class JobAdmin(admin.ModelAdmin):
+class JobAdmin(NumericSearchAdminMixin, admin.ModelAdmin):
     list_display = (
         "barcode",
         "stock_num",
@@ -322,7 +348,6 @@ class JobAdmin(admin.ModelAdmin):
         "is_repair",
     )
     search_fields = (
-        "=barcode",
         "stock_num",
         "name",
         "style__name",
@@ -337,6 +362,7 @@ class JobAdmin(admin.ModelAdmin):
         "location__name",
         "status__name",
     )
+    numeric_search_fields = ("barcode",)
     list_filter = (
         "active",
         "shipped",
@@ -969,16 +995,16 @@ class PieceworkMemoAdmin(admin.ModelAdmin):
 
 
 @admin.register(PieceworkMemoLine)
-class PieceworkMemoLineAdmin(admin.ModelAdmin):
+class PieceworkMemoLineAdmin(NumericSearchAdminMixin, admin.ModelAdmin):
     list_display = ("memo", "job", "notes")
     search_fields = (
         "memo__memo_num",
         "job__stock_num",
-        "=job__barcode",
         "job__style__name",
         "job__customer__name",
         "notes",
     )
+    numeric_search_fields = ("job__barcode",)
     list_filter = ("memo__assigned_to", "memo__created_at", "memo__returned_at")
     autocomplete_fields = ("memo", "job")
     ordering = ("-memo__created_at", "job__barcode")
