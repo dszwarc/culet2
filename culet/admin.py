@@ -417,7 +417,7 @@ class MovementTypeAdmin(admin.ModelAdmin):
         "name",
     )
 @admin.register(JobMovement)
-class JobMovementAdmin(admin.ModelAdmin):
+class JobMovementAdmin(NumericSearchAdminMixin, admin.ModelAdmin):
     list_display = (
         "job",
         "movement_type",
@@ -432,9 +432,8 @@ class JobMovementAdmin(admin.ModelAdmin):
     )
     search_fields = (
         "job__stock_num",
-        "job__barcode",
-        "movement_type__code"
-        "movement_type__nane",
+        "movement_type__code",
+        "movement_type__name",
         "from_employee__user__first_name",
         "from_employee__user__last_name",
         "to_employee__user__first_name",
@@ -442,6 +441,7 @@ class JobMovementAdmin(admin.ModelAdmin):
         "performed_by__user__first_name",
         "performed_by__user__last_name",
     )
+    numeric_search_fields = ("job__barcode",)
     autocomplete_fields = (
         "job",
         "from_employee",

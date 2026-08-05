@@ -87,6 +87,35 @@ class AdminChangelistRegressionTests(CuletTestDataMixin, TestCase):
         self.assertEqual(self.client.get(job_url, {"q": "not-a-number"}).status_code, 200)
         self.assertContains(self.client.get(job_url, {"q": str(job.barcode)}), job.stock_num)
 
+    def test_job_movement_admin_guards_barcode_and_preserves_text_searches(self):
+        self.worker_user.first_name = "WorkerSearch"
+        self.worker_user.save(update_fields=["first_name"])
+        self.manager_user.first_name = "ManagerSearch"
+        self.manager_user.save(update_fields=["first_name"])
+        job = self.make_job(41002)
+        self.assign(str(job.barcode))
+        url = reverse("admin:culet_jobmovement_changelist")
+
+        self.assertEqual(self.client.get(url, {"q": "not-a-number"}).status_code, 200)
+        numeric_response = self.client.get(url, {"q": str(job.barcode)})
+        self.assertTrue(
+            all(movement.job_id == job.pk for movement in numeric_response.context["cl"].result_list)
+        )
+        self.assertEqual(len(numeric_response.context["cl"].result_list), 2)
+
+        for search_term in (
+            job.stock_num,
+            "assigned",
+            "WorkerSearch",
+            "ManagerSearch",
+        ):
+            response = self.client.get(url, {"q": search_term})
+            self.assertEqual(response.status_code, 200)
+            self.assertTrue(response.context["cl"].result_list)
+            self.assertTrue(
+                all(movement.job_id == job.pk for movement in response.context["cl"].result_list)
+            )
+
 
 class PieceworkWorkflowTests(CuletTestDataMixin, TestCase):
     def test_assignment_is_consistent_and_visible_only_to_memo_employee(self):
