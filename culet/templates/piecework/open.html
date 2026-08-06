@@ -2,48 +2,9 @@
 
 {% block content %}
 
-<div class="filter-panel">
+{% url "culet:piecework_open" as piecework_filter_clear_url %}
 
-    <div class="filter-header">
-        <div>
-            <h1 class="filter-title">Filter Open Piecework</h1>
-        </div>
-    </div>
-
-    <form method="get" class="filter-form">
-
-        {% for field in filter.form %}
-            <div class="filter-field">
-                <label for="{{ field.id_for_label }}">
-                    {{ field.label }}
-                </label>
-
-                {{ field }}
-
-                {% if field.errors %}
-                    <div class="field-error">
-                        {{ field.errors }}
-                    </div>
-                {% endif %}
-            </div>
-        {% endfor %}
-
-        <div class="filter-actions">
-            <button type="submit" class="btn btn-primary">
-                Apply Filters
-            </button>
-
-            <a
-                href="{% url 'culet:piecework_open' %}"
-                class="btn btn-secondary"
-            >
-                Clear
-            </a>
-        </div>
-
-    </form>
-
-</div>
+{% include "includes/filter_panel.html" with filter=filter filter_errors=filter.form.errors filter_title="Filter Piecework Jobs" filter_subtitle="Search by memo, employee, stock number, customer, or due back date." filter_clear_url=piecework_filter_clear_url %}
 
 
 {% if piecework_lines %}
@@ -130,6 +91,8 @@
                         </a>
                     </th>
 
+                    <th>Memo Progress</th>
+
                     <th class="table-actions-column">
                         Actions
                     </th>
@@ -173,6 +136,11 @@
                             {% endif %}
                         >
                             {{ line.memo.due_back|date:"M j, Y"|default:"—" }}
+                        </td>
+
+                        <td>
+                            {{ line.memo_returned_lines }} of
+                            {{ line.memo_total_lines }} returned
                         </td>
 
                         <td>

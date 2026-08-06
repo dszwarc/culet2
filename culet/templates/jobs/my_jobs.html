@@ -206,7 +206,7 @@
 
                                 <td>
 
-                                    {% if job.is_piecework %}
+                                    {% if job.has_open_piecework %}
 
                                         <div class="piecework-card">
 
@@ -388,7 +388,7 @@
 
                         <div class="mobile-job-action">
 
-                            {% if job.is_piecework %}
+                            {% if job.has_open_piecework %}
 
                                 <div class="mobile-piecework-status">
 

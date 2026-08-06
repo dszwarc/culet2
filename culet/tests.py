@@ -767,9 +767,9 @@ class WorkBatchTests(TestCase):
         self.assertFalse(WorkBatch.objects.exists())
         self.assertFalse(Activity.objects.exists())
 
-    def test_validation_rejects_wrong_holder_piecework_and_active_work(self):
+    def test_validation_uses_open_lines_not_stale_piecework_flag(self):
         wrong_holder = self.make_job(22001, holder=self.other_employee)
-        piecework = self.make_job(22002, is_piecework=True)
+        stale_piecework_flag = self.make_job(22002, is_piecework=True)
         active_job = self.make_job(22003)
         Activity.objects.create(
             job=active_job,
@@ -778,11 +778,11 @@ class WorkBatchTests(TestCase):
         )
         errors = validate_batch_jobs(
             employee=self.employee,
-            jobs=[wrong_holder, piecework, active_job],
+            jobs=[wrong_holder, stale_piecework_flag, active_job],
             step=self.step,
         )
         self.assertTrue(any("received" in error for error in errors))
-        self.assertTrue(any("piecework" in error for error in errors))
+        self.assertFalse(any("piecework" in error for error in errors))
         self.assertTrue(any("active work" in error for error in errors))
 
     def test_employee_with_individual_work_cannot_start_batch(self):

@@ -41,6 +41,7 @@ from .services import (
     stop_work_batch,
     validate_batch_jobs,
     parse_barcode_input,
+    return_piecework_lines,
 )
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.forms import SetPasswordForm
@@ -505,14 +506,19 @@ class MyJobListView(
             batch__active=True,
         ).order_by("-batch__started_at", "-pk")
 
+        open_piecework_line = PieceworkMemoLine.objects.filter(
+            job=OuterRef("pk"),
+            returned_at__isnull=True,
+        )
+
         return (
             Job.objects
             .filter(
                 holder=employee,
                 shipped=False,
-                is_piecework=False,
             )
             .annotate(
+                has_open_piecework=Exists(open_piecework_line),
                 has_active_work=Exists(active_activity),
                 has_active_repair=Exists(active_repair_activity),
                 active_repair_start=Subquery(
@@ -540,6 +546,7 @@ class MyJobListView(
                     output_field=IntegerField(),
                 ),
             )
+            .filter(has_open_piecework=False)
             .annotate(
                 # Deterministic precedence for inconsistent legacy data is
                 # repair, then batch, then ordinary individual work.
@@ -645,7 +652,9 @@ def get_receivable_jobs_for_employee(employee):
         Job.objects
         .filter(assigned_to=employee,
                 shipped=False)
+        .exclude(pieceworkmemoline__returned_at__isnull=True)
         .exclude(holder=employee)
+        .distinct()
     )
 
 class MyPieceworkListView(
@@ -672,7 +681,7 @@ class MyPieceworkListView(
             .filter(
                 job=OuterRef("pk"),
                 memo__assigned_to=employee,
-                memo__returned_at__isnull=True,
+                returned_at__isnull=True,
             )
             .order_by(
                 "-memo__created_at",
@@ -687,7 +696,8 @@ class MyPieceworkListView(
             Job.objects
             .filter(
                 pieceworkmemoline__memo__assigned_to=employee,
-                pieceworkmemoline__memo__returned_at__isnull=True,
+                pieceworkmemoline__returned_at__isnull=True,
+                shipped=False,
             )
             .select_related(
                 "style",
@@ -695,9 +705,6 @@ class MyPieceworkListView(
                 "assigned_to",
                 "holder",
                 "status",
-            )
-            .prefetch_related(
-                "pieceworkmemoline_set__memo",
             )
             .annotate(
                 piecework_return_date=Subquery(
@@ -2259,7 +2266,7 @@ class AssignJobView(
                 PieceworkMemoLine.objects
                 .filter(
                     job_id__in=job_ids,
-                    memo__returned_at__isnull=True,
+                    returned_at__isnull=True,
                 )
                 .values_list(
                     "job_id",
@@ -2521,8 +2528,36 @@ class ReturnJobView(
         returned_count = 0
 
         with transaction.atomic():
+            locked_jobs = {
+                job.pk: job
+                for job in Job.objects.select_for_update().filter(
+                    pk__in=[job.pk for job in jobs]
+                )
+            }
+            open_piecework_jobs = list(
+                PieceworkMemoLine.objects.filter(
+                    job_id__in=locked_jobs,
+                    returned_at__isnull=True,
+                ).values_list("job__stock_num", "job__barcode")
+            )
+            if open_piecework_jobs:
+                identifiers = [
+                    str(stock_num or barcode)
+                    for stock_num, barcode in open_piecework_jobs
+                ]
+                messages.error(
+                    request,
+                    "These jobs are still out for piecework and cannot be "
+                    "returned through the normal job workflow: "
+                    + ", ".join(identifiers),
+                )
+                return self.render_form_with_errors(
+                    barcodes_text=barcodes_text,
+                    employee_id=employee_id,
+                )
+
             for barcode in submitted_barcodes:
-                job = jobs_by_barcode[barcode]
+                job = locked_jobs[jobs_by_barcode[barcode].pk]
 
                 job, movement = move_job(
                     job=job,
@@ -2707,7 +2742,10 @@ class StartWorkView(
             )
             return False
 
-        if job.is_piecework:
+        if PieceworkMemoLine.objects.filter(
+            job=job,
+            returned_at__isnull=True,
+        ).exists():
             messages.error(
                 request,
                 (
@@ -2971,7 +3009,10 @@ class InProcessRepairView(
                 "has already been shipped."
             )
 
-        if job.is_piecework:
+        if PieceworkMemoLine.objects.filter(
+            job=job,
+            returned_at__isnull=True,
+        ).exists():
             return (
                 f"Job {job.stock_num or job.barcode} is currently "
                 "assigned as piecework."
@@ -4660,6 +4701,7 @@ class BulkJobShipView(
 
         already_shipped = []
         in_work = []
+        out_for_piecework = []
 
         for barcode in barcodes:
             job = (
@@ -4790,6 +4832,12 @@ class BulkJobShipView(
                 flat=True,
             )
         )
+        jobs_with_open_piecework = set(
+            PieceworkMemoLine.objects.filter(
+                job_id__in=job_ids,
+                returned_at__isnull=True,
+            ).values_list("job_id", flat=True)
+        )
 
         valid_jobs = []
 
@@ -4804,6 +4852,10 @@ class BulkJobShipView(
                 in_work.append(
                     job.stock_num,
                 )
+                continue
+
+            if job.pk in jobs_with_open_piecework:
+                out_for_piecework.append(job.stock_num or str(job.barcode))
                 continue
 
             valid_jobs.append(job)
@@ -4827,7 +4879,14 @@ class BulkJobShipView(
                 ),
             )
 
-        if already_shipped or in_work:
+        if out_for_piecework:
+            messages.error(
+                request,
+                "These jobs are still out for piecework and cannot be shipped: "
+                + ", ".join(out_for_piecework),
+            )
+
+        if already_shipped or in_work or out_for_piecework:
             return self.render_invalid_form(form)
 
         shipped_status = get_object_or_404(
@@ -4838,7 +4897,32 @@ class BulkJobShipView(
         shipped_count = 0
 
         with transaction.atomic():
-            for job in valid_jobs:
+            locked_jobs = {
+                job.pk: job
+                for job in Job.objects.select_for_update().filter(
+                    pk__in=[job.pk for job in valid_jobs]
+                )
+            }
+            raced_piecework = list(
+                PieceworkMemoLine.objects.filter(
+                    job_id__in=locked_jobs,
+                    returned_at__isnull=True,
+                ).values_list("job__stock_num", "job__barcode")
+            )
+            if raced_piecework:
+                identifiers = [
+                    str(stock_num or barcode)
+                    for stock_num, barcode in raced_piecework
+                ]
+                messages.error(
+                    request,
+                    "These jobs became unavailable because they are out for "
+                    "piecework: " + ", ".join(identifiers),
+                )
+                return self.render_invalid_form(form)
+
+            for original_job in valid_jobs:
+                job = locked_jobs[original_job.pk]
                 # Clear the job's assignment and record movement.
                 job, assignment_movement = move_job(
                     job=job,
@@ -5245,6 +5329,27 @@ class JobTransferMemoCreateView(
         assigned_count = 0
 
         with transaction.atomic():
+            locked_jobs = {
+                job.pk: job
+                for job in Job.objects.select_for_update().filter(
+                    pk__in=[job.pk for job in jobs]
+                )
+            }
+            open_piecework_jobs = list(
+                PieceworkMemoLine.objects.filter(
+                    job_id__in=locked_jobs,
+                    returned_at__isnull=True,
+                ).values_list("job__barcode", flat=True)
+            )
+            if open_piecework_jobs:
+                form.add_error(
+                    "scanned_jobs",
+                    "These jobs are still out for piecework and cannot be "
+                    "transferred: "
+                    + ", ".join(str(barcode) for barcode in open_piecework_jobs),
+                )
+                return self.form_invalid(form)
+
             memo = form.save(
                 commit=False,
             )
@@ -5253,7 +5358,7 @@ class JobTransferMemoCreateView(
             memo.save()
 
             for scanned_value in scanned_values:
-                job = jobs_by_barcode[scanned_value]
+                job = locked_jobs[jobs_by_barcode[scanned_value].pk]
 
                 JobTransferMemoLine.objects.create(
                     memo=memo,
@@ -5348,6 +5453,7 @@ class PieceworkPrintView(LoginRequiredMixin, generic.DetailView):
                 "lines__job",
                 "lines__job__style",
                 "lines__job__customer",
+                "lines__returned_by__user",
             )
         )
 
@@ -5857,7 +5963,7 @@ class PieceworkCreateView(
                 PieceworkMemoLine.objects
                 .filter(
                     job_id__in=job_ids,
-                    memo__returned_at__isnull=True,
+                    returned_at__isnull=True,
                 )
                 .select_related(
                     "memo",
@@ -6083,10 +6189,26 @@ class PieceworkOpenListView(
     DEFAULT_SORT = "due_back"
 
     def get_queryset(self):
+        memo_counts = (
+            PieceworkMemo.objects
+            .filter(pk=OuterRef("memo_id"))
+            .annotate(
+                total=Count("lines"),
+                returned=Count(
+                    "lines",
+                    filter=Q(lines__returned_at__isnull=False),
+                ),
+                open_count=Count(
+                    "lines",
+                    filter=Q(lines__returned_at__isnull=True),
+                ),
+            )
+        )
         queryset = (
             PieceworkMemoLine.objects
             .filter(
                 memo__returned_at__isnull=True,
+                returned_at__isnull=True,
             )
             .select_related(
                 "memo",
@@ -6098,6 +6220,20 @@ class PieceworkOpenListView(
                 "job__customer",
                 "job__style",
                 "job__location",
+            )
+            .annotate(
+                memo_total_lines=Subquery(
+                    memo_counts.values("total")[:1],
+                    output_field=IntegerField(),
+                ),
+                memo_returned_lines=Subquery(
+                    memo_counts.values("returned")[:1],
+                    output_field=IntegerField(),
+                ),
+                memo_open_lines=Subquery(
+                    memo_counts.values("open_count")[:1],
+                    output_field=IntegerField(),
+                ),
             )
         )
 
@@ -6192,204 +6328,49 @@ class PieceworkReturnView(
             )
             .prefetch_related(
                 "lines__job",
+                "lines__job__style",
+                "lines__job__customer",
+                "lines__returned_by__user",
             )
         )
 
-    @transaction.atomic
     def post(self, request, *args, **kwargs):
-        # Lock only the memo row.
-        # Do not use select_related() on this locked queryset.
-        memo = (
-            PieceworkMemo.objects
-            .select_for_update()
-            .get(pk=self.kwargs["pk"])
-        )
+        memo = get_object_or_404(PieceworkMemo, pk=self.kwargs["pk"])
+        returned_by = get_employee(request.user)
 
-        if memo.returned_at:
-            messages.info(
+        try:
+            result = return_piecework_lines(
+                memo=memo,
+                line_ids=request.POST.getlist("line_ids"),
+                returned_by=returned_by,
+                return_to=returned_by,
+            )
+        except ValidationError as exc:
+            message_method = (
+                messages.info
+                if getattr(exc, "code", None) == "memo_complete"
+                else messages.error
+            )
+            for error in exc.messages:
+                message_method(request, error)
+            return redirect("culet:piecework_return", pk=memo.pk)
+
+        job_word = "job" if result.returned_count == 1 else "jobs"
+        if result.memo_completed:
+            messages.success(
                 request,
-                (
-                    f"Piecework memo {memo.memo_num} "
-                    "has already been returned."
-                ),
+                f"{result.returned_count} {job_word} returned. "
+                f"Piecework memo {memo.memo_num} is now complete.",
             )
+            return redirect("culet:piecework_open")
 
-            return redirect(
-                "culet:piecework_open",
-            )
-
-        returned_by = get_employee(
-            request.user,
-        )
-
-        piecework_step = get_object_or_404(
-            ActivityStep,
-            code="piecework",
-        )
-
-        lines = list(
-            memo.lines
-            .select_related(
-                "job",
-            )
-            .all()
-        )
-
-        if not lines:
-            messages.error(
-                request,
-                (
-                    f"Piecework memo {memo.memo_num} "
-                    "does not contain any jobs."
-                ),
-            )
-
-            return redirect(
-                "culet:piecework_open",
-            )
-
-        job_ids = [
-            line.job_id
-            for line in lines
-        ]
-
-        # Lock only the Job rows.
-        # No select_related() here because assigned_to
-        # and holder are nullable foreign keys.
-        locked_jobs = {
-            job.pk: job
-            for job in (
-                Job.objects
-                .select_for_update()
-                .filter(pk__in=job_ids)
-            )
-        }
-
-        # A job should never be on another open memo.
-        # If old inconsistent data exists, stop before
-        # changing anything.
-        duplicate_open_lines = list(
-            PieceworkMemoLine.objects
-            .filter(
-                job_id__in=job_ids,
-                memo__returned_at__isnull=True,
-            )
-            .exclude(
-                memo_id=memo.pk,
-            )
-            .select_related(
-                "job",
-                "memo",
-            )
-        )
-
-        if duplicate_open_lines:
-            details = ", ".join(
-                (
-                    f"{line.job.stock_num} "
-                    f"on {line.memo.memo_num}"
-                )
-                for line in duplicate_open_lines
-            )
-
-            messages.error(
-                request,
-                (
-                    f"Memo {memo.memo_num} cannot be returned "
-                    "because these jobs are also on another "
-                    f"open piecework memo: {details}."
-                ),
-            )
-
-            return redirect(
-                "culet:piecework_open",
-            )
-
-        returned_at = timezone.now()
-        returned_count = 0
-
-        for line in lines:
-            job = locked_jobs[line.job_id]
-
-            # This activity belongs to this memo, so use
-            # this memo's creation time.
-            piecework_start = memo.created_at
-
-            Activity.objects.create(
-                job=job,
-                employee=memo.assigned_to,
-                step=piecework_step,
-                start=piecework_start,
-                end=returned_at,
-                duration=(
-                    returned_at
-                    - piecework_start
-                ),
-                is_piecework=True,
-                active=False,
-            )
-
-            # Responsibility returns to the employee
-            # processing the piecework return.
-            job, assignment_movement = move_job(
-                job=job,
-                movement_type="returned-to-manager",
-                to_employee=returned_by,
-                performed_by=returned_by,
-            )
-
-            # Physical possession also returns to that
-            # employee.
-            job, holder_movement = move_job(
-                job=job,
-                movement_type="returned",
-                to_employee=returned_by,
-                performed_by=returned_by,
-            )
-
-            job.is_piecework = False
-            job.in_work = False
-            job.piecework_assigned_at = None
-
-            job.save(
-                update_fields=[
-                    "is_piecework",
-                    "in_work",
-                    "piecework_assigned_at",
-                    "last_updated",
-                ],
-            )
-
-            returned_count += 1
-
-        memo.returned_at = returned_at
-        memo.returned_by = returned_by
-
-        memo.save(
-            update_fields=[
-                "returned_at",
-                "returned_by",
-            ],
-        )
-
-        job_word = (
-            "job"
-            if returned_count == 1
-            else "jobs"
-        )
-
+        remaining_word = "job remains" if result.remaining_count == 1 else "jobs remain"
         messages.success(
             request,
-            (
-                f"Piecework memo {memo.memo_num} "
-                f"was returned with "
-                f"{returned_count} {job_word}."
-            ),
+            f"{result.returned_count} {job_word} returned from {memo.memo_num}. "
+            f"{result.remaining_count} {remaining_word} open.",
         )
-
-        return redirect(
-            "culet:piecework_open",
-        )
+        return redirect("culet:piecework_return", pk=memo.pk)
     
 class MemoListView(LoginRequiredMixin, generic.TemplateView):
     template_name = "memos/memo_list.html"
@@ -6516,6 +6497,19 @@ class QualityInspectionCreateView(
             messages.error(
                 request,
                 f"No job found with barcode {barcode}.",
+            )
+            return self.render_to_response(
+                self.get_context_data(form=form)
+            )
+
+        if PieceworkMemoLine.objects.filter(
+            job=job,
+            returned_at__isnull=True,
+        ).exists():
+            messages.error(
+                request,
+                f"Job {job.stock_num or job.barcode} is still out for "
+                "piecework and cannot be inspected.",
             )
             return self.render_to_response(
                 self.get_context_data(form=form)

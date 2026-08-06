@@ -28,7 +28,10 @@ class Command(BaseCommand):
             .order_by("pk")
         )
         open_lines = list(
-            PieceworkMemoLine.objects.filter(memo__returned_at__isnull=True)
+            PieceworkMemoLine.objects.filter(
+                memo__returned_at__isnull=True,
+                returned_at__isnull=True,
+            )
             .select_related("memo__assigned_to__user", "job")
             .order_by("memo_id", "job_id", "pk")
         )
@@ -40,7 +43,7 @@ class Command(BaseCommand):
             lines_by_pair[(line.memo_id, line.job_id)].append(line)
 
         for memo in open_memos:
-            if not memo.lines.all():
+            if not memo.lines.filter(returned_at__isnull=True).exists():
                 counts["open_memos_without_lines"] += 1
                 self._report(f"OPEN EMPTY MEMO: {memo.memo_num}")
 
@@ -114,9 +117,12 @@ class Command(BaseCommand):
                     counts["jobs_repaired"] += 1
                     self._report(f"FIXED job {job}: {', '.join(changes)}")
 
+        open_piecework_job_ids = PieceworkMemoLine.objects.filter(
+            returned_at__isnull=True,
+        ).values("job_id")
         stale_jobs = Job.objects.filter(is_piecework=True).exclude(
-            pieceworkmemoline__memo__returned_at__isnull=True
-        ).distinct()
+            pk__in=open_piecework_job_ids,
+        )
         for job in stale_jobs:
             counts["flags_without_open_memo"] += 1
             returned_memos = PieceworkMemo.objects.filter(

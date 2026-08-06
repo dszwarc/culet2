@@ -2,7 +2,7 @@
 
 {% block content %}
 <div class="container">
-    <h1>Return Piecework Memo #{{ memo.id }}</h1>
+    <h1>Return Piecework Memo {{ memo.memo_num }}</h1>
 
     <p><strong>Assigned To:</strong> {{ memo.assigned_to }}</p>
     <p><strong>Created:</strong> {{ memo.created_at }}</p>
@@ -11,31 +11,101 @@
         <p><strong>Due Back:</strong> {{ memo.due_back }}</p>
     {% endif %}
         
-    <table class="index_table">
-        <tr>
-            <th>Stock Number</th>
-            <th>Style</th>
-            <th>Customer</th>
-        </tr>
-
-        {% for line in memo.lines.all %}
-            <tr>
-                <td>{{ line.job.stock_num }}</td>
-                <td>{{ line.job.style }}</td>
-                <td>{{ line.job.customer }}</td>
-            </tr>
-        {% endfor %}
-    </table>
-
     <form method="post">
         {% csrf_token %}
 
-        <p>
-            Confirm that these jobs have been returned and are now in your possession.
-        </p>
-        <button type="submit" class="btn btn-primary">
-            Mark Returned
-        </button>
+        <table class="index_table">
+            <thead>
+                <tr>
+                    <th>
+                        {% if memo.is_open %}
+                            <input
+                                type="checkbox"
+                                id="select-all-open-lines"
+                                aria-label="Select all open piecework jobs"
+                            >
+                        {% endif %}
+                    </th>
+                    <th>Stock Number</th>
+                    <th>Style</th>
+                    <th>Customer</th>
+                    <th>Status</th>
+                    <th>Returned At</th>
+                    <th>Returned By</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for line in memo.lines.all %}
+                    <tr>
+                        <td>
+                            {% if line.is_open and not memo.returned_at %}
+                                <input
+                                    type="checkbox"
+                                    name="line_ids"
+                                    value="{{ line.id }}"
+                                    class="open-line-checkbox"
+                                    aria-label="Select job {{ line.job.stock_num|default:line.job.barcode }}"
+                                >
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td>{{ line.job.stock_num|default:line.job.barcode }}</td>
+                        <td>{{ line.job.style|default:"—" }}</td>
+                        <td>{{ line.job.customer|default:"—" }}</td>
+                        <td>
+                            {% if line.is_returned %}
+                                Returned
+                            {% else %}
+                                Out for piecework
+                            {% endif %}
+                        </td>
+                        <td>{{ line.returned_at|date:"M j, Y g:i a"|default:"—" }}</td>
+                        <td>{{ line.returned_by|default:"—" }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        {% if memo.is_open and not memo.returned_at %}
+            <p>
+                Confirm the selected jobs have been returned and are now in your possession.
+                <strong><span id="selected-line-count">0</span> selected.</strong>
+            </p>
+            <button type="submit" class="btn btn-primary">
+                Return Selected Jobs
+            </button>
+        {% else %}
+            <p>This piecework memo is complete.</p>
+        {% endif %}
     </form>
 </div>
+
+<script>
+    (function () {
+        const selectAll = document.getElementById("select-all-open-lines");
+        const checkboxes = Array.from(document.querySelectorAll(".open-line-checkbox"));
+        const selectedCount = document.getElementById("selected-line-count");
+
+        function updateSelectionState() {
+            const checkedCount = checkboxes.filter((checkbox) => checkbox.checked).length;
+            if (selectedCount) selectedCount.textContent = checkedCount;
+            if (selectAll) {
+                selectAll.checked = checkboxes.length > 0 && checkedCount === checkboxes.length;
+                selectAll.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length;
+            }
+        }
+
+        if (selectAll) {
+            selectAll.addEventListener("change", function () {
+                checkboxes.forEach((checkbox) => {
+                    checkbox.checked = selectAll.checked;
+                });
+                updateSelectionState();
+            });
+        }
+        checkboxes.forEach((checkbox) => checkbox.addEventListener("change", updateSelectionState));
+        updateSelectionState();
+    }());
+</script>
 {% endblock %}

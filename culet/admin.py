@@ -399,6 +399,14 @@ class JobAdmin(NumericSearchAdminMixin, admin.ModelAdmin):
     )
     readonly_fields = ("created", "last_updated")
 
+    def get_readonly_fields(self, request, obj=None):
+        readonly = list(super().get_readonly_fields(request, obj))
+        if obj and obj.pieceworkmemoline_set.filter(
+            returned_at__isnull=True,
+        ).exists():
+            readonly.extend(["is_piecework", "assigned_to", "holder"])
+        return tuple(readonly)
+
 @admin.register(MovementType)
 class MovementTypeAdmin(admin.ModelAdmin):
     list_display = (
@@ -991,12 +999,20 @@ class PieceworkMemoAdmin(admin.ModelAdmin):
         "from_location",
         "to_location",
     )
-    readonly_fields = ("memo_num", "created_at")
+    readonly_fields = ("memo_num", "created_at", "returned_at", "returned_by")
 
 
 @admin.register(PieceworkMemoLine)
 class PieceworkMemoLineAdmin(NumericSearchAdminMixin, admin.ModelAdmin):
-    list_display = ("memo", "job", "notes")
+    list_display = (
+        "memo",
+        "job",
+        "piecework_employee",
+        "is_open",
+        "returned_at",
+        "returned_by",
+        "notes",
+    )
     search_fields = (
         "memo__memo_num",
         "job__stock_num",
@@ -1005,10 +1021,30 @@ class PieceworkMemoLineAdmin(NumericSearchAdminMixin, admin.ModelAdmin):
         "notes",
     )
     numeric_search_fields = ("job__barcode",)
-    list_filter = ("memo__assigned_to", "memo__created_at", "memo__returned_at")
-    autocomplete_fields = ("memo", "job")
+    list_filter = ("returned_at", "memo__assigned_to", "memo__created_at")
+    autocomplete_fields = ("memo", "job", "returned_by")
     ordering = ("-memo__created_at", "job__barcode")
-    list_select_related = ("memo__assigned_to__user", "job__style", "job__customer")
+    list_select_related = (
+        "memo__assigned_to__user",
+        "job__style",
+        "job__customer",
+        "returned_by__user",
+    )
+    readonly_fields = ("returned_at", "returned_by")
+
+    @admin.display(description="Piecework employee", ordering="memo__assigned_to")
+    def piecework_employee(self, obj):
+        return obj.memo.assigned_to
+
+    @admin.display(boolean=True, description="Open")
+    def is_open(self, obj):
+        return obj.is_open
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 # -----------------------------------------------------------------------------

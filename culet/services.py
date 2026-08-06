@@ -14,10 +14,13 @@ import logging
 
 from .models import (
     Activity,
+    ActivityStep,
     Employee,
     Job,
     JobMovement,
     MovementType,
+    PieceworkMemo,
+    PieceworkMemoLine,
     TimeClock,
     WorkBatch,
 )
@@ -42,6 +45,14 @@ class ParsedBarcodeInput:
     values: list[str]
     duplicate_values: list[str]
     duplicate_count: int
+
+
+@dataclass(frozen=True)
+class PieceworkReturnResult:
+    returned_count: int
+    remaining_count: int
+    memo_completed: bool
+    returned_at: object
 
 
 def parse_barcode_input(raw_text):
@@ -156,6 +167,12 @@ def validate_batch_jobs(*, employee, jobs, step):
             end__isnull=True,
         ).values_list("job_id", flat=True)
     )
+    open_piecework_job_ids = set(
+        PieceworkMemoLine.objects.filter(
+            job_id__in=[job.pk for job in jobs],
+            returned_at__isnull=True,
+        ).values_list("job_id", flat=True)
+    )
 
     for job in jobs:
         identifier = job.stock_num or job.barcode
@@ -163,7 +180,7 @@ def validate_batch_jobs(*, employee, jobs, step):
             errors.append(f"Job {identifier} is inactive.")
         elif job.shipped:
             errors.append(f"Job {identifier} has already been shipped.")
-        elif job.is_piecework:
+        elif job.pk in open_piecework_job_ids:
             errors.append(f"Job {identifier} is assigned as piecework.")
         elif job.assigned_to_id != employee.pk:
             errors.append(f"Job {identifier} is not assigned to you.")
@@ -487,6 +504,202 @@ def move_job(
     )
 
     return job, movement
+
+
+@transaction.atomic
+def return_piecework_lines(
+    *,
+    memo,
+    line_ids,
+    returned_by,
+    return_to=None,
+    returned_at=None,
+):
+    """Return selected open lines from one piecework memo atomically."""
+    return_to = return_to or returned_by
+
+    try:
+        submitted_ids = [int(line_id) for line_id in line_ids]
+    except (TypeError, ValueError) as exc:
+        raise ValidationError(
+            "One or more selected piecework lines are invalid. Refresh and try again."
+        ) from exc
+
+    if not submitted_ids:
+        raise ValidationError("Select at least one job to return.")
+
+    if len(submitted_ids) != len(set(submitted_ids)):
+        raise ValidationError(
+            "The same piecework line was submitted more than once. Refresh and try again."
+        )
+
+    memo_id = memo.pk if isinstance(memo, PieceworkMemo) else memo
+    try:
+        locked_memo = PieceworkMemo.objects.select_for_update().get(pk=memo_id)
+    except PieceworkMemo.DoesNotExist as exc:
+        raise ValidationError("This piecework memo no longer exists.") from exc
+
+    if locked_memo.returned_at is not None:
+        raise ValidationError(
+            f"Piecework memo {locked_memo.memo_num} is already complete.",
+            code="memo_complete",
+        )
+
+    # Lock base line rows without joining nullable relations.
+    locked_lines = list(
+        PieceworkMemoLine.objects.select_for_update()
+        .filter(pk__in=submitted_ids)
+        .order_by("pk")
+    )
+    lines_by_id = {line.pk: line for line in locked_lines}
+
+    errors = []
+    missing_ids = sorted(set(submitted_ids) - set(lines_by_id))
+    if missing_ids:
+        errors.append(
+            "These selected piecework lines no longer exist: "
+            + ", ".join(str(line_id) for line_id in missing_ids)
+            + "."
+        )
+
+    wrong_memo_ids = [
+        line.pk for line in locked_lines if line.memo_id != locked_memo.pk
+    ]
+    if wrong_memo_ids:
+        errors.append(
+            "These selected lines do not belong to this memo: "
+            + ", ".join(str(line_id) for line_id in wrong_memo_ids)
+            + "."
+        )
+
+    returned_lines = [
+        line for line in locked_lines if line.returned_at is not None
+    ]
+    if returned_lines:
+        errors.append(
+            "These selected jobs have already been returned: "
+            + ", ".join(str(line.job_id) for line in returned_lines)
+            + ". Refresh the page before trying again."
+        )
+
+    if errors:
+        raise ValidationError(errors)
+
+    job_ids = [line.job_id for line in locked_lines]
+    locked_jobs = {
+        job.pk: job
+        for job in Job.objects.select_for_update().filter(pk__in=job_ids)
+    }
+    missing_job_ids = sorted(set(job_ids) - set(locked_jobs))
+    if missing_job_ids:
+        raise ValidationError(
+            "These piecework lines no longer have valid jobs: "
+            + ", ".join(str(job_id) for job_id in missing_job_ids)
+            + "."
+        )
+
+    conflict_messages = []
+    for job in locked_jobs.values():
+        identifier = job.stock_num or job.barcode or job.pk
+        if job.shipped:
+            conflict_messages.append(
+                f"Job {identifier} has been shipped and cannot be returned from piecework."
+            )
+
+    active_job_ids = set(
+        Activity.objects.filter(
+            job_id__in=job_ids,
+            active=True,
+            end__isnull=True,
+        ).values_list("job_id", flat=True)
+    )
+    for job_id in sorted(active_job_ids):
+        job = locked_jobs[job_id]
+        identifier = job.stock_num or job.barcode or job.pk
+        conflict_messages.append(
+            f"Job {identifier} has active work that must be resolved before return."
+        )
+
+    if conflict_messages:
+        raise ValidationError(conflict_messages)
+
+    try:
+        piecework_step = ActivityStep.objects.get(code="piecework")
+        assignment_return_type = MovementType.objects.get(
+            code="returned-to-manager"
+        )
+        holder_return_type = MovementType.objects.get(code="returned")
+    except (ActivityStep.DoesNotExist, MovementType.DoesNotExist) as exc:
+        raise ValidationError(
+            "Piecework return reference data is incomplete. Contact an administrator."
+        ) from exc
+
+    operation_time = returned_at or timezone.now()
+
+    for line in locked_lines:
+        job = locked_jobs[line.job_id]
+
+        Activity.objects.create(
+            job=job,
+            employee=locked_memo.assigned_to,
+            step=piecework_step,
+            start=locked_memo.created_at,
+            end=operation_time,
+            duration=operation_time - locked_memo.created_at,
+            is_piecework=True,
+            active=False,
+        )
+
+        job, _ = move_job(
+            job=job,
+            movement_type=assignment_return_type,
+            to_employee=return_to,
+            performed_by=returned_by,
+        )
+        job, _ = move_job(
+            job=job,
+            movement_type=holder_return_type,
+            to_employee=return_to,
+            performed_by=returned_by,
+        )
+
+        job.is_piecework = False
+        job.in_work = False
+        job.piecework_assigned_at = None
+        job.save(
+            update_fields=[
+                "is_piecework",
+                "in_work",
+                "piecework_assigned_at",
+                "last_updated",
+            ]
+        )
+
+        line.returned_at = operation_time
+        line.returned_by = returned_by
+        line.save(update_fields=["returned_at", "returned_by"])
+
+    remaining_count = PieceworkMemoLine.objects.filter(
+        memo_id=locked_memo.pk,
+        returned_at__isnull=True,
+    ).count()
+    memo_completed = remaining_count == 0
+
+    if memo_completed:
+        locked_memo.returned_at = operation_time
+        locked_memo.returned_by = returned_by
+        locked_memo.save(update_fields=["returned_at", "returned_by"])
+    elif locked_memo.returned_at is not None or locked_memo.returned_by_id is not None:
+        locked_memo.returned_at = None
+        locked_memo.returned_by = None
+        locked_memo.save(update_fields=["returned_at", "returned_by"])
+
+    return PieceworkReturnResult(
+        returned_count=len(locked_lines),
+        remaining_count=remaining_count,
+        memo_completed=memo_completed,
+        returned_at=operation_time,
+    )
 
 logger = logging.getLogger("culet")
 

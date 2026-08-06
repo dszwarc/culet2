@@ -297,7 +297,7 @@ class Job(models.Model):
     def current_piecework_memo(self):
         line = (
             self.pieceworkmemoline_set
-            .filter(memo__returned_at__isnull=True)
+            .filter(returned_at__isnull=True)
             .select_related("memo")
             .order_by("-memo__created_at")
             .first()
@@ -1186,16 +1186,61 @@ class PieceworkMemo(models.Model):
     def __str__(self):
         return self.memo_num or f"Piecework Memo {self.pk}"
 
+    @property
+    def total_line_count(self):
+        return self.lines.count()
+
+    @property
+    def open_line_count(self):
+        return self.lines.filter(returned_at__isnull=True).count()
+
+    @property
+    def returned_line_count(self):
+        return self.lines.filter(returned_at__isnull=False).count()
+
+    @property
+    def is_open(self):
+        return self.open_line_count > 0
+
+    @property
+    def is_partially_returned(self):
+        return self.open_line_count > 0 and self.returned_line_count > 0
+
+    @property
+    def is_returned(self):
+        return self.total_line_count > 0 and self.open_line_count == 0
+
 class PieceworkMemoLine(models.Model):
     memo = models.ForeignKey(PieceworkMemo, on_delete=models.CASCADE, related_name="lines")
     job = models.ForeignKey(Job, on_delete=models.PROTECT)
     notes = models.CharField(max_length=255, blank=True)
+    returned_at = models.DateTimeField(null=True, blank=True)
+    returned_by = models.ForeignKey(
+        Employee,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="piecework_memo_lines_returned",
+    )
+
+    @property
+    def is_returned(self):
+        return self.returned_at is not None
+
+    @property
+    def is_open(self):
+        return self.returned_at is None
 
     class Meta:
         constraints = [
             models.UniqueConstraint(
                 fields=["memo", "job"],
                 name="unique_job_per_piecework_memo",
+            ),
+            models.UniqueConstraint(
+                fields=["job"],
+                condition=models.Q(returned_at__isnull=True),
+                name="unique_open_piecework_line_per_job",
             ),
         ]
 
