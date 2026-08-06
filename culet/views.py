@@ -2004,8 +2004,8 @@ class AssignJobView(
                 "role",
             )
             .order_by(
-                "user__last_name",
                 "user__first_name",
+                "user__last_name",
             )
         )
 
