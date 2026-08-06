@@ -3846,7 +3846,8 @@ class JobWeightCreateView(LoginRequiredMixin, generic.CreateView):
         form.instance.recorded_by = self.request.user
         self.object = form.save()
         messages.success(self.request, f"Weight recorded for job {self.job.barcode}.")
-        return redirect(self.job.get_absolute_url())
+        #return redirect(self.job.get_absolute_url())
+        return redirect('culet:job_weight_lookup')
     
 class JobWeightLookupView(LoginRequiredMixin, generic.FormView):
     template_name = "jobs/weight_lookup.html"
