@@ -212,6 +212,106 @@ class PieceworkWorkflowTests(CuletTestDataMixin, TestCase):
         self.assertEqual(Activity.objects.filter(job=job, is_piecework=True).count(), 1)
 
 
+class ReceiveJobsPieceworkRegressionTests(CuletTestDataMixin, TestCase):
+    def make_receivable_job(self, barcode, **kwargs):
+        values = {
+            "assigned_to": self.worker,
+            "holder": self.other,
+            "active": True,
+            "shipped": False,
+        }
+        values.update(kwargs)
+        return self.make_job(barcode, **values)
+
+    def receive_job_ids(self):
+        self.client.force_login(self.worker_user)
+        response = self.client.get(reverse("culet:receive_list"))
+        self.assertEqual(response.status_code, 200)
+        return {job.pk for job in response.context["receive_list"]}
+
+    def make_memo(self):
+        return PieceworkMemo.objects.create(
+            created_by=self.manager,
+            assigned_to=self.worker,
+            from_location=self.office,
+            to_location=self.piecework,
+            due_back=timezone.localdate() + timedelta(days=3),
+        )
+
+    def test_ordinary_assigned_unreceived_job_appears(self):
+        job = self.make_receivable_job(42501)
+
+        self.assertIn(job.pk, self.receive_job_ids())
+
+        response = self.client.post(
+            reverse("culet:receive"),
+            {"job_id": job.pk},
+        )
+
+        self.assertRedirects(response, reverse("culet:receive_list"))
+        job.refresh_from_db()
+        self.assertEqual(job.holder, self.worker)
+        self.assertTrue(
+            JobMovement.objects.filter(
+                job=job,
+                movement_type__code="received",
+                to_employee=self.worker,
+            ).exists()
+        )
+
+    def test_real_assign_post_makes_job_visible_to_assigned_employee(self):
+        job = self.make_job(42502, assigned_to=self.manager, holder=self.other)
+
+        response = self.client.post(
+            reverse("culet:assign_job"),
+            {"employee": str(self.worker.pk), "jobs_text": str(job.barcode)},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        job.refresh_from_db()
+        self.assertEqual(job.assigned_to, self.worker)
+        self.assertEqual(job.holder, self.other)
+        self.assertIn(job.pk, self.receive_job_ids())
+
+    def test_returned_historical_line_does_not_block_receive(self):
+        job = self.make_receivable_job(42503)
+        PieceworkMemoLine.objects.create(
+            memo=self.make_memo(),
+            job=job,
+            returned_at=timezone.now(),
+            returned_by=self.manager,
+        )
+
+        self.assertIn(job.pk, self.receive_job_ids())
+
+    def test_returned_line_in_partially_open_memo_does_not_block_receive(self):
+        memo = self.make_memo()
+        returned_job = self.make_receivable_job(42504)
+        open_job = self.make_receivable_job(42505)
+        PieceworkMemoLine.objects.create(
+            memo=memo,
+            job=returned_job,
+            returned_at=timezone.now(),
+            returned_by=self.manager,
+        )
+        PieceworkMemoLine.objects.create(memo=memo, job=open_job)
+
+        receive_ids = self.receive_job_ids()
+
+        self.assertIn(returned_job.pk, receive_ids)
+        self.assertNotIn(open_job.pk, receive_ids)
+
+    def test_open_line_is_authoritative_over_stale_piecework_flags(self):
+        stale_true_job = self.make_receivable_job(42506, is_piecework=True)
+        stale_false_job = self.make_receivable_job(42507, is_piecework=False)
+        PieceworkMemoLine.objects.create(memo=self.make_memo(), job=stale_false_job)
+
+        receive_ids = self.receive_job_ids()
+
+        self.assertIn(stale_true_job.pk, receive_ids)
+        self.assertNotIn(stale_false_job.pk, receive_ids)
+
+
 class PieceworkLineReturnWorkflowTests(CuletTestDataMixin, TestCase):
     def setUp(self):
         super().setUp()

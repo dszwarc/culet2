@@ -648,13 +648,18 @@ class MyJobListView(
         return context
 
 def get_receivable_jobs_for_employee(employee):
+    open_piecework_line = PieceworkMemoLine.objects.filter(
+        job=OuterRef("pk"),
+        returned_at__isnull=True,
+    )
+
     return (
         Job.objects
         .filter(assigned_to=employee,
                 shipped=False)
-        .exclude(pieceworkmemoline__returned_at__isnull=True)
+        .annotate(has_open_piecework=Exists(open_piecework_line))
+        .filter(has_open_piecework=False)
         .exclude(holder=employee)
-        .distinct()
     )
 
 class MyPieceworkListView(
