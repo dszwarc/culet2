@@ -15,6 +15,11 @@
         >
             Run Report
         </button>
+        {% if form.is_valid %}
+            <a href="{% url 'culet:payroll_excel' %}?{{ request.GET.urlencode }}" class="btn btn-outline-primary">
+                Download Excel
+            </a>
+        {% endif %}
     </form>
 
     {% if employee_rows %}
@@ -222,7 +227,7 @@
                                                         <td>
 
                                                             <a
-                                                                href="{% url 'culet:time_clock_edit' entry.timeclock.pk %}"
+                                                                href="{% url 'culet:time_clock_edit' entry.timeclock.pk %}?next={{ request.get_full_path|urlencode }}"
                                                                 class="btn btn-sm btn-outline-primary"
                                                             >
                                                                 Edit

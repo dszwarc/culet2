@@ -8,6 +8,7 @@ from django.db.models import Exists, F, Q, Max, OuterRef, Subquery, Sum, Count, 
 from django.db.models.functions import TruncDate, Coalesce
 from django.views import generic
 from django.urls import reverse_lazy, reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils import timezone
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, render, redirect
@@ -26,6 +27,11 @@ import logging
 logger = logging.getLogger("culet")
 from django.contrib.auth.views import PasswordChangeView
 from collections import OrderedDict, Counter
+from io import BytesIO
+
+from openpyxl import Workbook
+from openpyxl.styles import Font
+from openpyxl.utils import get_column_letter
 
 
 from .services import (
@@ -136,6 +142,7 @@ from .mixins import (
     LoggedFormInvalidMixin,
 )
 from .permissions import can_perform_quality_inspection
+from .payroll import build_payroll_report
 
 from django.contrib import messages
 from django.shortcuts import redirect
@@ -4395,7 +4402,27 @@ class TimeClockUpdateView(LoginRequiredMixin, generic.UpdateView):
     template_name = "timeclock/time_clock_edit.html"
 
     def get_success_url(self):
-        return reverse("culet:report_time_clock")
+        next_url = self.request.GET.get("next") or self.request.POST.get("next")
+        if next_url and url_has_allowed_host_and_scheme(
+            url=next_url,
+            allowed_hosts={self.request.get_host()},
+            require_https=self.request.is_secure(),
+        ):
+            return next_url
+        return reverse("culet:payroll_report")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        next_url = self.request.GET.get("next") or self.request.POST.get("next")
+        if next_url and url_has_allowed_host_and_scheme(
+            url=next_url,
+            allowed_hosts={self.request.get_host()},
+            require_https=self.request.is_secure(),
+        ):
+            context["next_url"] = next_url
+        else:
+            context["next_url"] = reverse("culet:payroll_report")
+        return context
     
 
 class LateJobsReportView(LoginRequiredMixin, generic.TemplateView):
@@ -6975,15 +7002,6 @@ class ChangeJobStatusView(
 
         return redirect("culet:change_status")
 
-class PayrollReportView(
-    LoginRequiredMixin,
-    generic.TemplateView,
-):
-    template_name = "reports/payroll_report.html"
-
-
-
-
 class PayrollReportView(LoginRequiredMixin, generic.TemplateView):
     """
     Payroll-oriented time clock report.
@@ -7014,143 +7032,80 @@ class PayrollReportView(LoginRequiredMixin, generic.TemplateView):
 
         form = TimeClockReportForm(self.request.GET or None)
 
-        employee_rows = []
-
-        report_totals = {
-            "raw_hours": 0,
-            "rounded_hours": 0,
+        payroll_data = {
+            "employee_rows": [],
+            "report_totals": {"raw_hours": 0, "rounded_hours": 0},
         }
 
         if form.is_valid():
-            selected_employee = form.cleaned_data.get("employee")
-            start_date = form.cleaned_data["start_date"]
-            end_date = form.cleaned_data["end_date"]
-
-            start_dt = timezone.make_aware(
-                datetime.combine(start_date, time.min)
+            payroll_data = build_payroll_report(
+                start_date=form.cleaned_data["start_date"],
+                end_date=form.cleaned_data["end_date"],
+                selected_employee=form.cleaned_data.get("employee"),
             )
-
-            end_dt = timezone.make_aware(
-                datetime.combine(end_date, time.max)
-            )
-
-            employees = (
-                Employee.objects
-                .select_related(
-                    "user",
-                    "department",
-                    "role",
-                )
-                .filter(
-                    role__requires_clock_in=True,
-                )
-                .order_by(
-                    "user__last_name",
-                    "user__first_name",
-                )
-            )
-
-            if selected_employee:
-                employees = employees.filter(
-                    pk=selected_employee.pk,
-                )
-
-            for employee in employees:
-
-                entries = (
-                    TimeClock.objects
-                    .filter(
-                        employee=employee,
-                        clock_in__lte=end_dt,
-                    )
-                    .filter(
-                        Q(clock_out__gte=start_dt)
-                        | Q(clock_out__isnull=True)
-                    )
-                    .order_by(
-                        "clock_in",
-                    )
-                )
-
-                weeks = OrderedDict()
-
-                employee_raw_hours = 0
-                employee_rounded_hours = 0
-
-                for entry in entries:
-
-                    work_date = timezone.localtime(
-                        entry.clock_in
-                    ).date()
-
-                    if work_date < start_date or work_date > end_date:
-                        continue
-
-                    week_start = (
-                        work_date
-                        - timedelta(days=work_date.weekday())
-                    )
-
-                    week = weeks.setdefault(
-                        week_start,
-                        {
-                            "week_start": week_start,
-                            "week_end": week_start + timedelta(days=6),
-                            "days": OrderedDict(),
-                            "raw_hours": 0,
-                            "rounded_hours": 0,
-                        },
-                    )
-
-                    day = week["days"].setdefault(
-                        work_date,
-                        {
-                            "date": work_date,
-                            "entries": [],
-                            "raw_hours": 0,
-                            "rounded_hours": 0,
-                        },
-                    )
-
-                    raw_hours = entry.raw_hours
-                    rounded_hours = entry.rounded_hours
-
-                    day["entries"].append(
-                        {
-                            "timeclock": entry,
-                            "raw_clock_in": entry.clock_in,
-                            "rounded_clock_in": entry.rounded_clock_in,
-                            "raw_clock_out": entry.clock_out,
-                            "rounded_clock_out": entry.rounded_clock_out,
-                            "raw_hours": raw_hours,
-                            "rounded_hours": rounded_hours,
-                        }
-                    )
-
-                    day["raw_hours"] += raw_hours
-                    day["rounded_hours"] += rounded_hours
-
-                    week["raw_hours"] += raw_hours
-                    week["rounded_hours"] += rounded_hours
-
-                    employee_raw_hours += raw_hours
-                    employee_rounded_hours += rounded_hours
-
-                if weeks:
-                    employee_rows.append(
-                        {
-                            "employee": employee,
-                            "weeks": list(weeks.values()),
-                            "raw_hours": employee_raw_hours,
-                            "rounded_hours": employee_rounded_hours,
-                        }
-                    )
-
-                    report_totals["raw_hours"] += employee_raw_hours
-                    report_totals["rounded_hours"] += employee_rounded_hours
 
         context["form"] = form
-        context["employee_rows"] = employee_rows
-        context["report_totals"] = report_totals
+        context.update(payroll_data)
 
         return context
+
+
+class PayrollExcelView(LoginRequiredMixin, generic.View):
+    def get(self, request, *args, **kwargs):
+        form = TimeClockReportForm(request.GET)
+        if not form.is_valid():
+            return HttpResponseBadRequest("Valid payroll filters are required.")
+
+        start_date = form.cleaned_data["start_date"]
+        end_date = form.cleaned_data["end_date"]
+        payroll_data = build_payroll_report(
+            start_date=start_date,
+            end_date=end_date,
+            selected_employee=form.cleaned_data.get("employee"),
+        )
+
+        workbook = Workbook()
+        worksheet = workbook.active
+        worksheet.title = "Payroll"
+        headers = ["Employee"]
+        for number, _week_start in enumerate(payroll_data["week_starts"], 1):
+            headers.extend([f"Week {number} Time", f"Week {number} Overtime"])
+        headers.extend(["Total Time", "Total Overtime"])
+        worksheet.append(headers)
+
+        for row in payroll_data["employee_rows"]:
+            employee_name = row["employee"].user.get_full_name() or row["employee"].user.username
+            values = [employee_name]
+            total_time = 0
+            total_overtime = 0
+            for week_start in payroll_data["week_starts"]:
+                week = row["weeks_by_start"].get(week_start)
+                hours = week["rounded_hours"] if week else 0
+                overtime = max(hours - 40, 0)
+                values.extend([hours, overtime])
+                total_time += hours
+                total_overtime += overtime
+            values.extend([total_time, total_overtime])
+            worksheet.append(values)
+
+        worksheet.freeze_panes = "A2"
+        worksheet.auto_filter.ref = worksheet.dimensions
+        for cell in worksheet[1]:
+            cell.font = Font(bold=True)
+        worksheet.column_dimensions["A"].width = 30
+        for column in range(2, worksheet.max_column + 1):
+            worksheet.column_dimensions[get_column_letter(column)].width = 18
+            for cell in worksheet[get_column_letter(column)][1:]:
+                cell.number_format = "0.00"
+        for cell in worksheet["A"][1:]:
+            cell.number_format = "@"
+
+        output = BytesIO()
+        workbook.save(output)
+        filename = f"payroll_{start_date.isoformat()}_to_{end_date.isoformat()}.xlsx"
+        response = HttpResponse(
+            output.getvalue(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
