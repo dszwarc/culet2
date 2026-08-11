@@ -1066,12 +1066,14 @@ class TimeClockEditForm(forms.ModelForm):
         widgets = {
             "employee": select_widget(),
             "clock_in": forms.DateTimeInput(
+                format="%Y-%m-%dT%H:%M",
                 attrs={
                     "type": "datetime-local",
                     "class": "form-control job-input",
                 }
             ),
             "clock_out": forms.DateTimeInput(
+                format="%Y-%m-%dT%H:%M",
                 attrs={
                     "type": "datetime-local",
                     "class": "form-control job-input",

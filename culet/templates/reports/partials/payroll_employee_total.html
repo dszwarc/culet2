@@ -1,0 +1,8 @@
+<div id="payroll-employee-total-{{ employee_row.employee.pk }}" class="border rounded bg-primary text-white p-3 mt-4"{% if oob %} hx-swap-oob="true"{% endif %}>
+    <div class="row">
+        <div class="col-md-3"><h5 class="mb-0">Employee Total</h5></div>
+        <div class="col-md-3 text-end"><strong>Raw Hours</strong><br>{{ employee_row.raw_hours|floatformat:2 }}</div>
+        <div class="col-md-3 text-end"><strong>Rounded Hours</strong><br>{{ employee_row.rounded_hours|floatformat:2 }}</div>
+        <div class="col-md-3 text-end"><strong>Overtime</strong><br>{{ employee_row.overtime_hours|floatformat:2 }}</div>
+    </div>
+</div>

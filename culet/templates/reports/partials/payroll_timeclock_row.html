@@ -1,0 +1,45 @@
+{% firstof standalone_next request.get_full_path as return_url %}
+<tr id="timeclock-row-{{ entry.timeclock.pk }}">
+    <td>{{ entry.raw_clock_in|date:"g:i A" }}</td>
+    <td>{{ entry.rounded_clock_in|date:"g:i A" }}</td>
+    <td>
+        {% if entry.raw_clock_out %}{{ entry.raw_clock_out|date:"g:i A" }}{% else %}Still Clocked In{% endif %}
+    </td>
+    <td>
+        {% if entry.rounded_clock_out %}{{ entry.rounded_clock_out|date:"g:i A" }}{% else %}—{% endif %}
+    </td>
+    <td class="text-end">{{ entry.raw_hours|floatformat:2 }}</td>
+    <td class="text-end fw-semibold">{{ entry.rounded_hours|floatformat:2 }}</td>
+    <td>
+        <a
+            href="{% url 'culet:time_clock_edit' entry.timeclock.pk %}?next={{ return_url|urlencode }}"
+            hx-get="{% url 'culet:payroll_timeclock_inline_edit' entry.timeclock.pk %}?{{ report_query }}"
+            hx-target="closest tr"
+            hx-swap="outerHTML"
+            class="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center"
+            style="text-align: center;"
+        >EDIT</a>
+        {% if entry.raw_clock_out %}
+            <form
+                method="post"
+                action="{% url 'culet:payroll_timeclock_inline_delete' entry.timeclock.pk %}?{{ report_query }}"
+                hx-post="{% url 'culet:payroll_timeclock_inline_delete' entry.timeclock.pk %}?{{ report_query }}"
+                hx-target="closest tr"
+                hx-swap="delete"
+                hx-confirm="Delete this timeclock entry?"
+                hx-sync="this:drop"
+                class="d-inline"
+            >
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-danger">DELETE</button>
+            </form>
+        {% else %}
+            <button
+                type="button"
+                class="btn btn-sm btn-danger"
+                title="Open TimeClock entries cannot be deleted. Clock the employee out first."
+                disabled
+            >DELETE</button>
+        {% endif %}
+    </td>
+</tr>

@@ -1,0 +1,12 @@
+<div>
+    <table>
+        <tbody>
+            {% include "reports/partials/payroll_timeclock_row.html" %}
+            {% include "reports/partials/payroll_report_totals_row.html" with oob=True %}
+            {% include "reports/partials/payroll_day_total_row.html" with oob=True %}
+            {% include "reports/partials/payroll_week_total_row.html" with oob=True %}
+        </tbody>
+    </table>
+    {% include "reports/partials/payroll_employee_summary.html" with oob=True %}
+    {% include "reports/partials/payroll_employee_total.html" with oob=True %}
+</div>

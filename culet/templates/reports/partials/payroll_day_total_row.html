@@ -1,0 +1,6 @@
+<tr id="payroll-day-total-{{ employee_row.employee.pk }}-{{ day.date|date:'Ymd' }}" class="table-secondary fw-bold"{% if oob %} hx-swap-oob="true"{% endif %}>
+    <td colspan="4" class="text-end">Daily Total</td>
+    <td class="text-end">{{ day.raw_hours|floatformat:2 }}</td>
+    <td class="text-end">{{ day.rounded_hours|floatformat:2 }}</td>
+    <td></td>
+</tr>

@@ -1,0 +1,40 @@
+<tr id="timeclock-row-{{ timeclock.pk }}">
+    <td colspan="7" class="bg-light">
+        <form
+            method="post"
+            action="{% url 'culet:time_clock_edit' timeclock.pk %}"
+            hx-post="{% url 'culet:payroll_timeclock_inline_edit' timeclock.pk %}?{{ report_query }}"
+            hx-target="closest tr"
+            hx-swap="outerHTML"
+            hx-select="#timeclock-row-{{ timeclock.pk }}"
+            hx-sync="this:drop"
+            class="d-flex flex-wrap align-items-start gap-2"
+        >
+            {% csrf_token %}
+            {{ form.employee.as_hidden }}
+            <div class="mr-2">
+                <label class="small font-weight-bold mb-1" for="{{ form.clock_in.id_for_label }}">Clock In</label>
+                {{ form.clock_in }}
+                {% for error in form.clock_in.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="mr-2">
+                <label class="small font-weight-bold mb-1" for="{{ form.clock_out.id_for_label }}">Clock Out</label>
+                {{ form.clock_out }}
+                {% for error in form.clock_out.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+            {% for error in form.employee.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            {% for error in form.non_field_errors %}<div class="text-danger small w-100">{{ error }}</div>{% endfor %}
+            <div class="d-flex align-items-center mt-4">
+                <button type="submit" class="btn btn-sm btn-primary mr-2">Save</button>
+                <button
+                    type="button"
+                    class="btn btn-sm btn-secondary"
+                    hx-get="{% url 'culet:payroll_timeclock_row' timeclock.pk %}?{{ report_query }}"
+                    hx-target="closest tr"
+                    hx-swap="outerHTML"
+                >Cancel</button>
+                <span class="htmx-indicator small text-muted ml-2">Saving…</span>
+            </div>
+        </form>
+    </td>
+</tr>

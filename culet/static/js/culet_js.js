@@ -27,6 +27,14 @@ document.body.addEventListener("htmx:afterSwap", function (event) {
     initializeComboBoxes(event.detail.target);
 });
 
+// Keep inline forms in place when Django returns validation errors.
+document.body.addEventListener("htmx:beforeSwap", function (event) {
+    if (event.detail.xhr.status === 422) {
+        event.detail.shouldSwap = true;
+        event.detail.isError = false;
+    }
+});
+
 /* =========================================================
    Reusable Django formset add/remove controls
    ========================================================= */

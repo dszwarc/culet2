@@ -1,0 +1,5 @@
+<tr id="payroll-report-totals" class="fw-bold"{% if oob %} hx-swap-oob="true"{% endif %}>
+    <td class="text-end">{{ report_totals.raw_hours|floatformat:2 }}</td>
+    <td class="text-end">{{ report_totals.rounded_hours|floatformat:2 }}</td>
+    <td class="text-end">{{ report_totals.overtime_hours|floatformat:2 }}</td>
+</tr>

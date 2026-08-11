@@ -3,7 +3,7 @@ from io import BytesIO
 from urllib.parse import urlencode
 
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.test import Client, TestCase
 from django.urls import reverse
 from django.utils import timezone
 from openpyxl import load_workbook
@@ -84,6 +84,245 @@ class TimeClockPayrollReturnTests(PayrollTestMixin, TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "This field is required")
+
+
+class PayrollInlineTimeClockTests(PayrollTestMixin, TestCase):
+    def setUp(self):
+        super().setUp()
+        self.entry = self.make_entry(
+            self.john,
+            self.aware(2026, 8, 3, 8),
+            self.aware(2026, 8, 3, 17),
+        )
+        self.query = urlencode(
+            {
+                "start_date": "2026-08-03",
+                "end_date": "2026-08-09",
+                "employee": self.john.pk,
+            }
+        )
+        self.inline_url = (
+            reverse("culet:payroll_timeclock_inline_edit", args=[self.entry.pk])
+            + "?"
+            + self.query
+        )
+        self.row_url = (
+            reverse("culet:payroll_timeclock_row", args=[self.entry.pk])
+            + "?"
+            + self.query
+        )
+        self.htmx = {"HTTP_HX_REQUEST": "true"}
+
+    def valid_post(self, clock_out="2026-08-03T16:00"):
+        return {
+            "employee": self.john.pk,
+            "clock_in": "2026-08-03T08:00",
+            "clock_out": clock_out,
+        }
+
+    def test_edit_returns_populated_compact_edit_row(self):
+        response = self.client.get(self.inline_url, **self.htmx)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "reports/partials/payroll_timeclock_edit_row.html")
+        self.assertContains(response, f'id="timeclock-row-{self.entry.pk}"')
+        self.assertContains(response, 'value="2026-08-03T08:00"')
+        self.assertContains(response, 'value="2026-08-03T17:00"')
+        self.assertContains(response, "Save")
+        self.assertContains(response, "Cancel")
+        self.assertContains(response, 'hx-target="closest tr"', count=2)
+        self.assertContains(response, 'hx-swap="outerHTML"', count=2)
+        self.assertContains(response, 'hx-sync="this:drop"')
+        self.assertContains(response, f'hx-select="#timeclock-row-{self.entry.pk}"')
+        self.assertNotContains(response, "hx-disabled-elt")
+        self.assertContains(response, self.query.replace("&", "&amp;"))
+
+    def test_valid_post_updates_entry_and_returns_row_with_oob_totals(self):
+        response = self.client.post(self.inline_url, self.valid_post(), **self.htmx)
+        self.entry.refresh_from_db()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(timezone.localtime(self.entry.clock_out).hour, 16)
+        self.assertContains(response, f'id="timeclock-row-{self.entry.pk}"')
+        self.assertTemplateUsed(response, "reports/partials/payroll_inline_save_response.html")
+        self.assertContains(response, "4:00 PM")
+        self.assertContains(response, 'hx-target="closest tr"')
+        self.assertContains(response, 'hx-swap="outerHTML"')
+        self.assertContains(response, 'id="payroll-report-totals"')
+        self.assertContains(response, 'hx-swap-oob="true"')
+
+    def test_invalid_post_returns_edit_row_and_errors(self):
+        response = self.client.post(
+            self.inline_url,
+            {"employee": self.john.pk, "clock_in": "invalid", "clock_out": ""},
+            **self.htmx,
+        )
+        self.assertEqual(response.status_code, 422)
+        self.assertTemplateUsed(response, "reports/partials/payroll_timeclock_edit_row.html")
+        self.assertContains(response, "Enter a valid date/time", status_code=422)
+        self.entry.refresh_from_db()
+        self.assertEqual(timezone.localtime(self.entry.clock_out).hour, 17)
+
+    def test_cancel_returns_unchanged_display_row(self):
+        response = self.client.get(self.row_url, **self.htmx)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "reports/partials/payroll_timeclock_row.html")
+        self.assertContains(response, "5:00 PM")
+        self.assertNotContains(response, "Save")
+        self.entry.refresh_from_db()
+        self.assertEqual(timezone.localtime(self.entry.clock_out).hour, 17)
+
+    def test_login_is_required_for_inline_editing(self):
+        self.client.logout()
+        self.assertEqual(self.client.get(self.inline_url, **self.htmx).status_code, 302)
+        self.assertEqual(
+            self.client.post(self.inline_url, self.valid_post(), **self.htmx).status_code,
+            302,
+        )
+
+    def test_edit_from_41_to_40_updates_rounding_overtime_and_all_summaries(self):
+        for day in range(4, 8):
+            self.make_entry(
+                self.john,
+                self.aware(2026, 8, day, 8),
+                self.aware(2026, 8, day, 16),
+            )
+
+        before = self.client.get(
+            reverse("culet:payroll_report") + "?" + self.query
+        )
+        self.assertContains(before, "OT 1.00")
+
+        response = self.client.post(self.inline_url, self.valid_post(), **self.htmx)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "OT 0.00")
+        self.assertContains(response, "Rounded: 40.00")
+        self.assertContains(response, "Overtime: 0.00")
+        self.assertContains(response, "40.00")
+        self.assertNotContains(response, "41.00")
+
+    def test_non_htmx_request_preserves_standalone_editor(self):
+        response = self.client.get(self.inline_url)
+        self.assertRedirects(
+            response,
+            reverse("culet:time_clock_edit", args=[self.entry.pk]),
+            fetch_redirect_response=False,
+        )
+
+
+class PayrollInlineTimeClockDeleteTests(PayrollTestMixin, TestCase):
+    def setUp(self):
+        super().setUp()
+        self.entry = self.make_entry(
+            self.john,
+            self.aware(2026, 8, 3, 8),
+            self.aware(2026, 8, 3, 10),
+        )
+        self.query = urlencode(
+            {
+                "start_date": "2026-08-03",
+                "end_date": "2026-08-09",
+                "employee": self.john.pk,
+            }
+        )
+        self.delete_url = (
+            reverse("culet:payroll_timeclock_inline_delete", args=[self.entry.pk])
+            + "?"
+            + self.query
+        )
+        self.htmx = {"HTTP_HX_REQUEST": "true"}
+
+    def test_payroll_row_has_confirmed_post_delete_action_and_filters(self):
+        response = self.client.get(
+            reverse("culet:payroll_report") + "?" + self.query
+        )
+        self.assertContains(response, "Edit")
+        self.assertContains(response, "Delete")
+        self.assertContains(response, 'hx-confirm="Delete this timeclock entry?"')
+        self.assertContains(response, 'hx-target="closest tr"')
+        self.assertContains(response, 'hx-swap="delete"')
+        self.assertContains(response, self.query.replace("&", "&amp;"))
+
+    def test_authorized_post_deletes_record_and_returns_oob_totals(self):
+        response = self.client.post(self.delete_url, **self.htmx)
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(TimeClock.objects.filter(pk=self.entry.pk).exists())
+        self.assertTemplateUsed(
+            response,
+            "reports/partials/payroll_inline_delete_response.html",
+        )
+        self.assertNotContains(response, f'id="timeclock-row-{self.entry.pk}"')
+        self.assertContains(response, 'id="payroll-report-totals"')
+        self.assertContains(response, 'hx-swap-oob="true"', count=5)
+        self.assertContains(response, "0.00")
+
+    def test_delete_requires_post(self):
+        response = self.client.get(self.delete_url, **self.htmx)
+        self.assertEqual(response.status_code, 405)
+        self.assertTrue(TimeClock.objects.filter(pk=self.entry.pk).exists())
+
+    def test_delete_requires_login(self):
+        self.client.logout()
+        response = self.client.post(self.delete_url, **self.htmx)
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(TimeClock.objects.filter(pk=self.entry.pk).exists())
+
+    def test_delete_is_csrf_protected(self):
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_client.force_login(self.viewer)
+        response = csrf_client.post(self.delete_url, **self.htmx)
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(TimeClock.objects.filter(pk=self.entry.pk).exists())
+
+    def test_delete_recalculates_weekly_overtime_from_41_to_39(self):
+        for day in range(4, 8):
+            self.make_entry(
+                self.john,
+                self.aware(2026, 8, day, 8),
+                self.aware(2026, 8, day, 16),
+            )
+        self.make_entry(
+            self.john,
+            self.aware(2026, 8, 3, 10),
+            self.aware(2026, 8, 3, 17),
+        )
+
+        before = self.client.get(
+            reverse("culet:payroll_report") + "?" + self.query
+        )
+        self.assertContains(before, "OT 1.00")
+
+        response = self.client.post(self.delete_url, **self.htmx)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "OT 0.00")
+        self.assertContains(response, "Rounded: 39.00")
+        self.assertContains(response, "Overtime: 0.00")
+        self.assertNotContains(response, "41.00")
+
+    def test_open_timeclock_cannot_be_deleted(self):
+        self.entry.clock_out = None
+        self.entry.save(update_fields=["clock_out"])
+
+        response = self.client.post(self.delete_url, **self.htmx)
+
+        self.assertEqual(response.status_code, 409)
+        self.assertContains(
+            response,
+            "Open TimeClock entries cannot be deleted",
+            status_code=409,
+        )
+        self.assertTrue(TimeClock.objects.filter(pk=self.entry.pk).exists())
+
+        payroll = self.client.get(
+            reverse("culet:payroll_report") + "?" + self.query
+        )
+        self.assertContains(payroll, "Open TimeClock entries cannot be deleted")
+        self.assertContains(payroll, "disabled")
+
+    def test_already_deleted_entry_returns_404(self):
+        self.entry.delete()
+        response = self.client.post(self.delete_url, **self.htmx)
+        self.assertEqual(response.status_code, 404)
 
 
 class PayrollExcelTests(PayrollTestMixin, TestCase):

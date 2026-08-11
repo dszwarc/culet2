@@ -1,0 +1,6 @@
+<div id="payroll-employee-summary-{{ employee_row.employee.pk }}" class="text-end"{% if oob %} hx-swap-oob="true"{% endif %}>
+    <div><strong>Employee Totals</strong></div>
+    <div>Raw: {{ employee_row.raw_hours|floatformat:2 }}</div>
+    <div>Rounded: {{ employee_row.rounded_hours|floatformat:2 }}</div>
+    <div>Overtime: {{ employee_row.overtime_hours|floatformat:2 }}</div>
+</div>

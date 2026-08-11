@@ -1,0 +1,6 @@
+<tr id="payroll-week-total-{{ employee_row.employee.pk }}-{{ week.week_start|date:'Ymd' }}" class="fw-bold"{% if oob %} hx-swap-oob="true"{% endif %}>
+    <td class="text-end" style="width:55%;">Week Total</td>
+    <td class="text-end" style="width:15%;">{{ week.raw_hours|floatformat:2 }}</td>
+    <td class="text-end" style="width:15%;">{{ week.rounded_hours|floatformat:2 }}</td>
+    <td class="text-end" style="width:15%;">OT {{ week.overtime_hours|floatformat:2 }}</td>
+</tr>

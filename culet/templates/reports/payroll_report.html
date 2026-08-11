@@ -47,21 +47,14 @@
                             <th class="text-end">
                                 Rounded Hours
                             </th>
+                            <th class="text-end">
+                                Overtime
+                            </th>
                         </tr>
                     </thead>
 
                     <tbody>
-                        <tr class="fw-bold">
-
-                            <td class="text-end">
-                                {{ report_totals.raw_hours|floatformat:2 }}
-                            </td>
-
-                            <td class="text-end">
-                                {{ report_totals.rounded_hours|floatformat:2 }}
-                            </td>
-
-                        </tr>
+                        {% include "reports/partials/payroll_report_totals_row.html" %}
                     </tbody>
 
                 </table>
@@ -94,23 +87,7 @@
 
                     </div>
 
-                    <div class="text-end">
-
-                        <div>
-                            <strong>Employee Totals</strong>
-                        </div>
-
-                        <div>
-                            Raw:
-                            {{ row.raw_hours|floatformat:2 }}
-                        </div>
-
-                        <div>
-                            Rounded:
-                            {{ row.rounded_hours|floatformat:2 }}
-                        </div>
-
-                    </div>
+                    {% include "reports/partials/payroll_employee_summary.html" with employee_row=row %}
 
                 </div>
 
@@ -186,75 +163,10 @@
 
                                                 {% for entry in day.entries %}
 
-                                                    <tr>
-
-                                                        <td>
-                                                            {{ entry.raw_clock_in|date:"g:i A" }}
-                                                        </td>
-
-                                                        <td>
-                                                            {{ entry.rounded_clock_in|date:"g:i A" }}
-                                                        </td>
-
-                                                        <td>
-
-                                                            {% if entry.raw_clock_out %}
-                                                                {{ entry.raw_clock_out|date:"g:i A" }}
-                                                            {% else %}
-                                                                Still Clocked In
-                                                            {% endif %}
-
-                                                        </td>
-
-                                                        <td>
-
-                                                            {% if entry.rounded_clock_out %}
-                                                                {{ entry.rounded_clock_out|date:"g:i A" }}
-                                                            {% else %}
-                                                                —
-                                                            {% endif %}
-
-                                                        </td>
-
-                                                        <td class="text-end">
-                                                            {{ entry.raw_hours|floatformat:2 }}
-                                                        </td>
-
-                                                        <td class="text-end fw-semibold">
-                                                            {{ entry.rounded_hours|floatformat:2 }}
-                                                        </td>
-
-                                                        <td>
-
-                                                            <a
-                                                                href="{% url 'culet:time_clock_edit' entry.timeclock.pk %}?next={{ request.get_full_path|urlencode }}"
-                                                                class="btn btn-sm btn-outline-primary"
-                                                            >
-                                                                Edit
-                                                            </a>
-
-                                                        </td>
-
-                                                    </tr>
+                                                    {% include "reports/partials/payroll_timeclock_row.html" with report_query=request.GET.urlencode %}
 
                                                 {% endfor %}
-                                                                                                <tr class="table-secondary fw-bold">
-
-                                                    <td colspan="4" class="text-end">
-                                                        Daily Total
-                                                    </td>
-
-                                                    <td class="text-end">
-                                                        {{ day.raw_hours|floatformat:2 }}
-                                                    </td>
-
-                                                    <td class="text-end">
-                                                        {{ day.rounded_hours|floatformat:2 }}
-                                                    </td>
-
-                                                    <td></td>
-
-                                                </tr>
+                                                {% include "reports/partials/payroll_day_total_row.html" with employee_row=row %}
 
                                             </tbody>
 
@@ -272,21 +184,7 @@
 
                                     <tbody>
 
-                                        <tr class="fw-bold">
-
-                                            <td class="text-end" style="width:70%;">
-                                                Week Total
-                                            </td>
-
-                                            <td class="text-end" style="width:15%;">
-                                                {{ week.raw_hours|floatformat:2 }}
-                                            </td>
-
-                                            <td class="text-end" style="width:15%;">
-                                                {{ week.rounded_hours|floatformat:2 }}
-                                            </td>
-
-                                        </tr>
+                                        {% include "reports/partials/payroll_week_total_row.html" with employee_row=row %}
 
                                     </tbody>
 
@@ -298,45 +196,7 @@
 
                     {% endfor %}
 
-                    <div class="border rounded bg-primary text-white p-3 mt-4">
-
-                        <div class="row">
-
-                            <div class="col-md-6">
-
-                                <h5 class="mb-0">
-                                    Employee Total
-                                </h5>
-
-                            </div>
-
-                            <div class="col-md-3 text-end">
-
-                                <strong>
-                                    Raw Hours
-                                </strong>
-
-                                <br>
-
-                                {{ row.raw_hours|floatformat:2 }}
-
-                            </div>
-
-                            <div class="col-md-3 text-end">
-
-                                <strong>
-                                    Rounded Hours
-                                </strong>
-
-                                <br>
-
-                                {{ row.rounded_hours|floatformat:2 }}
-
-                            </div>
-
-                        </div>
-
-                    </div>
+                    {% include "reports/partials/payroll_employee_total.html" with employee_row=row %}
 
                 </div>
 

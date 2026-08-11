@@ -32,7 +32,7 @@ def build_payroll_report(*, start_date, end_date, selected_employee=None):
         employees = employees.filter(pk=selected_employee.pk)
 
     employee_rows = []
-    report_totals = {"raw_hours": 0, "rounded_hours": 0}
+    report_totals = {"raw_hours": 0, "rounded_hours": 0, "overtime_hours": 0}
 
     for employee in employees:
         entries = (
@@ -91,6 +91,10 @@ def build_payroll_report(*, start_date, end_date, selected_employee=None):
             employee_rounded_hours += rounded_hours
 
         if weeks:
+            employee_overtime_hours = 0
+            for week in weeks.values():
+                week["overtime_hours"] = max(week["rounded_hours"] - 40, 0)
+                employee_overtime_hours += week["overtime_hours"]
             employee_rows.append(
                 {
                     "employee": employee,
@@ -98,10 +102,12 @@ def build_payroll_report(*, start_date, end_date, selected_employee=None):
                     "weeks_by_start": weeks,
                     "raw_hours": employee_raw_hours,
                     "rounded_hours": employee_rounded_hours,
+                    "overtime_hours": employee_overtime_hours,
                 }
             )
             report_totals["raw_hours"] += employee_raw_hours
             report_totals["rounded_hours"] += employee_rounded_hours
+            report_totals["overtime_hours"] += employee_overtime_hours
 
     return {
         "employee_rows": employee_rows,
