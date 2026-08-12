@@ -12,6 +12,7 @@ from .services import parse_barcode_input
 from .models import (
     FailureType,
     QualityInspection,
+    QualityInspectionStep,
     QualityInspectionFailure,
     Location,
     PieceworkMemo,
@@ -1348,6 +1349,7 @@ class QualityInspectionForm(forms.Form):
         model = QualityInspection
         fields = [
             "barcode",
+            "step",
             "result",
             "failure_types",
             "notes",
@@ -1357,6 +1359,12 @@ class QualityInspectionForm(forms.Form):
     barcode = forms.CharField(
         label="Job Barcode",
         widget=text_widget("Scan job barcode"),
+    )
+
+    step = forms.ModelMultipleChoiceField(
+        label="Inspection Step",
+        queryset=QualityInspectionStep.objects.none(),
+        widget=forms.CheckboxSelectMultiple,
     )
 
     result = forms.ChoiceField(
@@ -1389,6 +1397,12 @@ class QualityInspectionForm(forms.Form):
         widget=textarea_widget("Optional QC notes", rows=3),
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["step"].queryset = QualityInspectionStep.objects.filter(
+            active=True
+        ).order_by("sort_order", "name")
+
     def clean_barcode(self):
         barcode = self.cleaned_data["barcode"].strip()
 
@@ -1401,6 +1415,14 @@ class QualityInspectionForm(forms.Form):
         cleaned_data = super().clean()
         result = cleaned_data.get("result")
         failure_types = cleaned_data.get("failure_types")
+        inspection_steps = cleaned_data.get("step")
+
+        if inspection_steps is not None:
+            selected_steps = list(inspection_steps)
+            if len(selected_steps) != 1:
+                self.add_error("step", "Choose exactly one inspection step.")
+            else:
+                cleaned_data["step"] = selected_steps[0]
 
         if result == QualityInspection.RESULT_FAIL and not failure_types:
             self.add_error(

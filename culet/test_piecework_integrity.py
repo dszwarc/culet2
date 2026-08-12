@@ -6,6 +6,7 @@ from unittest.mock import patch
 from django.contrib.auth.models import User
 from django.contrib.messages import get_messages
 from django.apps import apps
+from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.db import IntegrityError, connection, transaction
@@ -18,7 +19,7 @@ from .models import (
     Activity, ActivityStep, Customer, Department, Employee, Job, JobMovement,
     JobStatus, Location, MovementType, PieceworkMemo, PieceworkMemoLine, Style,
 )
-from .services import validate_batch_jobs
+from .services import move_job, stop_activity, validate_batch_jobs
 
 
 class CuletTestDataMixin:
@@ -310,6 +311,153 @@ class ReceiveJobsPieceworkRegressionTests(CuletTestDataMixin, TestCase):
 
         self.assertIn(stale_true_job.pk, receive_ids)
         self.assertNotIn(stale_false_job.pk, receive_ids)
+
+    def test_receive_rejects_job_with_open_repair_activity(self):
+        repair_step = ActivityStep.objects.create(name="Repair", code="repair")
+        job = self.make_receivable_job(42508)
+        repair = Activity.objects.create(
+            job=job,
+            employee=self.other,
+            step=repair_step,
+        )
+
+        self.client.force_login(self.worker_user)
+        response = self.client.post(
+            reverse("culet:receive"),
+            {"job_id": job.pk},
+            follow=True,
+        )
+
+        job.refresh_from_db()
+        repair.refresh_from_db()
+        self.assertEqual(job.holder, self.other)
+        self.assertTrue(repair.active)
+        self.assertIsNone(repair.end)
+        self.assertContains(response, "cannot be moved until that activity is stopped")
+        self.assertFalse(
+            JobMovement.objects.filter(
+                job=job,
+                movement_type__code="received",
+                to_employee=self.worker,
+            ).exists()
+        )
+
+    def test_receive_succeeds_after_repair_activity_is_stopped(self):
+        repair_step = ActivityStep.objects.create(name="Repair", code="repair")
+        job = self.make_receivable_job(42509)
+        repair = Activity.objects.create(
+            job=job,
+            employee=self.other,
+            step=repair_step,
+        )
+        stop_activity(repair)
+
+        self.client.force_login(self.worker_user)
+        response = self.client.post(
+            reverse("culet:receive"),
+            {"job_id": job.pk},
+        )
+
+        self.assertRedirects(response, reverse("culet:receive_list"))
+        job.refresh_from_db()
+        self.assertEqual(job.holder, self.worker)
+
+    def test_move_job_rejects_assignment_change_during_open_work(self):
+        production_step = ActivityStep.objects.create(
+            name="Assembly",
+            code="assembly",
+        )
+        job = self.make_job(
+            42510,
+            assigned_to=self.worker,
+            holder=self.worker,
+        )
+        Activity.objects.create(
+            job=job,
+            employee=self.worker,
+            step=production_step,
+        )
+
+        with self.assertRaisesMessage(
+            ValidationError,
+            "cannot be moved until that activity is stopped",
+        ):
+            move_job(
+                job=job,
+                movement_type="assigned",
+                to_employee=self.other,
+                performed_by=self.manager,
+            )
+
+        job.refresh_from_db()
+        self.assertEqual(job.assigned_to, self.worker)
+        self.assertEqual(job.holder, self.worker)
+
+    def test_inprocess_repair_blocks_original_employee_receive_until_stopped(self):
+        repair_step = ActivityStep.objects.create(name="Repair", code="repair")
+        MovementType.objects.create(
+            name="Repair",
+            code="repair",
+            job_field="holder",
+        )
+        self.other.can_inprocess_repair = True
+        self.other.clocked_in = True
+        self.other.save(update_fields=["can_inprocess_repair", "clocked_in"])
+        job = self.make_job(
+            42511,
+            assigned_to=self.worker,
+            holder=self.worker,
+        )
+
+        self.client.force_login(self.other_user)
+        start_response = self.client.post(
+            reverse("culet:inprocess_repair"),
+            {"action": "start", "job_id": job.pk},
+        )
+
+        self.assertRedirects(start_response, reverse("culet:my_jobs"))
+        job.refresh_from_db()
+        repair = Activity.objects.get(job=job, step=repair_step)
+        self.assertEqual(job.assigned_to, self.worker)
+        self.assertEqual(job.holder, self.other)
+        self.assertEqual(repair.employee, self.other)
+        self.assertTrue(repair.active)
+        self.assertIsNone(repair.end)
+
+        self.client.force_login(self.worker_user)
+        receive_response = self.client.post(
+            reverse("culet:receive"),
+            {"job_id": job.pk},
+            follow=True,
+        )
+
+        job.refresh_from_db()
+        repair.refresh_from_db()
+        self.assertEqual(job.holder, self.other)
+        self.assertTrue(repair.active)
+        self.assertIsNone(repair.end)
+        self.assertContains(
+            receive_response,
+            "cannot be moved until that activity is stopped",
+        )
+
+        self.client.force_login(self.other_user)
+        stop_response = self.client.post(
+            reverse("culet:stop_work", args=[repair.pk, job.pk]),
+        )
+        self.assertRedirects(stop_response, reverse("culet:my_jobs"))
+        repair.refresh_from_db()
+        self.assertFalse(repair.active)
+        self.assertIsNotNone(repair.end)
+
+        self.client.force_login(self.worker_user)
+        final_receive = self.client.post(
+            reverse("culet:receive"),
+            {"job_id": job.pk},
+        )
+        self.assertRedirects(final_receive, reverse("culet:receive_list"))
+        job.refresh_from_db()
+        self.assertEqual(job.holder, self.worker)
 
 
 class PieceworkLineReturnWorkflowTests(CuletTestDataMixin, TestCase):

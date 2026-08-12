@@ -482,6 +482,31 @@ def move_job(
     if from_employee == to_employee:
         return job, None
 
+    open_activity = (
+        Activity.objects
+        .filter(
+            job=job,
+            active=True,
+            end__isnull=True,
+        )
+        .select_related("employee__user", "step")
+        .order_by("start", "pk")
+        .first()
+    )
+
+    if open_activity is not None:
+        employee_name = str(open_activity.employee)
+        activity_name = (
+            open_activity.step.name
+            if open_activity.step_id
+            else open_activity.name
+        )
+        raise ValidationError(
+            f"This job is currently being worked on by {employee_name} "
+            f"({activity_name}) and cannot be moved until that activity "
+            "is stopped."
+        )
+
     setattr(
         job,
         job_field,

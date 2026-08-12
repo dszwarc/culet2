@@ -36,6 +36,7 @@ from .models import (
     PieceworkMemoLine,
     QualityInspection,
     QualityInspectionFailure,
+    QualityInspectionStep,
     Role,
     Step,
     Stone,
@@ -118,7 +119,6 @@ class DepartmentAdmin(admin.ModelAdmin):
     search_fields = ("name",)
     list_filter = ("active",)
     ordering = ("name",)
-
 
 @admin.register(Role)
 class RoleAdmin(admin.ModelAdmin):
@@ -560,6 +560,7 @@ class QualityInspectionAdmin(admin.ModelAdmin):
     list_display = (
         "job",
         "inspected_by",
+        "inspection_step",
         "result",
         "inspection_duration_minutes",
         "inspected_at",
@@ -582,11 +583,29 @@ class QualityInspectionAdmin(admin.ModelAdmin):
         "job__customer",
         "inspected_at",
     )
-    autocomplete_fields = ("job", "inspected_by")
+    autocomplete_fields = ("job", "inspected_by", "step", "activity")
     date_hierarchy = "inspected_at"
     ordering = ("-inspected_at", "-id")
     list_per_page = 50
-    list_select_related = ("job__style", "job__customer", "inspected_by__user")
+    list_select_related = (
+        "job__style",
+        "job__customer",
+        "inspected_by__user",
+        "step",
+    )
+
+    @admin.display(description="Inspection step", ordering="step__sort_order")
+    def inspection_step(self, obj):
+        return obj.step_display
+
+
+@admin.register(QualityInspectionStep)
+class QualityInspectionStepAdmin(admin.ModelAdmin):
+    list_display = ("name", "code", "sort_order", "active")
+    list_editable = ("sort_order", "active")
+    list_filter = ("active",)
+    search_fields = ("name", "code")
+    ordering = ("sort_order", "name")
 
 
 @admin.register(QualityInspectionFailure)

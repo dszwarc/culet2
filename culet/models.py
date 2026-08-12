@@ -209,6 +209,19 @@ class FailureType(models.Model):
     def __str__(self):
         return self.name
 
+
+class QualityInspectionStep(models.Model):
+    name = models.CharField(max_length=100)
+    code = models.SlugField(max_length=80, unique=True)
+    sort_order = models.PositiveIntegerField(default=0)
+    active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["sort_order", "name"]
+
+    def __str__(self):
+        return self.name
+
 class Job(models.Model):
 
     name = models.CharField(max_length=80,default="N/A")
@@ -459,6 +472,20 @@ class QualityInspection(models.Model):
         related_name="quality_inspections",
     )
     inspected_at = models.DateTimeField(default=timezone.now)
+    step = models.ForeignKey(
+        QualityInspectionStep,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="inspections",
+    )
+    activity = models.OneToOneField(
+        "Activity",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="quality_inspection",
+    )
     inspection_duration_minutes = models.PositiveIntegerField(null=True,blank=True,verbose_name="Inspection duration",help_text="Approximate inspection time in minutes.")
     result = models.CharField(max_length=10, choices=RESULT_CHOICES)
     notes = models.TextField(blank=True)
@@ -468,6 +495,10 @@ class QualityInspection(models.Model):
 
     def __str__(self):
         return f"{self.job} - {self.get_result_display()} - {self.inspected_at:%Y-%m-%d}"
+
+    @property
+    def step_display(self):
+        return str(self.step) if self.step_id else "Legacy / Unknown"
 
 
 class QualityInspectionFailure(models.Model):

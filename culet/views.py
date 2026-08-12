@@ -765,12 +765,16 @@ class ReceiveJobView(LoginRequiredMixin, generic.View):
             pk=request.POST.get("job_id"),
         )
 
-        job, movement = move_job(
-            job=job,
-            movement_type="received",
-            to_employee=employee,
-            performed_by=employee,
-        )
+        try:
+            job, movement = move_job(
+                job=job,
+                movement_type="received",
+                to_employee=employee,
+                performed_by=employee,
+            )
+        except ValidationError as exc:
+            messages.error(request, " ".join(exc.messages))
+            return redirect("culet:receive_list")
 
         if movement is None:
             messages.info(
@@ -800,17 +804,32 @@ class ReceiveAllJobsView(
         )
 
         received_count = 0
+        blocked_messages = []
 
         for job in jobs:
-            job, movement = move_job(
-                job=job,
-                movement_type="received",
-                to_employee=employee,
-                performed_by=employee,
-            )
+            try:
+                job, movement = move_job(
+                    job=job,
+                    movement_type="received",
+                    to_employee=employee,
+                    performed_by=employee,
+                )
+            except ValidationError as exc:
+                identifier = job.stock_num or job.barcode
+                blocked_messages.append(
+                    f"{identifier}: {' '.join(exc.messages)}"
+                )
+                continue
 
             if movement is not None:
                 received_count += 1
+
+        if blocked_messages:
+            messages.error(
+                request,
+                "The following jobs could not be received: "
+                + "; ".join(blocked_messages),
+            )
 
         if received_count:
             job_word = (
@@ -6762,9 +6781,22 @@ class QualityInspectionCreateView(
         )
 
         with transaction.atomic():
+            activity = Activity.objects.create(
+                job=job,
+                employee=employee,
+                step=qc_step,
+                start=activity_start,
+                end=inspection_time,
+                active=False,
+                is_piecework=False,
+            )
+
             inspection = QualityInspection.objects.create(
                 job=job,
                 inspected_by=employee,
+                step=form.cleaned_data["step"],
+                activity=activity,
+                inspected_at=inspection_time,
                 result=form.cleaned_data["result"],
                 notes=form.cleaned_data.get("notes", ""),
                 inspection_duration_minutes=inspection_duration_minutes,
@@ -6782,16 +6814,6 @@ class QualityInspectionCreateView(
                         ]
                     ]
                 )
-
-            Activity.objects.create(
-                job=job,
-                employee=employee,
-                step=qc_step,
-                start=activity_start,
-                end=inspection_time,
-                active=False,
-                is_piecework=False,
-            )
 
         if inspection.result == QualityInspection.RESULT_PASS:
             messages.success(
@@ -6830,6 +6852,7 @@ class QualityFailureReportView(LoginRequiredMixin, generic.TemplateView):
                 "inspection__job__customer",
                 "inspection__inspected_by",
                 "inspection__inspected_by__user",
+                "inspection__step",
                 "failure_type",
             )
             .order_by("-inspection__inspected_at")
