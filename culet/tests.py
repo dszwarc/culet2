@@ -1003,7 +1003,7 @@ class WorkBatchTests(TestCase):
         self.assertContains(page, "2 jobs")
         self.assertContains(page, first.stock_num)
         self.assertContains(page, second.stock_num)
-        self.assertContains(page, "Stop Batch", count=1)
+        self.assertContains(page, "Stop Batch", count=2)
 
     def test_individual_start_and_stop_are_blocked_for_active_batch(self):
         batch, jobs = self.start_batch(2)

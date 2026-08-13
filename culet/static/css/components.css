@@ -1665,8 +1665,20 @@ form:not(td form) {
 }
 
 .batch-mobile-job-card {
-    display: grid;
-    gap: 0.25rem;
+    font-size: 0.9rem;
+}
+
+.batch-mobile-job-card .mobile-job-card-header {
+    padding: 0.5rem 0.5rem 0.35rem;
+}
+
+.batch-mobile-job-card .mobile-job-style {
+    padding: 0 0.5rem 0.5rem;
+}
+
+.batch-mobile-job-card .mobile-job-due {
+    min-width: 4rem;
+    padding: 0.35rem 0.5rem;
 }
 
 @media (max-width: 700px) {

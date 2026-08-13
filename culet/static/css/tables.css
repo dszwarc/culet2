@@ -311,6 +311,7 @@ td form .btn {
 
     .mobile-job-card {
         width: 100%;
+        padding: 0.5rem;
         overflow: hidden;
         background: var(--surface);
         border: 2px solid var(--border);

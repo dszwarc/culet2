@@ -92,12 +92,12 @@
 
                 <div class="table-wrap job-desktop-table">
                     <table class="index_table job_index">
-                        <thead><tr><th>Stock #</th><th>Barcode</th><th>Due Date</th></tr></thead>
+                        <thead><tr><th>Stock #</th><th>Customer</th><th>Due Date</th></tr></thead>
                         <tbody>
                             {% for activity in active_work_batch.open_activities %}
                                 <tr>
                                     <td>{{ activity.job.stock_num|default:"—" }}</td>
-                                    <td>{{ activity.job.barcode|default:"—" }}</td>
+                                    <td>{{ activity.job.customer|default:"—" }}</td>
                                     <td>{{ activity.job.due|date:"n/j/Y" }}</td>
                                 </tr>
                             {% endfor %}
@@ -121,12 +121,43 @@
                 <div class="mobile-job-list">
                     {% for activity in active_work_batch.open_activities %}
                         <article class="mobile-job-card batch-mobile-job-card">
-                            <strong>{{ activity.job.stock_num|default:"No stock #" }}</strong>
-                            <span>Barcode: {{ activity.job.barcode|default:"—" }}</span>
-                            <span>{{ activity.job.customer|default:"—" }}</span>
-                            <span>Due: {{ activity.job.due|date:"n/j/y" }}</span>
+                            <div class="mobile-job-card-header">
+                                <div class="mobile-job-stock">
+                                    <span class="mobile-job-label">Stock #</span>
+                                    <span class="mobile-job-stock-value">
+                                        {{ activity.job.stock_num|default:"No stock #" }}
+                                    </span>
+                                </div>
+                                <div
+                                    class="mobile-job-due{% if activity.job.is_past_due %} mobile-job-due-past{% endif %}"
+                                >
+                                    <span class="mobile-job-label">Due</span>
+                                    <span class="mobile-job-due-value">
+                                        {% if activity.job.due %}
+                                            {{ activity.job.due|date:"n/j/y" }}
+                                        {% else %}
+                                            —
+                                        {% endif %}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="mobile-job-style">
+                                <span class="mobile-job-label">Style</span>
+                                <span class="mobile-job-style-value">
+                                    {{ activity.job.style|default:"—" }}
+                                </span>
+                            </div>
                         </article>
                     {% endfor %}
+                    <form
+                        method="post"
+                        action="{% url 'culet:stop_work_batch' active_work_batch.pk %}"
+                    >
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger">
+                            Stop Batch
+                        </button>
+                    </form>
                 </div>
             </section>
         {% endif %}
