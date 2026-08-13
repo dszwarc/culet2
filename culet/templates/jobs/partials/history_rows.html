@@ -17,10 +17,7 @@
             <td data-label="Duration">
                 {% if event.record.duration %}{{ event.record.duration_hours }} h {{ event.record.duration_min }} m{% else %}—{% endif %}
             </td>
-            <td data-label="Performed By">—</td>
-            <td data-label="Action" class="actions-cell">
-                {% if event.record.active %}<a href="{% url 'culet:stop_work' pk=event.record.pk job_id=job.pk %}" class="btn btn-danger btn-sm">Stop Work</a>{% else %}—{% endif %}
-            </td>
+            <td data-label="Scanned By">—</td>
         {% else %}
             <td data-label="Event">{{ event.record.movement_type.name|default:"—" }}</td>
             <td data-label="Employee / From → To">
@@ -30,10 +27,9 @@
             </td>
             <td data-label="End">—</td>
             <td data-label="Duration">—</td>
-            <td data-label="Performed By">
+            <td data-label="Scanned By">
                 {% if event.record.performed_by %}{{ event.record.performed_by.user.get_full_name|default:event.record.performed_by.user.username }}{% else %}—{% endif %}
             </td>
-            <td data-label="Action" class="actions-cell">—</td>
         {% endif %}
     </tr>
 {% empty %}
