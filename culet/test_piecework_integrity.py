@@ -449,6 +449,11 @@ class ReceiveJobsPieceworkRegressionTests(CuletTestDataMixin, TestCase):
         repair.refresh_from_db()
         self.assertFalse(repair.active)
         self.assertIsNotNone(repair.end)
+        self.assertIsNotNone(repair.duration)
+        job.refresh_from_db()
+        self.assertEqual(job.assigned_to, self.worker)
+        self.assertEqual(job.holder, self.other)
+        self.assertFalse(job.in_work)
 
         self.client.force_login(self.worker_user)
         final_receive = self.client.post(
@@ -458,6 +463,226 @@ class ReceiveJobsPieceworkRegressionTests(CuletTestDataMixin, TestCase):
         self.assertRedirects(final_receive, reverse("culet:receive_list"))
         job.refresh_from_db()
         self.assertEqual(job.holder, self.worker)
+
+    def test_receive_rejects_job_with_open_normal_production_activity(self):
+        production_step = ActivityStep.objects.create(
+            name="Assembly",
+            code="assembly",
+        )
+        job = self.make_receivable_job(42516)
+        production_activity = Activity.objects.create(
+            job=job,
+            employee=self.other,
+            step=production_step,
+        )
+
+        self.client.force_login(self.worker_user)
+        response = self.client.post(
+            reverse("culet:receive"),
+            {"job_id": job.pk},
+            follow=True,
+        )
+
+        job.refresh_from_db()
+        production_activity.refresh_from_db()
+        self.assertEqual(job.holder, self.other)
+        self.assertTrue(production_activity.active)
+        self.assertIsNone(production_activity.end)
+        self.assertContains(response, "cannot be moved until that activity is stopped")
+        self.assertFalse(
+            JobMovement.objects.filter(
+                job=job,
+                movement_type__code="received",
+                to_employee=self.worker,
+            ).exists()
+        )
+
+    def test_inprocess_repair_closes_previous_work_before_opening_repair(self):
+        production_step = ActivityStep.objects.create(
+            name="Assembly",
+            code="assembly",
+        )
+        repair_step = ActivityStep.objects.create(name="Repair", code="repair")
+        MovementType.objects.create(
+            name="Repair",
+            code="repair",
+            job_field="holder",
+        )
+        self.other.can_inprocess_repair = True
+        self.other.clocked_in = True
+        self.other.save(update_fields=["can_inprocess_repair", "clocked_in"])
+        job = self.make_job(
+            42512,
+            assigned_to=self.worker,
+            holder=self.worker,
+            in_work=True,
+        )
+        started_at = timezone.now() - timedelta(minutes=12)
+        previous_activity = Activity.objects.create(
+            job=job,
+            employee=self.worker,
+            step=production_step,
+            start=started_at,
+        )
+
+        self.client.force_login(self.other_user)
+        response = self.client.post(
+            reverse("culet:inprocess_repair"),
+            {"action": "start", "job_id": job.pk},
+        )
+
+        self.assertRedirects(response, reverse("culet:my_jobs"))
+        job.refresh_from_db()
+        previous_activity.refresh_from_db()
+        repair = Activity.objects.get(job=job, step=repair_step)
+        self.assertFalse(previous_activity.active)
+        self.assertIsNotNone(previous_activity.end)
+        self.assertEqual(
+            previous_activity.duration,
+            previous_activity.end - previous_activity.start,
+        )
+        self.assertEqual(repair.employee, self.other)
+        self.assertTrue(repair.active)
+        self.assertIsNone(repair.end)
+        self.assertEqual(job.assigned_to, self.worker)
+        self.assertEqual(job.holder, self.other)
+        self.assertTrue(job.in_work)
+        self.assertEqual(
+            Activity.objects.filter(
+                job=job,
+                active=True,
+                end__isnull=True,
+            ).count(),
+            1,
+        )
+
+    def test_inprocess_repair_starts_without_previous_activity(self):
+        repair_step = ActivityStep.objects.create(name="Repair", code="repair")
+        MovementType.objects.create(
+            name="Repair",
+            code="repair",
+            job_field="holder",
+        )
+        self.other.can_inprocess_repair = True
+        self.other.clocked_in = True
+        self.other.save(update_fields=["can_inprocess_repair", "clocked_in"])
+        job = self.make_job(
+            42513,
+            assigned_to=self.worker,
+            holder=self.worker,
+        )
+
+        self.client.force_login(self.other_user)
+        response = self.client.post(
+            reverse("culet:inprocess_repair"),
+            {"action": "start", "job_id": job.pk},
+        )
+
+        self.assertRedirects(response, reverse("culet:my_jobs"))
+        job.refresh_from_db()
+        repair = Activity.objects.get(job=job, step=repair_step)
+        self.assertEqual(job.assigned_to, self.worker)
+        self.assertEqual(job.holder, self.other)
+        self.assertEqual(repair.employee, self.other)
+        self.assertTrue(repair.active)
+        self.assertIsNone(repair.end)
+
+    def test_inprocess_repair_rejects_existing_open_repair_without_changes(self):
+        repair_step = ActivityStep.objects.create(name="Repair", code="repair")
+        MovementType.objects.create(
+            name="Repair",
+            code="repair",
+            job_field="holder",
+        )
+        self.other.can_inprocess_repair = True
+        self.other.clocked_in = True
+        self.other.save(update_fields=["can_inprocess_repair", "clocked_in"])
+        job = self.make_job(
+            42514,
+            assigned_to=self.worker,
+            holder=self.worker,
+            in_work=True,
+        )
+        existing_repair = Activity.objects.create(
+            job=job,
+            employee=self.worker,
+            step=repair_step,
+        )
+
+        self.client.force_login(self.other_user)
+        response = self.client.post(
+            reverse("culet:inprocess_repair"),
+            {"action": "start", "job_id": job.pk},
+            follow=True,
+        )
+
+        job.refresh_from_db()
+        existing_repair.refresh_from_db()
+        self.assertContains(response, "already has an active repair activity")
+        self.assertEqual(job.assigned_to, self.worker)
+        self.assertEqual(job.holder, self.worker)
+        self.assertTrue(existing_repair.active)
+        self.assertIsNone(existing_repair.end)
+        self.assertEqual(Activity.objects.filter(job=job).count(), 1)
+        self.assertFalse(
+            JobMovement.objects.filter(
+                job=job,
+                movement_type__code="repair",
+            ).exists()
+        )
+
+    def test_inprocess_repair_rolls_back_if_repair_activity_creation_fails(self):
+        production_step = ActivityStep.objects.create(
+            name="Assembly",
+            code="assembly",
+        )
+        ActivityStep.objects.create(name="Repair", code="repair")
+        MovementType.objects.create(
+            name="Repair",
+            code="repair",
+            job_field="holder",
+        )
+        self.other.can_inprocess_repair = True
+        self.other.clocked_in = True
+        self.other.save(update_fields=["can_inprocess_repair", "clocked_in"])
+        job = self.make_job(
+            42515,
+            assigned_to=self.worker,
+            holder=self.worker,
+            in_work=True,
+        )
+        previous_activity = Activity.objects.create(
+            job=job,
+            employee=self.worker,
+            step=production_step,
+        )
+
+        self.client.force_login(self.other_user)
+        with patch(
+            "culet.views.Activity.objects.create",
+            side_effect=RuntimeError("repair creation failed"),
+        ):
+            with self.assertRaisesMessage(RuntimeError, "repair creation failed"):
+                self.client.post(
+                    reverse("culet:inprocess_repair"),
+                    {"action": "start", "job_id": job.pk},
+                )
+
+        job.refresh_from_db()
+        previous_activity.refresh_from_db()
+        self.assertEqual(job.assigned_to, self.worker)
+        self.assertEqual(job.holder, self.worker)
+        self.assertTrue(job.in_work)
+        self.assertTrue(previous_activity.active)
+        self.assertIsNone(previous_activity.end)
+        self.assertIsNone(previous_activity.duration)
+        self.assertEqual(Activity.objects.filter(job=job).count(), 1)
+        self.assertFalse(
+            JobMovement.objects.filter(
+                job=job,
+                movement_type__code="repair",
+            ).exists()
+        )
 
 
 class PieceworkLineReturnWorkflowTests(CuletTestDataMixin, TestCase):
