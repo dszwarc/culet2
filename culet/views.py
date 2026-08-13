@@ -432,10 +432,10 @@ class JobListView(LoginRequiredMixin, generic.ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-
         context["filter"] = self.filter
         context["current_sort"] = self.current_sort
         context["current_direction"] = self.current_direction
+        context["job_count"]=self.filter.qs.count()
 
         # Preserve filters and sorting during pagination.
         query_params = self.request.GET.copy()

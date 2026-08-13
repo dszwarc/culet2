@@ -27,6 +27,17 @@ class JobFilter(django_filters.FilterSet):
         lookup_expr="lte",
     )
 
+    due_after = django_filters.DateFilter(
+        widget=forms.DateInput(
+            attrs={
+                "type": "date",
+            }
+        ),
+        label="Due After:",
+        field_name="due",
+        lookup_expr="gte",
+    )
+
     notes = django_filters.CharFilter(
         label="Notes:",
         field_name="notes",
@@ -189,6 +200,7 @@ class JobFilter(django_filters.FilterSet):
             "holder",
             "holder_department",
             "shipped",
+            "due_after",
             "due_date",
         ]
         

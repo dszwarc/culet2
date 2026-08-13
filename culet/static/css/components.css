@@ -1738,3 +1738,9 @@ form:not(td form) {
     background-color: #9e3333;
     border-color: #9e3333;
 }
+
+.job-count{
+    margin: .1rem 0 .2rem .5rem;
+    padding: .1rem 0 .2rem .5rem;
+    color:rgba(117, 109, 109, 0.8)
+}

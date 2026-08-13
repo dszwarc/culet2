@@ -6,6 +6,9 @@
 {% url "culet:index_job" as job_filter_clear_url %}
 
 {% include "includes/filter_panel.html" with filter=filter filter_title="Filter Jobs" filter_subtitle="Search by job, customer, style, holder, status, or due date." filter_clear_url=job_filter_clear_url %}
+<div class="job-count">
+Found {{job_count}} jobs.
+</div>
 
     {% if latest_job_list %}
     <div class="table-wrap sticky-table-wrap">
