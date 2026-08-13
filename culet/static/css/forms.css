@@ -667,6 +667,88 @@ submitted, but the user interacts with the X button instead.
     background: #e5e7eb;
 }
 
+.weight-entry-form {
+    max-width: 760px;
+}
+
+.weight-entry-row {
+    display: grid;
+    grid-template-columns: minmax(110px, 0.35fr) minmax(0, 1fr);
+    align-items: end;
+    gap: 1rem;
+}
+
+.previous-weight-value {
+    display: flex;
+    min-height: 44px;
+    margin-bottom: 16px;
+    padding: 9px 12px;
+    flex-direction: column;
+    justify-content: center;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    background: #f8fafc;
+    color: #64748b;
+}
+
+.previous-weight-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.weight-change-summary {
+    margin: 0.5rem 0 1.25rem;
+    padding: 1rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #f8fafc;
+}
+
+.weight-change-summary h3 {
+    margin: 0 0 0.75rem;
+    font-size: 1rem;
+}
+
+.weight-change-summary dl,
+.weight-change-summary dl div {
+    margin: 0;
+}
+
+.weight-change-summary dl {
+    display: grid;
+    gap: 0.4rem;
+}
+
+.weight-change-summary dl div {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.weight-change-summary dt {
+    color: #64748b;
+    font-weight: 600;
+}
+
+.weight-change-summary dd {
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+}
+
+@media (max-width: 650px) {
+    .weight-entry-row {
+        grid-template-columns: minmax(90px, 0.4fr) minmax(0, 1fr);
+        gap: 0.75rem;
+    }
+
+    .previous-weight-value {
+        min-height: 52px;
+        padding: 8px 10px;
+    }
+}
+
 
 /* =========================================================
    Sections and form layout

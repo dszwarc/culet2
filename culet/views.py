@@ -39,6 +39,7 @@ from .services import (
     clock_in_employee,
     clock_out_employee,
     get_request_log_context,
+    get_job_history_page,
     log_validation_failure,
     log_view_exception,
     move_job,
@@ -129,6 +130,7 @@ from .forms import (
     ActivityStartForm,
     InactiveJobsReportForm,
     WeightLossByStyleReportForm,
+    SprueReportForm,
     EmployeeActivityReportForm,
     TimeClockReportForm,
     TimeClockEditForm,
@@ -142,7 +144,7 @@ from .mixins import (
     CuletPermissionRequiredMixin,
     LoggedFormInvalidMixin,
 )
-from .permissions import can_perform_quality_inspection
+from .permissions import can_perform_quality_inspection, can_view_production_reports
 from .payroll import build_payroll_report
 
 from django.contrib import messages
@@ -1024,33 +1026,38 @@ class JobDetailView(
             .order_by("pk")
         )
 
-        context["activity"] = (
-            Activity.objects
-            .filter(job=self.object)
-            .select_related(
-                "employee__user",
-                "step",
-            )
-            .order_by("-start")
+        history_events, history_has_more, history_next_offset = (
+            get_job_history_page(self.object)
         )
-
-        context["job_movements"] = (
-            JobMovement.objects
-            .filter(job=self.object)
-            .select_related(
-                "movement_type",
-                "from_employee__user",
-                "to_employee__user",
-                "performed_by__user",
-            )
-            .order_by("-created_at", "-pk")
-        )
+        context["history_events"] = history_events
+        context["history_has_more"] = history_has_more
+        context["history_next_offset"] = history_next_offset
         context["job_weights"] = (
             JobWeight.objects
             .filter(job=self.object)
             ).order_by("-created_at")
 
         return context
+
+
+class JobHistoryPartialView(LoginRequiredMixin, generic.View):
+    def get(self, request, pk):
+        job = get_object_or_404(Job, pk=pk)
+        try:
+            offset = max(0, int(request.GET.get("offset", 0)))
+        except (TypeError, ValueError):
+            offset = 0
+        events, has_more, next_offset = get_job_history_page(job, offset=offset)
+        return render(
+            request,
+            "jobs/partials/history_rows.html",
+            {
+                "job": job,
+                "history_events": events,
+                "history_has_more": has_more,
+                "history_next_offset": next_offset,
+            },
+        )
 
 class JobCreateView(LoginRequiredMixin,LoggedFormInvalidMixin, generic.CreateView):
     model = Job
@@ -3869,8 +3876,10 @@ class JobWeightCreateView(LoginRequiredMixin, generic.CreateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        job_weights = self.job.weights.order_by("-created_at", "-id")
         context["job"] = self.job
-        context["job_weights"] = self.job.weights.order_by("-created_at", "-id")
+        context["job_weights"] = job_weights
+        context["previous_job_weight"] = job_weights.first()
         return context
 
     def form_valid(self, form):
@@ -4201,6 +4210,63 @@ class WeightLossByStyleReportView(LoginRequiredMixin, generic.TemplateView):
         context["form"] = form
         context["style_rows"] = style_rows
         context["step_rows"] = step_rows
+        return context
+
+
+class SprueReportView(
+    CuletPermissionRequiredMixin,
+    generic.TemplateView,
+):
+    permission_function = can_view_production_reports
+    permission_denied_message = (
+        "You do not have permission to view production reports."
+    )
+    template_name = "reports/sprue_report.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        form = SprueReportForm(self.request.GET or None)
+        weights = (
+            JobWeight.objects
+            .select_related("job__style", "step", "recorded_by")
+            .order_by("job__style__name", "created_at", "id")
+        )
+
+        if form.is_valid():
+            start_date = form.cleaned_data.get("start_date")
+            end_date = form.cleaned_data.get("end_date")
+            style = form.cleaned_data.get("style")
+            current_timezone = timezone.get_current_timezone()
+
+            if start_date:
+                start_at = timezone.make_aware(
+                    datetime.combine(start_date, time.min),
+                    current_timezone,
+                )
+                weights = weights.filter(created_at__gte=start_at)
+
+            if end_date:
+                end_at = timezone.make_aware(
+                    datetime.combine(end_date + timedelta(days=1), time.min),
+                    current_timezone,
+                )
+                weights = weights.filter(created_at__lt=end_at)
+
+            if style:
+                weights = weights.filter(job__style=style)
+
+        totals = weights.aggregate(
+            piece_weight=Sum("weight"),
+            sprue_weight=Sum("sprue_weight"),
+            dust_weight=Sum("dust_weight"),
+        )
+
+        context["form"] = form
+        context["weights"] = weights
+        context["totals"] = {
+            key: value if value is not None else Decimal("0")
+            for key, value in totals.items()
+        }
         return context
 
 class EmployeeActivityReportView(LoginRequiredMixin, generic.TemplateView):

@@ -218,17 +218,13 @@
         </section>
     {% endif %}
 
-    <!-- Movement history -->
+    <!-- Combined job history -->
     <section class="job-section-card">
         <div class="job-section-header">
             <div>
-                <h2 class="job-section-title">
-                    Movement History
-                </h2>
-
+                <h2 class="job-section-title">Job History</h2>
                 <p class="job-section-subtitle">
-                    Assignment, receipt, return, and release history
-                    for this job.
+                    Activity and movement events, newest first.
                 </p>
             </div>
         </div>
@@ -237,150 +233,17 @@
             <table class="job-table">
                 <thead>
                     <tr>
-                        <th>Date</th>
-                        <th>Movement</th>
-                        <th>From</th>
-                        <th>To</th>
-                        <th>Performed By</th>
-                    </tr>
-                </thead>
-
-                <tbody>
-                    {% for movement in job_movements %}
-                        <tr>
-                            <td data-label="Date">
-                                {{ movement.created_at|date:"M j, Y g:i A" }}
-                            </td>
-
-                            <td data-label="Movement">
-                                <span class="
-                                    movement-badge
-                                    movement-badge--{{ movement.movement_type.code }}
-                                ">
-                                    {{ movement.movement_type.name }}
-                                </span>
-                            </td>
-
-                            <td data-label="From">
-                                {% if movement.from_employee %}
-                                    {{ movement.from_employee.user.get_full_name|default:movement.from_employee.user.username }}
-                                {% else %}
-                                    <span class="text-muted">
-                                        —
-                                    </span>
-                                {% endif %}
-                            </td>
-
-                            <td data-label="To">
-                                {% if movement.to_employee %}
-                                    {{ movement.to_employee.user.get_full_name|default:movement.to_employee.user.username }}
-                                {% else %}
-                                    <span class="text-muted">
-                                        —
-                                    </span>
-                                {% endif %}
-                            </td>
-
-                            <td data-label="Performed By">
-                                {% if movement.performed_by %}
-                                    {{ movement.performed_by.user.get_full_name|default:movement.performed_by.user.username }}
-                                {% else %}
-                                    <span class="text-muted">
-                                        System
-                                    </span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                    {% empty %}
-                        <tr>
-                            <td
-                                colspan="5"
-                                class="empty-table-message"
-                            >
-                                No movement history has been recorded
-                                for this job.
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </section>
-
-    <!-- Activity history -->
-    <section class="job-section-card">
-        <div class="job-section-header">
-            <h2 class="job-section-title">Activity History</h2>
-        </div>
-
-        <div class="job-table-wrap">
-            <table class="job-table">
-                <thead>
-                    <tr>
-                        <th>Activity</th>
-                        <th>Employee</th>
-                        <th>Start Time</th>
-                        <th>End Time</th>
+                        <th>Time</th>
+                        <th>Type</th>
+                        <th>Event</th>
+                        <th>Employee / From &rarr; To</th>
+                        <th>End</th>
                         <th>Duration</th>
+                        <th>Performed By</th>
                         <th class="actions-cell">Action</th>
                     </tr>
                 </thead>
-
-                <tbody>
-                    {% for act in activity %}
-                        <tr>
-                            <td data-label="Activity">
-                                {{ act.name|default:"—" }}
-                            </td>
-
-                            <td data-label="Employee">
-                                {{ act.employee|default:"—" }}
-                            </td>
-
-                            <td data-label="Start Time">
-                                {{ act.start|date:"M j, Y g:i A" }}
-                            </td>
-
-                            <td data-label="End Time">
-                                {% if act.end %}
-                                    {{ act.end|date:"M j, Y g:i A" }}
-                                {% else %}
-                                    <span class="status-badge status-badge-active">
-                                        In Progress
-                                    </span>
-                                {% endif %}
-                            </td>
-
-                            <td data-label="Duration">
-                                {% if act.end %}
-                                    {{ act.duration_hours }} h
-                                    {{ act.duration_min }} m
-                                {% else %}
-                                    Complete
-                                {% endif %}
-                            </td>
-
-                            <td data-label="Action" class="actions-cell">
-                                {% if act.active %}
-                                    <a
-                                        href="{% url 'culet:stop_work' pk=act.pk job_id=job.pk %}"
-                                        class="btn btn-danger btn-sm"
-                                    >
-                                        Stop Work
-                                    </a>
-                                {% else %}
-                                    —
-                                {% endif %}
-                            </td>
-                        </tr>
-                    {% empty %}
-                        <tr>
-                            <td colspan="6" class="empty-table-message">
-                                No activity has been recorded for this job.
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
+                <tbody>{% include "jobs/partials/history_rows.html" %}</tbody>
             </table>
         </div>
     </section>

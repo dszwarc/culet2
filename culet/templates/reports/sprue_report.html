@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-container">
+  <h1>Sprue Report</h1>
+
+  {% url "culet:sprue_report" as clear_url %}
+  {% include "includes/filter_panel.html" with filter_form=form filter_errors=form.errors filter_title="Sprue Report Filters" filter_subtitle="Filter recorded job weights by date logged and style." filter_clear_url=clear_url filter_button_text="Run Report" %}
+
+  <div class="job-card">
+    <div class="job-table-wrap">
+      <table class="job-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Style</th>
+            <th>Stock Number</th>
+            <th>Step</th>
+            <th>Piece Weight</th>
+            <th>Sprue Weight</th>
+            <th>Dust Weight</th>
+            <th>Recorded By</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for job_weight in weights %}
+            <tr>
+              <td data-label="Date">{{ job_weight.created_at|date:"M j, Y g:i A" }}</td>
+              <td data-label="Style">{{ job_weight.job.style }}</td>
+              <td data-label="Stock Number">{{ job_weight.job.stock_num|default:"—" }}</td>
+              <td data-label="Step">{{ job_weight.step|default:"—" }}</td>
+              <td data-label="Piece Weight">{% if job_weight.weight is not None %}{{ job_weight.weight|floatformat:3 }}{% else %}—{% endif %}</td>
+              <td data-label="Sprue Weight">{% if job_weight.sprue_weight is not None %}{{ job_weight.sprue_weight|floatformat:3 }}{% else %}—{% endif %}</td>
+              <td data-label="Dust Weight">{% if job_weight.dust_weight is not None %}{{ job_weight.dust_weight|floatformat:3 }}{% else %}—{% endif %}</td>
+              <td data-label="Recorded By">
+                {% if job_weight.recorded_by %}
+                  {{ job_weight.recorded_by.get_full_name|default:job_weight.recorded_by.username }}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="8" class="empty-table-message">No weight records found for the selected filters.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr>
+            <th colspan="4">Totals</th>
+            <th data-label="Total Piece Weight">{{ totals.piece_weight|floatformat:3 }}</th>
+            <th data-label="Total Sprue Weight">{{ totals.sprue_weight|floatformat:3 }}</th>
+            <th data-label="Total Dust Weight">{{ totals.dust_weight|floatformat:3 }}</th>
+            <th></th>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

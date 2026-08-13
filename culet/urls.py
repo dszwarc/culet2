@@ -8,6 +8,7 @@ urlpatterns = [
     path("htmx/home-summary/",views.HomeSummaryPartialView.as_view(),name="home_summary_partial",),
     path("jobs/", views.JobListView.as_view(), name="index_job"),
     path("jobs/<int:pk>/", views.JobDetailView.as_view(), name="job_detail"),
+    path("htmx/jobs/<int:pk>/history/", views.JobHistoryPartialView.as_view(), name="job_history_partial"),
     path("jobs/<int:pk>/edit/", views.JobUpdateView.as_view(), name="job_update"),
     path("jobs/create", views.JobCreateView.as_view(), name="job_create"),
     path("jobs/<int:pk>/weights/add/", views.JobWeightCreateView.as_view(), name="job_weight_create"),
@@ -90,6 +91,7 @@ urlpatterns = [
     #Reports Below This Line
     path("reports/inactive-jobs/", views.InactiveJobsReportView.as_view(), name="report_inactive_jobs"),
     path("reports/weight-loss-by-style/", views.WeightLossByStyleReportView.as_view(), name="report_weight_loss_by_style"),
+    path("reports/sprue/", views.SprueReportView.as_view(), name="sprue_report"),
     path("reports/employee-activity/",views.EmployeeActivityReportView.as_view(),name="report_employee_activity"),
     path("reports/time-clock/",views.TimeClockReportView.as_view(),name="report_time_clock"),
     path("reports/payroll/",views.PayrollReportView.as_view(),name="payroll_report"),

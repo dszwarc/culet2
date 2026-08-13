@@ -986,6 +986,37 @@ class WeightLossByStyleReportForm(forms.Form):
         }),
     )
 
+
+class SprueReportForm(forms.Form):
+    start_date = forms.DateField(
+        required=False,
+        label="Start Date",
+        widget=date_widget(),
+    )
+    end_date = forms.DateField(
+        required=False,
+        label="End Date",
+        widget=date_widget(),
+    )
+    style = forms.ModelChoiceField(
+        queryset=Style.objects.all().order_by("name"),
+        required=False,
+        empty_label="All Styles",
+        widget=select_widget(),
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        start_date = cleaned_data.get("start_date")
+        end_date = cleaned_data.get("end_date")
+
+        if start_date and end_date and start_date > end_date:
+            raise forms.ValidationError(
+                "Start Date must be on or before End Date."
+            )
+
+        return cleaned_data
+
 class EmployeeActivityReportForm(forms.Form):
     employee = forms.ModelChoiceField(
         queryset=Employee.objects.select_related("user").order_by(

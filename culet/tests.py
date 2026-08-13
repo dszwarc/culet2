@@ -1,10 +1,12 @@
 from datetime import timedelta
+from decimal import Decimal
 
 from django.contrib.auth.models import User
 from django.contrib.messages import get_messages
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.test import RequestFactory, TestCase
+from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 
@@ -16,12 +18,14 @@ from .models import (
     Employee,
     Job,
     JobMovement,
+    JobWeight,
     MovementType,
     Role,
+    Step,
     Style,
     WorkBatch,
 )
-from .forms import BatchStartForm, JobWeightLookupForm
+from .forms import BatchStartForm, JobWeightForm, JobWeightLookupForm
 from .services import (
     clock_out_employee,
     start_work_batch,
@@ -142,6 +146,126 @@ class JobWeightLookupTests(TestCase):
         self.client.logout()
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 302)
+
+
+class JobWeightCreateTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="weight-entry", password="test")
+        self.customer = Customer.objects.create(
+            name="Weight Entry Customer",
+            address="1 Scale Way",
+            email="entry-weights@example.com",
+            phone="555-0188",
+        )
+        self.style = Style.objects.create(
+            name="WEIGHT-ENTRY-STYLE",
+            customer=self.customer,
+        )
+        self.step = Step.objects.create(name="Casting", code="casting")
+        self.job = Job.objects.create(
+            name="Weight Entry Job",
+            barcode=123461,
+            stock_num="WEIGHT-ENTRY-1",
+            style=self.style,
+            due=timezone.localdate() + timedelta(days=7),
+        )
+        self.url = reverse("culet:job_weight_create", args=[self.job.pk])
+        self.client.force_login(self.user)
+
+    def make_weight(self, *, created_at, weight, sprue_weight, dust_weight):
+        return JobWeight.objects.create(
+            job=self.job,
+            step=self.step,
+            created_at=created_at,
+            weight=weight,
+            sprue_weight=sprue_weight,
+            dust_weight=dust_weight,
+            recorded_by=self.user,
+        )
+
+    def test_uses_most_recent_weight_across_all_steps(self):
+        earlier_step = Step.objects.create(name="Wax", code="wax")
+        earlier = self.make_weight(
+            created_at=timezone.now() - timedelta(days=2),
+            weight=Decimal("12.480"),
+            sprue_weight=Decimal("1.320"),
+            dust_weight=Decimal("0.110"),
+        )
+        earlier.step = earlier_step
+        earlier.save(update_fields=["step"])
+        latest = self.make_weight(
+            created_at=timezone.now() - timedelta(hours=1),
+            weight=Decimal("11.900"),
+            sprue_weight=Decimal("1.100"),
+            dust_weight=Decimal("0.090"),
+        )
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["previous_job_weight"], latest)
+        self.assertContains(response, "11.900 g")
+        self.assertContains(response, "1.100 g")
+        self.assertContains(response, "0.090 g")
+        self.assertContains(response, 'data-previous-weight="11.900"')
+        self.assertNotEqual(response.context["previous_job_weight"], earlier)
+
+    def test_no_previous_weight_displays_placeholders(self):
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.context["previous_job_weight"])
+        self.assertContains(response, "&ndash;", count=6)
+        self.assertContains(response, 'data-previous-weight=""')
+
+    def test_missing_previous_component_displays_placeholder(self):
+        previous = JobWeight(
+            job=self.job,
+            step=self.step,
+            weight=Decimal("12.480"),
+            sprue_weight=None,
+            dust_weight=Decimal("0.110"),
+        )
+
+        html = render_to_string(
+            "jobs/weight_create.html",
+            {
+                "job": self.job,
+                "form": JobWeightForm(),
+                "previous_job_weight": previous,
+            },
+        )
+
+        self.assertIn("12.480 g", html)
+        self.assertIn("0.110 g", html)
+        self.assertIn('data-previous-sprue-weight=""', html)
+
+    def test_post_still_creates_weight_and_redirects_to_lookup(self):
+        response = self.client.post(
+            self.url,
+            {
+                "step": self.step.pk,
+                "weight": "12.000",
+                "sprue_weight": "1.250",
+                "dust_weight": "0.075",
+            },
+        )
+
+        self.assertRedirects(response, reverse("culet:job_weight_lookup"))
+        created = JobWeight.objects.get(job=self.job)
+        self.assertEqual(created.recorded_by, self.user)
+        self.assertEqual(created.step, self.step)
+        self.assertEqual(created.weight, Decimal("12.000"))
+        self.assertEqual(created.sprue_weight, Decimal("1.250"))
+        self.assertEqual(created.dust_weight, Decimal("0.075"))
+
+    def test_percentage_loss_is_not_a_database_field(self):
+        field_names = {field.name for field in JobWeight._meta.get_fields()}
+
+        self.assertNotIn("loss_percent", field_names)
+        self.assertNotIn("weight_loss_percent", field_names)
+        self.assertNotIn("sprue_weight_loss_percent", field_names)
+        self.assertNotIn("dust_weight_loss_percent", field_names)
 
 
 class MyJobsRunningTimerTests(TestCase):

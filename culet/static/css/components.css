@@ -1241,6 +1241,12 @@ form:not(td form) {
     white-space: nowrap;
 }
 
+.history-badge--activity {
+    border-color: #b6d4fe;
+    background: #e7f1ff;
+    color: #084298;
+}
+
 .movement-badge--assigned {
     border-color: #9ec5fe;
     background: #e7f1ff;

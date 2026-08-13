@@ -1,0 +1,48 @@
+{% for event in history_events %}
+    <tr data-history-type="{{ event.event_type }}" data-history-id="{{ event.event_id }}">
+        <td data-label="Time">{{ event.timestamp|date:"M j, Y g:i A" }}</td>
+        <td data-label="Type">
+            <span class="movement-badge{% if event.event_type == 'activity' %} history-badge--activity{% endif %}">
+                {{ event.event_type|title }}
+            </span>
+        </td>
+        {% if event.event_type == "activity" %}
+            <td data-label="Event">{{ event.record.name|default:"—" }}</td>
+            <td data-label="Employee / From → To">
+                {% if event.record.employee %}{{ event.record.employee.user.get_full_name|default:event.record.employee.user.username }}{% else %}—{% endif %}
+            </td>
+            <td data-label="End">
+                {% if event.record.end %}{{ event.record.end|date:"M j, Y g:i A" }}{% else %}<span class="status-badge status-badge-active">In Progress</span>{% endif %}
+            </td>
+            <td data-label="Duration">
+                {% if event.record.duration %}{{ event.record.duration_hours }} h {{ event.record.duration_min }} m{% else %}—{% endif %}
+            </td>
+            <td data-label="Performed By">—</td>
+            <td data-label="Action" class="actions-cell">
+                {% if event.record.active %}<a href="{% url 'culet:stop_work' pk=event.record.pk job_id=job.pk %}" class="btn btn-danger btn-sm">Stop Work</a>{% else %}—{% endif %}
+            </td>
+        {% else %}
+            <td data-label="Event">{{ event.record.movement_type.name|default:"—" }}</td>
+            <td data-label="Employee / From → To">
+                {% if event.record.from_employee %}{{ event.record.from_employee.user.get_full_name|default:event.record.from_employee.user.username }}{% else %}—{% endif %}
+                &rarr;
+                {% if event.record.to_employee %}{{ event.record.to_employee.user.get_full_name|default:event.record.to_employee.user.username }}{% else %}—{% endif %}
+            </td>
+            <td data-label="End">—</td>
+            <td data-label="Duration">—</td>
+            <td data-label="Performed By">
+                {% if event.record.performed_by %}{{ event.record.performed_by.user.get_full_name|default:event.record.performed_by.user.username }}{% else %}—{% endif %}
+            </td>
+            <td data-label="Action" class="actions-cell">—</td>
+        {% endif %}
+    </tr>
+{% empty %}
+    {% if not history_next_offset %}<tr><td colspan="8" class="empty-table-message">No history has been recorded for this job.</td></tr>{% endif %}
+{% endfor %}
+{% if history_has_more %}
+    <tr class="history-load-more-row">
+        <td colspan="8">
+            <button class="btn btn-secondary btn-sm" hx-get="{% url 'culet:job_history_partial' job.pk %}?offset={{ history_next_offset }}" hx-target="closest tr" hx-swap="outerHTML">Load 10 More</button>
+        </td>
+    </tr>
+{% endif %}

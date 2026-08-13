@@ -33,6 +33,54 @@ class ClockOutResult:
     message: str = ""
 
 
+@dataclass(frozen=True)
+class JobHistoryEvent:
+    event_type: str
+    event_id: int
+    timestamp: object
+    record: object
+
+
+def get_job_history(job):
+    """Return normalized Activity and JobMovement events, newest first."""
+    activities = (
+        Activity.objects.filter(job=job)
+        .select_related("employee__user", "step")
+    )
+    movements = (
+        JobMovement.objects.filter(job=job)
+        .select_related(
+            "movement_type",
+            "from_employee__user",
+            "to_employee__user",
+            "performed_by__user",
+        )
+    )
+    events = [
+        JobHistoryEvent("activity", activity.pk, activity.start, activity)
+        for activity in activities
+    ]
+    events.extend(
+        JobHistoryEvent("movement", movement.pk, movement.created_at, movement)
+        for movement in movements
+    )
+    return sorted(
+        events,
+        key=lambda event: (
+            event.timestamp,
+            event.event_type == "movement",
+            event.event_id,
+        ),
+        reverse=True,
+    )
+
+
+def get_job_history_page(job, offset=0, limit=10):
+    events = get_job_history(job)
+    page = events[offset:offset + limit]
+    return page, offset + len(page) < len(events), offset + len(page)
+
+
 @dataclass
 class ClockInResult:
     clocked_in: bool

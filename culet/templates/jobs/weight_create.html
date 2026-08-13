@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load l10n %}
 
 {% block content %}
 <div class="container job-detail-page">
@@ -25,9 +26,84 @@
             <h2 class="job-section-title">New Weight Entry</h2>
         </div>
 
-        <form method="post">
+        <form method="post" class="weight-entry-form">
             {% csrf_token %}
-            {{ form.as_p }}
+            {{ form.non_field_errors }}
+
+            <div class="form-group">
+                {{ form.step.label_tag }}
+                {{ form.step }}
+                {{ form.step.errors }}
+            </div>
+
+            <div class="weight-entry-row">
+                <div class="previous-weight-value">
+                    <span class="previous-weight-label">Previous</span>
+                    <span>
+                        {% if previous_job_weight.weight is not None %}
+                            {{ previous_job_weight.weight|floatformat:3 }} g
+                        {% else %}
+                            &ndash;
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="form-group">
+                    {{ form.weight.label_tag }}
+                    {{ form.weight }}
+                    {{ form.weight.errors }}
+                </div>
+            </div>
+
+            <div class="weight-entry-row">
+                <div class="previous-weight-value">
+                    <span class="previous-weight-label">Previous</span>
+                    <span>
+                        {% if previous_job_weight.sprue_weight is not None %}
+                            {{ previous_job_weight.sprue_weight|floatformat:3 }} g
+                        {% else %}
+                            &ndash;
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="form-group">
+                    {{ form.sprue_weight.label_tag }}
+                    {{ form.sprue_weight }}
+                    {{ form.sprue_weight.errors }}
+                </div>
+            </div>
+
+            <div class="weight-entry-row">
+                <div class="previous-weight-value">
+                    <span class="previous-weight-label">Previous</span>
+                    <span>
+                        {% if previous_job_weight.dust_weight is not None %}
+                            {{ previous_job_weight.dust_weight|floatformat:3 }} g
+                        {% else %}
+                            &ndash;
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="form-group">
+                    {{ form.dust_weight.label_tag }}
+                    {{ form.dust_weight }}
+                    {{ form.dust_weight.errors }}
+                </div>
+            </div>
+
+            <section
+                class="weight-change-summary"
+                aria-labelledby="weight-change-title"
+                data-previous-weight="{% if previous_job_weight.weight is not None %}{{ previous_job_weight.weight|unlocalize }}{% endif %}"
+                data-previous-sprue-weight="{% if previous_job_weight.sprue_weight is not None %}{{ previous_job_weight.sprue_weight|unlocalize }}{% endif %}"
+                data-previous-dust-weight="{% if previous_job_weight.dust_weight is not None %}{{ previous_job_weight.dust_weight|unlocalize }}{% endif %}"
+            >
+                <h3 id="weight-change-title">Change from previous entry</h3>
+                <dl>
+                    <div><dt>Weight loss</dt><dd id="weight-loss-percent">&ndash;</dd></div>
+                    <div><dt>Sprue weight loss</dt><dd id="sprue-weight-loss-percent">&ndash;</dd></div>
+                    <div><dt>Dust weight loss</dt><dd id="dust-weight-loss-percent">&ndash;</dd></div>
+                </dl>
+            </section>
 
             <div class="page-actions">
                 <button type="submit" class="btn btn-primary">
@@ -45,3 +121,50 @@
     </section>
 </div>
 {% endblock content %}
+
+{% block extra_js %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const summary = document.querySelector(".weight-change-summary");
+
+    if (!summary) {
+        return;
+    }
+
+    const calculations = [
+        ["id_weight", "previousWeight", "weight-loss-percent"],
+        ["id_sprue_weight", "previousSprueWeight", "sprue-weight-loss-percent"],
+        ["id_dust_weight", "previousDustWeight", "dust-weight-loss-percent"],
+    ];
+
+    function updateLoss(input, previousValue, output) {
+        const previous = Number(previousValue);
+        const current = Number(input.value);
+
+        if (!previousValue || previous === 0 || input.value.trim() === "" || !Number.isFinite(current)) {
+            output.textContent = "–";
+            return;
+        }
+
+        const lossPercent = ((previous - current) / previous) * 100;
+        output.textContent = lossPercent.toFixed(2) + "%";
+    }
+
+    calculations.forEach(function ([inputId, previousKey, outputId]) {
+        const input = document.getElementById(inputId);
+        const output = document.getElementById(outputId);
+
+        if (!input || !output) {
+            return;
+        }
+
+        const refresh = function () {
+            updateLoss(input, summary.dataset[previousKey], output);
+        };
+
+        input.addEventListener("input", refresh);
+        refresh();
+    });
+});
+</script>
+{% endblock extra_js %}
