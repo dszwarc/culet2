@@ -1021,7 +1021,43 @@ class AssignJobDuplicateBarcodeTests(TestCase):
         self.assertContains(response, "18001\n99999\n99999")
         self.assertEqual(response.context["selected_employee_id"], str(self.target.pk))
 
+    def test_assignment_rejects_inactive_job_without_movement(self):
+        job = self.make_job(18002)
+        job.active = False
+        job.save(update_fields=["active", "last_updated"])
 
+        response = self.submit(str(job.barcode))
+
+        job.refresh_from_db()
+        self.assertEqual(job.assigned_to, self.assigner)
+        self.assertEqual(job.holder, self.assigner)
+        self.assertFalse(JobMovement.objects.filter(job=job).exists())
+        self.assertTrue(
+            any("inactive" in message for message in self.response_messages(response))
+        )
+
+    def test_assignment_rejects_open_work_without_partial_receive(self):
+        job = self.make_job(18003, holder=self.current_holder)
+        Activity.objects.create(
+            name="Active Assignment Work",
+            job=job,
+            employee=self.current_holder,
+            active=True,
+            end=None,
+        )
+
+        response = self.submit(str(job.barcode))
+
+        job.refresh_from_db()
+        self.assertEqual(job.assigned_to, self.assigner)
+        self.assertEqual(job.holder, self.current_holder)
+        self.assertFalse(JobMovement.objects.filter(job=job).exists())
+        self.assertTrue(
+            any(
+                "must be stopped before assignment" in message
+                for message in self.response_messages(response)
+            )
+        )
 class WorkBatchTests(TestCase):
     def setUp(self):
         self.department = Department.objects.create(name="Batch Department")
@@ -1483,3 +1519,125 @@ class ReturnJobsTextareaTests(TestCase):
             "Please select the employee receiving these jobs.",
             self.response_messages(response),
         )
+
+    def test_active_work_is_rejected_without_moving_job(self):
+        job = self.make_job(33002)
+        step = ActivityStep.objects.create(name="Bench Work", code="bench-work")
+        activity = Activity.objects.create(
+            name="Bench Work",
+            job=job,
+            employee=self.employee,
+            step=step,
+            active=True,
+            end=None,
+        )
+
+        response = self.client.post(
+            self.url,
+            {"barcodes": str(job.barcode), "employee": self.manager.pk},
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.redirect_chain[-1][0], self.url)
+        job.refresh_from_db()
+        activity.refresh_from_db()
+        self.assertEqual(job.holder, self.employee)
+        self.assertTrue(activity.active)
+        self.assertIsNone(activity.end)
+        self.assertFalse(JobMovement.objects.filter(job=job).exists())
+        self.assertTrue(
+            any(
+                "cannot be moved until that activity is stopped" in message
+                for message in self.response_messages(response)
+            )
+        )
+
+    def test_return_succeeds_after_work_is_stopped(self):
+        job = self.make_job(33003)
+        step = ActivityStep.objects.create(name="Stopped Work", code="stopped-work")
+        Activity.objects.create(
+            name="Stopped Work",
+            job=job,
+            employee=self.employee,
+            step=step,
+            active=False,
+            end=timezone.now(),
+        )
+
+        response = self.client.post(
+            self.url,
+            {"barcodes": str(job.barcode), "employee": self.manager.pk},
+            follow=True,
+        )
+
+        job.refresh_from_db()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(job.holder, self.manager)
+        self.assertEqual(job.assigned_to, self.employee)
+        movement = JobMovement.objects.get(job=job)
+        self.assertEqual(movement.from_employee, self.employee)
+        self.assertEqual(movement.to_employee, self.manager)
+
+    def test_return_allows_holder_to_differ_from_assigned_employee(self):
+        job = self.make_job(33004)
+        job.assigned_to = self.manager
+        job.save(update_fields=["assigned_to", "last_updated"])
+
+        self.client.post(
+            self.url,
+            {"barcodes": str(job.barcode), "employee": self.manager.pk},
+        )
+
+        job.refresh_from_db()
+        self.assertEqual(job.holder, self.manager)
+        self.assertEqual(job.assigned_to, self.manager)
+        self.assertEqual(JobMovement.objects.filter(job=job).count(), 1)
+
+    def test_inactive_job_is_rejected_without_movement(self):
+        job = self.make_job(33005)
+        job.active = False
+        job.save(update_fields=["active", "last_updated"])
+
+        response = self.client.post(
+            self.url,
+            {"barcodes": str(job.barcode), "employee": self.manager.pk},
+            follow=True,
+        )
+
+        job.refresh_from_db()
+        self.assertEqual(job.holder, self.employee)
+        self.assertFalse(JobMovement.objects.filter(job=job).exists())
+        self.assertTrue(
+            any("inactive" in message for message in self.response_messages(response))
+        )
+
+    def test_bulk_return_skips_active_job_and_returns_valid_job(self):
+        blocked = self.make_job(33006)
+        valid = self.make_job(33007)
+        Activity.objects.create(
+            name="Active Work",
+            job=blocked,
+            employee=self.employee,
+            active=True,
+            end=None,
+        )
+
+        response = self.client.post(
+            self.url,
+            {
+                "barcodes": f"{blocked.barcode}\n{valid.barcode}",
+                "employee": self.manager.pk,
+            },
+            follow=True,
+        )
+
+        blocked.refresh_from_db()
+        valid.refresh_from_db()
+        self.assertEqual(blocked.holder, self.employee)
+        self.assertEqual(valid.holder, self.manager)
+        self.assertFalse(JobMovement.objects.filter(job=blocked).exists())
+        self.assertEqual(JobMovement.objects.filter(job=valid).count(), 1)
+        rendered_messages = self.response_messages(response)
+        self.assertTrue(any("33006" in message for message in rendered_messages))
+        self.assertIn(f"1 job returned to {self.manager}.", rendered_messages)

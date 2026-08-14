@@ -680,7 +680,8 @@ def get_receivable_jobs_for_employee(employee):
     return (
         Job.objects
         .filter(assigned_to=employee,
-                shipped=False)
+                shipped=False,
+                active=True)
         .annotate(has_open_piecework=Exists(open_piecework_line))
         .filter(has_open_piecework=False)
         .exclude(holder=employee)
@@ -2363,6 +2364,51 @@ class AssignJobView(
                     selected_job=selected_job,
                 )
 
+            inactive_or_shipped = [
+                job for job in jobs if not job.active or job.shipped
+            ]
+            if inactive_or_shipped:
+                reasons = []
+                for job in inactive_or_shipped:
+                    identifier = str(job.stock_num or job.barcode)
+                    reason = "inactive" if not job.active else "shipped"
+                    reasons.append(f"{identifier} ({reason})")
+                messages.error(
+                    request,
+                    "These jobs cannot be assigned: " + ", ".join(reasons) + ".",
+                )
+                return self.render_form_with_errors(
+                    request,
+                    jobs_text=jobs_text,
+                    selected_employee_id=employee_id,
+                    selected_job=selected_job,
+                )
+
+            active_work_job_ids = set(
+                Activity.objects.filter(
+                    job_id__in=job_ids,
+                    active=True,
+                    end__isnull=True,
+                ).values_list("job_id", flat=True)
+            )
+            if active_work_job_ids:
+                identifiers = [
+                    str(job.stock_num or job.barcode)
+                    for job in jobs
+                    if job.pk in active_work_job_ids
+                ]
+                messages.error(
+                    request,
+                    "These jobs are currently being worked on and must be "
+                    "stopped before assignment: " + ", ".join(identifiers) + ".",
+                )
+                return self.render_form_with_errors(
+                    request,
+                    jobs_text=jobs_text,
+                    selected_employee_id=employee_id,
+                    selected_job=selected_job,
+                )
+
             for job in jobs:
                 # Imported legacy jobs can retain the
                 # is_piecework flag despite having no open
@@ -2588,6 +2634,8 @@ class ReturnJobView(
             )
 
         returned_count = 0
+        blocked_messages = []
+        returning_employee = request.user.employee
 
         with transaction.atomic():
             locked_jobs = {
@@ -2596,40 +2644,60 @@ class ReturnJobView(
                     pk__in=[job.pk for job in jobs]
                 )
             }
-            open_piecework_jobs = list(
+            open_piecework_job_ids = set(
                 PieceworkMemoLine.objects.filter(
                     job_id__in=locked_jobs,
                     returned_at__isnull=True,
-                ).values_list("job__stock_num", "job__barcode")
+                ).values_list("job_id", flat=True)
             )
-            if open_piecework_jobs:
-                identifiers = [
-                    str(stock_num or barcode)
-                    for stock_num, barcode in open_piecework_jobs
-                ]
-                messages.error(
-                    request,
-                    "These jobs are still out for piecework and cannot be "
-                    "returned through the normal job workflow: "
-                    + ", ".join(identifiers),
-                )
-                return self.render_form_with_errors(
-                    barcodes_text=barcodes_text,
-                    employee_id=employee_id,
-                )
 
             for barcode in submitted_barcodes:
                 job = locked_jobs[jobs_by_barcode[barcode].pk]
+                identifier = str(job.barcode or job.stock_num or job.pk)
 
-                job, movement = move_job(
-                    job=job,
-                    movement_type="returned-to-manager",
-                    to_employee=return_employee,
-                    performed_by=request.user.employee,
-                )
+                if job.shipped:
+                    blocked_messages.append(
+                        f"{identifier} could not be returned because it has been shipped."
+                    )
+                    continue
+
+                if not job.active:
+                    blocked_messages.append(
+                        f"{identifier} could not be returned because it is inactive."
+                    )
+                    continue
+
+                if job.pk in open_piecework_job_ids:
+                    blocked_messages.append(
+                        f"{identifier} is still out for piecework and cannot be "
+                        "returned through the normal job workflow."
+                    )
+                    continue
+
+                if job.holder_id != returning_employee.pk:
+                    blocked_messages.append(
+                        f"{identifier} could not be returned because you do not hold it."
+                    )
+                    continue
+
+                try:
+                    job, movement = move_job(
+                        job=job,
+                        movement_type="returned-to-manager",
+                        to_employee=return_employee,
+                        performed_by=returning_employee,
+                    )
+                except ValidationError as exc:
+                    blocked_messages.append(
+                        f"{identifier} could not be returned: {' '.join(exc.messages)}"
+                    )
+                    continue
 
                 if movement is not None:
                     returned_count += 1
+
+        if blocked_messages:
+            messages.error(request, "; ".join(blocked_messages))
 
         if returned_count:
             job_word = (
@@ -2658,11 +2726,11 @@ class ReturnJobView(
                     f"{duplicate_message}"
                 ),
             )
-        else:
+        elif not blocked_messages:
             messages.info(
                 request,
                 (
-                    "The selected job(s) were already assigned "
+                    "The selected job(s) were already returned "
                     f"to {return_employee}."
                 ),
             )
@@ -5657,6 +5725,37 @@ class JobTransferMemoCreateView(
                         str(value)
                         for value in missing_jobs
                     )
+                ),
+            )
+            return self.form_invalid(form)
+
+        inactive_jobs = [
+            job for job in jobs if not job.active
+        ]
+        if inactive_jobs:
+            form.add_error(
+                "scanned_jobs",
+                "These inactive jobs cannot be transferred: "
+                + ", ".join(str(job.barcode) for job in inactive_jobs),
+            )
+            return self.form_invalid(form)
+
+        open_activity_job_ids = set(
+            Activity.objects.filter(
+                job__in=jobs,
+                active=True,
+                end__isnull=True,
+            ).values_list("job_id", flat=True)
+        )
+        if open_activity_job_ids:
+            form.add_error(
+                "scanned_jobs",
+                "These jobs are currently being worked on and must be stopped "
+                "before transfer: "
+                + ", ".join(
+                    str(job.barcode)
+                    for job in jobs
+                    if job.pk in open_activity_job_ids
                 ),
             )
             return self.form_invalid(form)
