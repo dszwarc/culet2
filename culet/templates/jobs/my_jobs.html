@@ -6,7 +6,15 @@
 
 {% if user.is_authenticated %}
 
-    <div class="page-container my-jobs-page">
+    <div
+        class="page-container my-jobs-page"
+        hx-get="{% url 'culet:my_jobs_poll' %}"
+        hx-trigger="every 20s [document.visibilityState === 'visible' && !document.getElementById('culet-scanner-overlay').classList.contains('is-active') && !document.activeElement.closest('.my-jobs-page form')]"
+        hx-target="this"
+        hx-select=".my-jobs-page"
+        hx-swap="outerHTML"
+        hx-sync="this:drop"
+    >
 
         <div class="page-header">
 

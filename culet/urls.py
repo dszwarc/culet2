@@ -47,6 +47,11 @@ urlpatterns = [
         views.InProcessRepairView.as_view(),
         name="inprocess_repair",
     ),
+    path(
+        "htmx/jobs/my-jobs/",
+        views.MyJobsPollView.as_view(),
+        name="my_jobs_poll",
+    ),
     path("jobs/my_jobs/", views.MyJobListView.as_view(), name="my_jobs"),
     path("jobs/assign",views.AssignJobView.as_view(), name="assign_job"),
     #path("jobs/receive-and-assign/",views.ReceiveAndAssignJobsView.as_view(),name="receive_and_assign_jobs",),

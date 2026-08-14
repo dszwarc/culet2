@@ -657,6 +657,10 @@ class MyJobListView(
 
         return context
 
+
+class MyJobsPollView(MyJobListView):
+    """Render the same state as My Jobs for HTMX synchronization."""
+
 def get_receivable_jobs_for_employee(employee):
     open_piecework_line = PieceworkMemoLine.objects.filter(
         job=OuterRef("pk"),

@@ -45,4 +45,12 @@
             renderTimers();
         }
     });
+    document.addEventListener("htmx:afterSwap", function (event) {
+        if (
+            event.detail.target.matches(".my-jobs-page") ||
+            event.detail.target.querySelector(".my-jobs-page")
+        ) {
+            renderTimers();
+        }
+    });
 }());

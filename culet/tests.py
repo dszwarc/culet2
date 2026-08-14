@@ -296,15 +296,17 @@ class MyJobsRunningTimerTests(TestCase):
         self.repair_step = ActivityStep.objects.create(name="Repair", code="repair")
         self.factory = RequestFactory()
 
-    def make_job(self, suffix="1"):
-        return Job.objects.create(
-            name="Job",
-            stock_num="JOB-" + suffix,
-            style=self.style,
-            due=timezone.localdate() + timedelta(days=7),
-            assigned_to=self.employee,
-            holder=self.employee,
-        )
+    def make_job(self, suffix="1", **overrides):
+        values = {
+            "name": "Job",
+            "stock_num": "JOB-" + suffix,
+            "style": self.style,
+            "due": timezone.localdate() + timedelta(days=7),
+            "assigned_to": self.employee,
+            "holder": self.employee,
+        }
+        values.update(overrides)
+        return Job.objects.create(**values)
 
     def queryset(self):
         request = self.factory.get("/jobs/my_jobs/")
@@ -403,6 +405,92 @@ class MyJobsRunningTimerTests(TestCase):
         self.assertContains(response, 'data-append-mode="false"')
         self.assertContains(response, 'data-auto-submit="true"')
         self.assertEqual(content.count('id="culet-scanner-overlay"'), 1)
+
+    def test_my_jobs_polls_shared_view_every_twenty_seconds(self):
+        self.make_job()
+        self.client.force_login(self.user)
+
+        page = self.client.get(reverse("culet:my_jobs"))
+        poll = self.client.get(reverse("culet:my_jobs_poll"))
+
+        self.assertContains(page, 'hx-trigger="every 20s')
+        self.assertContains(page, 'hx-select=".my-jobs-page"')
+        self.assertEqual(
+            list(page.context["latest_job_list"]),
+            list(poll.context["latest_job_list"]),
+        )
+        self.assertEqual(
+            page.context["my_jobs_total_count"],
+            poll.context["my_jobs_total_count"],
+        )
+
+    def test_poll_requires_authentication(self):
+        response = self.client.get(reverse("culet:my_jobs_poll"))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("login"), response.url)
+
+    def test_poll_reflects_jobs_entering_and_leaving_holder_state(self):
+        leaving = self.make_job("LEAVING")
+        entering = self.make_job(
+            "ENTERING",
+            assigned_to=self.other_employee,
+            holder=self.other_employee,
+        )
+        self.client.force_login(self.user)
+
+        initial = self.client.get(reverse("culet:my_jobs_poll"))
+        self.assertContains(initial, leaving.stock_num)
+        self.assertNotContains(initial, entering.stock_num)
+
+        leaving.holder = self.other_employee
+        leaving.save(update_fields=["holder"])
+        entering.holder = self.employee
+        entering.save(update_fields=["holder"])
+
+        updated = self.client.get(reverse("culet:my_jobs_poll"))
+        self.assertNotContains(updated, leaving.stock_num)
+        self.assertContains(updated, entering.stock_num)
+        self.assertEqual(updated.context["my_jobs_total_count"], 1)
+
+    def test_poll_reflects_inprocess_repair_closing_other_employee_work(self):
+        job = self.make_job("REPAIR", barcode=910001)
+        activity = Activity.objects.create(
+            job=job,
+            employee=self.employee,
+            step=self.normal_step,
+            start=timezone.now() - timedelta(minutes=5),
+        )
+        self.client.force_login(self.user)
+        before = self.client.get(reverse("culet:my_jobs_poll"))
+        stop_url = reverse("culet:stop_work", args=[activity.pk, job.pk])
+        self.assertContains(before, stop_url)
+
+        self.other_employee.can_inprocess_repair = True
+        self.other_employee.clocked_in = True
+        self.other_employee.save(
+            update_fields=["can_inprocess_repair", "clocked_in"],
+        )
+        self.client.force_login(self.other_user)
+        response = self.client.post(
+            reverse("culet:inprocess_repair"),
+            {"action": "start", "barcode": str(job.barcode)},
+        )
+        self.assertRedirects(response, reverse("culet:my_jobs"))
+
+        activity.refresh_from_db()
+        self.assertFalse(activity.active)
+        self.assertIsNotNone(activity.end)
+
+        self.client.force_login(self.user)
+        updated = self.client.get(reverse("culet:my_jobs_poll"))
+        self.assertNotContains(updated, job.stock_num)
+        self.assertNotContains(updated, stop_url)
+
+        self.client.force_login(self.other_user)
+        repair_view = self.client.get(reverse("culet:my_jobs_poll"))
+        self.assertContains(repair_view, job.stock_num)
+        self.assertContains(repair_view, "In-Process Repair")
 
     def test_repair_precedes_normal_if_conflicting_activities_exist(self):
         job = self.make_job()
@@ -1004,6 +1092,16 @@ class WorkBatchTests(TestCase):
         self.assertContains(page, first.stock_num)
         self.assertContains(page, second.stock_num)
         self.assertContains(page, "Stop Batch", count=2)
+
+        poll = self.client.get(reverse("culet:my_jobs_poll"))
+        self.assertEqual(poll.context["my_jobs_total_count"], 2)
+        self.assertEqual(len(poll.context["latest_job_list"]), 0)
+        self.assertEqual(
+            len(poll.context["active_work_batch"].open_activities),
+            2,
+        )
+        self.assertContains(poll, first.stock_num)
+        self.assertContains(poll, second.stock_num)
 
     def test_individual_start_and_stop_are_blocked_for_active_batch(self):
         batch, jobs = self.start_batch(2)
