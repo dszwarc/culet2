@@ -525,7 +525,6 @@ class MyJobListView(
         return (
             Job.objects
             .filter(
-                holder=employee,
                 shipped=False,
             )
             .annotate(
@@ -599,7 +598,7 @@ class MyJobListView(
                 ),
             )
             .filter(
-                Q(assigned_to=employee)
+                Q(holder=employee)
                 | Q(has_active_repair=True),
             )
             .select_related(
