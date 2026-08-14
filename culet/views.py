@@ -241,15 +241,16 @@ def get_home_summary_context():
     inactive_jobs_count = (
         active_jobs
         .annotate(
-            last_activity_start=Max("activity__start"),
+            last_movement=Max("movements__created_at"),
+        )
+        .annotate(
+            inactive_since=Coalesce(
+                "last_movement",
+                "created",
+            ),
         )
         .filter(
-            Q(last_activity_start__lt=inactive_cutoff)
-            |
-            Q(
-                last_activity_start__isnull=True,
-                created__lt=inactive_cutoff,
-            )
+            inactive_since__lt=inactive_cutoff,
         )
         .count()
     )
@@ -3938,7 +3939,7 @@ class InactiveJobsReportView(LoginRequiredMixin, generic.TemplateView):
         "location": "location__name",
         "assigned_to": "assigned_to__user__last_name",
         "holder": "holder__user__last_name",
-        "last_activity": "inactive_since",
+        "last_movement": "inactive_since",
         "days_inactive": "inactive_since",
         "created": "created",
     }
@@ -3983,13 +3984,13 @@ class InactiveJobsReportView(LoginRequiredMixin, generic.TemplateView):
                     shipped=False,
                 )
                 .annotate(
-                    last_activity_start=Max(
-                        "activity__start"
+                    last_movement=Max(
+                        "movements__created_at",
                     ),
                 )
                 .annotate(
                     inactive_since=Coalesce(
-                        "last_activity_start",
+                        "last_movement",
                         "created",
                     ),
                 )
