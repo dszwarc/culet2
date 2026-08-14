@@ -1613,6 +1613,19 @@ form:not(td form) {
     text-transform: uppercase;
 }
 
+.assigned-elsewhere-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.4rem 0.7rem;
+    border: 1px solid #ddd6fe;
+    border-radius: 999px;
+    background-color: #ede9fe;
+    color: #5b21b6;
+    font-size: 0.82rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
 .activity-timer-status {
     display: inline-flex;
     align-items: center;

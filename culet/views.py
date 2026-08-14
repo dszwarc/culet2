@@ -596,6 +596,14 @@ class MyJobListView(
                     default=Value(""),
                     output_field=CharField(),
                 ),
+                is_assigned_to_employee=Case(
+                    When(
+                        assigned_to=employee,
+                        then=Value(True),
+                    ),
+                    default=Value(False),
+                    output_field=models.BooleanField(),
+                ),
             )
             .filter(
                 Q(holder=employee)
@@ -603,10 +611,12 @@ class MyJobListView(
             )
             .select_related(
                 "style",
+                "assigned_to",
             )
             .order_by(
                 "-has_active_repair",
                 "-has_active_work",
+                "-is_assigned_to_employee",
                 F("due").asc(nulls_last=True),
                 "stock_num",
             )
@@ -2117,6 +2127,7 @@ class AssignJobView(
         return self.render_to_response(context)
 
     def post(self, request, *args, **kwargs):
+        assigning_employee = request.user.employee
         employee_id = request.POST.get(
             "employee",
             "",
@@ -2373,11 +2384,19 @@ class AssignJobView(
 
                     recovered_piecework_count += 1
 
+                if job.holder_id != assigning_employee.pk:
+                    job, _ = move_job(
+                        job=job,
+                        movement_type="received",
+                        to_employee=assigning_employee,
+                        performed_by=assigning_employee,
+                    )
+
                 job, movement = move_job(
                     job=job,
                     movement_type="assigned",
                     to_employee=employee,
-                    performed_by=request.user.employee,
+                    performed_by=assigning_employee,
                 )
 
                 if movement is not None:

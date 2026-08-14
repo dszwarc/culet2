@@ -453,6 +453,79 @@ class MyJobsRunningTimerTests(TestCase):
         self.assertContains(updated, entering.stock_num)
         self.assertEqual(updated.context["my_jobs_total_count"], 1)
 
+    def test_held_job_assigned_elsewhere_shows_status_instead_of_start(self):
+        job = self.make_job(
+            "HELD-OTHER",
+            assigned_to=self.other_employee,
+            holder=self.employee,
+        )
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("culet:my_jobs"))
+        start_url = reverse("culet:job_start", args=[job.pk])
+
+        self.assertContains(response, "assigned-elsewhere-badge", count=2)
+        self.assertContains(
+            response,
+            f"Assigned to: {self.other_employee}",
+            count=2,
+        )
+        self.assertNotContains(response, start_url)
+
+    def test_active_work_then_assigned_work_then_held_other_sort_order(self):
+        held_other = self.make_job(
+            "HELD-OTHER",
+            assigned_to=self.other_employee,
+            holder=self.employee,
+            due=timezone.localdate() + timedelta(days=1),
+        )
+        assigned = self.make_job(
+            "ASSIGNED",
+            due=timezone.localdate() + timedelta(days=10),
+        )
+        active = self.make_job(
+            "ACTIVE-OTHER",
+            assigned_to=self.other_employee,
+            holder=self.employee,
+            due=timezone.localdate() + timedelta(days=20),
+        )
+        Activity.objects.create(
+            job=active,
+            employee=self.employee,
+            step=self.normal_step,
+            start=timezone.now(),
+        )
+
+        ordered_ids = list(self.queryset().values_list("pk", flat=True))
+
+        self.assertEqual(
+            ordered_ids,
+            [active.pk, assigned.pk, held_other.pk],
+        )
+
+    def test_active_work_takes_precedence_over_assigned_elsewhere_badge(self):
+        job = self.make_job(
+            "ACTIVE-OTHER",
+            assigned_to=self.other_employee,
+            holder=self.employee,
+        )
+        activity = Activity.objects.create(
+            job=job,
+            employee=self.employee,
+            step=self.normal_step,
+            start=timezone.now(),
+        )
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("culet:my_jobs"))
+
+        self.assertContains(
+            response,
+            reverse("culet:stop_work", args=[activity.pk, job.pk]),
+            count=2,
+        )
+        self.assertNotContains(response, "assigned-elsewhere-badge")
+
     def test_poll_reflects_inprocess_repair_closing_other_employee_work(self):
         job = self.make_job("REPAIR", barcode=910001)
         activity = Activity.objects.create(
@@ -696,6 +769,13 @@ class AssignJobDuplicateBarcodeTests(TestCase):
             role=self.role,
             must_change_password=False,
         )
+        holder_user = User.objects.create_user(username="current-holder", password="test")
+        self.current_holder = Employee.objects.create(
+            user=holder_user,
+            department=self.department,
+            role=self.role,
+            must_change_password=False,
+        )
         self.customer = Customer.objects.create(
             name="Assignment Customer",
             address="1 Main St",
@@ -711,10 +791,15 @@ class AssignJobDuplicateBarcodeTests(TestCase):
             code="assigned",
             job_field=MovementType.JobField.ASSIGNED_TO,
         )
+        self.received_type = MovementType.objects.create(
+            name="Received",
+            code="received",
+            job_field=MovementType.JobField.HOLDER,
+        )
         self.url = reverse("culet:assign_job")
         self.client.force_login(self.user)
 
-    def make_job(self, barcode, assigned_to=None):
+    def make_job(self, barcode, assigned_to=None, holder=None):
         return Job.objects.create(
             name="Assignment Job",
             barcode=barcode,
@@ -722,7 +807,7 @@ class AssignJobDuplicateBarcodeTests(TestCase):
             style=self.style,
             due=timezone.localdate() + timedelta(days=7),
             assigned_to=assigned_to or self.assigner,
-            holder=self.assigner,
+            holder=holder or self.assigner,
         )
 
     def submit(self, jobs_text):
@@ -751,6 +836,86 @@ class AssignJobDuplicateBarcodeTests(TestCase):
         self.assertEqual(second.assigned_to, self.target)
         self.assertEqual(JobMovement.objects.count(), 2)
         self.assertIn("2 jobs assigned.", self.response_messages(response))
+
+    def test_assignment_receives_job_when_assigner_is_not_current_holder(self):
+        job = self.make_job(11101, holder=self.current_holder)
+
+        self.submit(str(job.barcode))
+
+        job.refresh_from_db()
+        movements = list(JobMovement.objects.filter(job=job).order_by("pk"))
+        self.assertEqual(
+            [movement.movement_type.code for movement in movements],
+            ["received", "assigned"],
+        )
+        self.assertEqual(movements[0].to_employee, self.assigner)
+        self.assertEqual(movements[0].performed_by, self.assigner)
+        self.assertEqual(movements[1].to_employee, self.target)
+        self.assertEqual(movements[1].performed_by, self.assigner)
+        self.assertEqual(job.holder, self.assigner)
+        self.assertEqual(job.assigned_to, self.target)
+
+    def test_assignment_does_not_receive_job_already_held_by_assigner(self):
+        job = self.make_job(11102, holder=self.assigner)
+
+        self.submit(str(job.barcode))
+
+        job.refresh_from_db()
+        movements = JobMovement.objects.filter(job=job)
+        self.assertEqual(movements.count(), 1)
+        self.assertEqual(movements.get().movement_type, self.assignment_type)
+        self.assertEqual(job.holder, self.assigner)
+        self.assertEqual(job.assigned_to, self.target)
+
+    def test_historical_receive_does_not_suppress_new_receive(self):
+        job = self.make_job(11103, holder=self.current_holder)
+        JobMovement.objects.create(
+            job=job,
+            movement_type=self.received_type,
+            from_employee=self.current_holder,
+            to_employee=self.assigner,
+            performed_by=self.assigner,
+        )
+
+        self.submit(str(job.barcode))
+
+        job.refresh_from_db()
+        new_movements = list(JobMovement.objects.filter(job=job).order_by("pk")[1:])
+        self.assertEqual(
+            [movement.movement_type.code for movement in new_movements],
+            ["received", "assigned"],
+        )
+        self.assertEqual(new_movements[0].to_employee, self.assigner)
+        self.assertEqual(job.holder, self.assigner)
+        self.assertEqual(job.assigned_to, self.target)
+
+    def test_bulk_assignment_checks_each_jobs_current_holder(self):
+        already_held = self.make_job(11104, holder=self.assigner)
+        held_elsewhere = self.make_job(11105, holder=self.current_holder)
+
+        self.submit(f"{already_held.barcode}\n{held_elsewhere.barcode}")
+
+        already_held.refresh_from_db()
+        held_elsewhere.refresh_from_db()
+        self.assertEqual(
+            list(
+                JobMovement.objects.filter(job=already_held)
+                .values_list("movement_type__code", flat=True)
+            ),
+            ["assigned"],
+        )
+        self.assertEqual(
+            list(
+                JobMovement.objects.filter(job=held_elsewhere)
+                .order_by("pk")
+                .values_list("movement_type__code", flat=True)
+            ),
+            ["received", "assigned"],
+        )
+        self.assertEqual(already_held.holder, self.assigner)
+        self.assertEqual(held_elsewhere.holder, self.assigner)
+        self.assertEqual(already_held.assigned_to, self.target)
+        self.assertEqual(held_elsewhere.assigned_to, self.target)
 
     def test_page_uses_shared_textarea_scanner_and_keeps_employee_picker(self):
         response = self.client.get(self.url)

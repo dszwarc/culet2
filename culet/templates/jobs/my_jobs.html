@@ -272,16 +272,6 @@
                                         </div>
 
 
-                                    {% elif request.user.employee.can_qc %}
-
-                                        <a
-                                            href="{% url 'culet:quality_inspection' %}?barcode={{ job.barcode|urlencode }}"
-                                            class="btn btn-primary"
-                                        >
-                                            Start Inspection
-                                        </a>
-
-
                                     {% elif job.running_activity_id %}
 
                                         {% include "includes/activity_timer.html" with job=job %}
@@ -306,6 +296,23 @@
                                             </button>
 
                                         </form>
+
+
+                                    {% elif not job.is_assigned_to_employee %}
+
+                                        <span class="assigned-elsewhere-badge">
+                                            Assigned to: {{ job.assigned_to|default:"Unassigned" }}
+                                        </span>
+
+
+                                    {% elif request.user.employee.can_qc %}
+
+                                        <a
+                                            href="{% url 'culet:quality_inspection' %}?barcode={{ job.barcode|urlencode }}"
+                                            class="btn btn-primary"
+                                        >
+                                            Start Inspection
+                                        </a>
 
 
                                     {% else %}
@@ -454,20 +461,6 @@
                                 </div>
 
 
-                            {% elif request.user.employee.can_qc %}
-
-                                <a
-                                    href="{% url 'culet:quality_inspection' %}?barcode={{ job.barcode|urlencode }}"
-                                    class="
-                                        btn
-                                        btn-primary
-                                        mobile-job-button
-                                    "
-                                >
-                                    Start Inspection
-                                </a>
-
-
                             {% elif job.running_activity_id %}
 
                                 {% include "includes/activity_timer.html" with job=job %}
@@ -497,6 +490,27 @@
                                     </button>
 
                                 </form>
+
+
+                            {% elif not job.is_assigned_to_employee %}
+
+                                <span class="assigned-elsewhere-badge">
+                                    Assigned to: {{ job.assigned_to|default:"Unassigned" }}
+                                </span>
+
+
+                            {% elif request.user.employee.can_qc %}
+
+                                <a
+                                    href="{% url 'culet:quality_inspection' %}?barcode={{ job.barcode|urlencode }}"
+                                    class="
+                                        btn
+                                        btn-primary
+                                        mobile-job-button
+                                    "
+                                >
+                                    Start Inspection
+                                </a>
 
 
                             {% else %}

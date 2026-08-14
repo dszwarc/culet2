@@ -271,7 +271,15 @@ class ReceiveJobsPieceworkRegressionTests(CuletTestDataMixin, TestCase):
         self.assertEqual(response.status_code, 302)
         job.refresh_from_db()
         self.assertEqual(job.assigned_to, self.worker)
-        self.assertEqual(job.holder, self.other)
+        self.assertEqual(job.holder, self.manager)
+        self.assertEqual(
+            list(
+                JobMovement.objects.filter(job=job)
+                .order_by("pk")
+                .values_list("movement_type__code", flat=True)
+            ),
+            ["received", "assigned"],
+        )
         self.assertIn(job.pk, self.receive_job_ids())
 
     def test_returned_historical_line_does_not_block_receive(self):
