@@ -3,6 +3,7 @@ from datetime import timedelta
 import re
 
 from django.db import transaction
+from django.db.models import Prefetch
 from django.utils import timezone
 
 from .models import Activity, TimeClock
@@ -15,8 +16,10 @@ import logging
 from .models import (
     Activity,
     ActivityStep,
+    Department,
     Employee,
     Job,
+    JobStone,
     JobMovement,
     MovementType,
     PieceworkMemo,
@@ -24,6 +27,175 @@ from .models import (
     TimeClock,
     WorkBatch,
 )
+
+
+PROGRESS_EXCLUDED_STEP_CODES = {"piecework", "repair"}
+
+
+def with_job_progress_data(queryset):
+    """Prefetch the per-job facts needed by ``attach_job_progress``."""
+    completed_activities = (
+        Activity.objects.filter(
+            active=False,
+            end__isnull=False,
+            step__isnull=False,
+        )
+        .select_related("step")
+        .only("job_id", "step_id", "step__id")
+    )
+    open_activities = (
+        Activity.objects.filter(
+            active=True,
+            end__isnull=True,
+            step__isnull=False,
+        )
+        .select_related("step")
+        .only("job_id", "step_id", "step__id")
+    )
+
+    return queryset.prefetch_related(
+        Prefetch(
+            "activity_set",
+            queryset=completed_activities,
+            to_attr="progress_completed_activities",
+        ),
+        Prefetch(
+            "activity_set",
+            queryset=open_activities,
+            to_attr="progress_open_activities",
+        ),
+        Prefetch(
+            "job_stones",
+            queryset=JobStone.objects.only("id", "job_id"),
+            to_attr="progress_job_stones",
+        ),
+    )
+
+
+def get_progress_steps():
+    """Return production steps with their departments, excluding exceptions."""
+    return list(
+        ActivityStep.objects.exclude(
+            code__in=PROGRESS_EXCLUDED_STEP_CODES,
+        )
+        .filter(departments__isnull=False)
+        .distinct()
+        .prefetch_related(
+            Prefetch(
+                "departments",
+                queryset=Department.objects.order_by("id"),
+            )
+        )
+        .order_by("id")
+    )
+
+
+def get_job_progress(job, progress_steps=None):
+    """Calculate distinct completed production steps grouped by department."""
+    progress_steps = progress_steps if progress_steps is not None else get_progress_steps()
+
+    if hasattr(job, "progress_completed_activities"):
+        completed_step_ids = {
+            activity.step_id
+            for activity in job.progress_completed_activities
+        }
+    else:
+        completed_step_ids = set(
+            job.activity_set.filter(
+                active=False,
+                end__isnull=False,
+                step__isnull=False,
+            ).values_list("step_id", flat=True)
+        )
+
+    if hasattr(job, "progress_open_activities"):
+        open_step_ids = {
+            activity.step_id
+            for activity in job.progress_open_activities
+        }
+    else:
+        open_step_ids = set(
+            job.activity_set.filter(
+                active=True,
+                end__isnull=True,
+                step__isnull=False,
+            ).values_list("step_id", flat=True)
+        )
+
+    # Once a step has ever been completed, a later repeat does not reduce it
+    # from complete to in progress.
+    open_step_ids -= completed_step_ids
+
+    if hasattr(job, "progress_job_stones"):
+        has_stones = bool(job.progress_job_stones)
+    else:
+        has_stones = job.job_stones.exists()
+
+    grouped_steps = {}
+    departments = {}
+    for step in progress_steps:
+        step_departments = list(step.departments.all())
+        if not step_departments:
+            continue
+
+        # A shared operation is one production step. Assigning it to the first
+        # stable department avoids inflating both the group and overall totals.
+        department = step_departments[0]
+        if department.name.casefold() == "setting" and not has_stones:
+            continue
+
+        departments[department.pk] = department
+        grouped_steps.setdefault(department.pk, []).append(step.pk)
+
+    groups = []
+    for department_id, step_ids in grouped_steps.items():
+        completed = len(completed_step_ids.intersection(step_ids))
+        in_progress = len(open_step_ids.intersection(step_ids))
+        completion_ratio = completed / len(step_ids)
+        if completion_ratio < 0.34:
+            progress_grade = "low"
+        elif completion_ratio < 0.67:
+            progress_grade = "medium"
+        else:
+            progress_grade = "high"
+        groups.append({
+            "department": departments[department_id],
+            "completed": completed,
+            "in_progress": in_progress,
+            "total": len(step_ids),
+            "progress_grade": progress_grade,
+            "segments": [
+                {
+                    "state": (
+                        "completed"
+                        if index < completed
+                        else "active"
+                        if index < completed + in_progress
+                        else "pending"
+                    )
+                }
+                for index in range(len(step_ids))
+            ],
+        })
+
+    total_steps = sum(group["total"] for group in groups)
+    completed_steps = sum(group["completed"] for group in groups)
+    percent = round((completed_steps / total_steps) * 100) if total_steps else 0
+
+    return {
+        "completed_steps": completed_steps,
+        "total_steps": total_steps,
+        "percent": percent,
+        "groups": groups,
+    }
+
+
+def attach_job_progress(jobs):
+    """Attach reusable progress dictionaries to an already-fetched job page."""
+    progress_steps = get_progress_steps()
+    for job in jobs:
+        job.production_progress = get_job_progress(job, progress_steps)
+    return jobs
 
 @dataclass
 class ClockOutResult:

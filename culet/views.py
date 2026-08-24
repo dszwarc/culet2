@@ -50,6 +50,8 @@ from .services import (
     validate_batch_jobs,
     parse_barcode_input,
     return_piecework_lines,
+    attach_job_progress,
+    with_job_progress_data,
 )
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.forms import SetPasswordForm
@@ -428,9 +430,11 @@ class JobListView(LoginRequiredMixin, generic.ListView):
         if direction == "desc":
             order_field = f"-{order_field}"
 
-        return self.filter.qs.order_by(
-            order_field,
-            "barcode",
+        return with_job_progress_data(
+            self.filter.qs.order_by(
+                order_field,
+                "barcode",
+            )
         )
 
     def get_context_data(self, **kwargs):
@@ -469,6 +473,8 @@ class JobListView(LoginRequiredMixin, generic.ListView):
             sort_links[key] = params.urlencode()
 
         context["sort_links"] = sort_links
+
+        attach_job_progress(context["latest_job_list"])
 
         return context
 

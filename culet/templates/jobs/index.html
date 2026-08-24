@@ -55,6 +55,7 @@ Found {{job_count}} jobs.
                         {% endwith %}
                     </a>
                 </th>
+                <th>Progress</th>
                 <th class="{% if current_sort == 'due' %}sorted-column{% endif %}">
                     <a href="?{{ sort_links.due }}">
                         Due Date
@@ -77,6 +78,23 @@ Found {{job_count}} jobs.
                         </td>
                         <td>{{ job.holder }}</td>
                         <td>{{ job.customer }}</td>
+                        <td>
+                            <div class="job-progress" aria-label="Production progress: {{ job.production_progress.percent }} percent">
+                                {% for group in job.production_progress.groups %}
+                                    <span class="job-progress-pill">
+                                        <span class="job-progress-label">{{ group.department.name }}</span>
+                                        <span class="job-progress-bubbles progress-grade-{{ group.progress_grade }}" aria-hidden="true">
+                                            {% for segment in group.segments %}
+                                                <span class="job-progress-bubble is-{{ segment.state }}"></span>
+                                            {% endfor %}
+                                        </span>
+                                        <span class="visually-hidden">{{ group.completed }} of {{ group.total }} steps completed{% if group.in_progress %}, {{ group.in_progress }} in progress{% endif %}</span>
+                                    </span>
+                                {% empty %}
+                                    <span class="job-progress-empty">No production steps</span>
+                                {% endfor %}
+                            </div>
+                        </td>
                         <td {% if job.is_past_due%}class="past_due"{% elif job.is_near_due %}class="near_due"{% endif %}>{{ job.due }}</td>
                         
                     </tr>

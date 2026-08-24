@@ -87,6 +87,76 @@ td {
     border-color: var(--border);
 }
 
+.job-progress {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    min-width: 190px;
+}
+
+.job-progress-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface-soft);
+    color: #475569;
+    font-size: 12px;
+    line-height: 1.25;
+    white-space: nowrap;
+}
+
+.job-progress-label {
+    font-weight: 700;
+}
+
+.job-progress-bubbles {
+    --progress-color: #ef4444;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding-inline: 2px;
+}
+
+.job-progress-bubbles.progress-grade-medium {
+    --progress-color: #f59e0b;
+}
+
+.job-progress-bubbles.progress-grade-high {
+    --progress-color: #16a34a;
+}
+
+.job-progress-bubble {
+    width: 16px;
+    height: 9px;
+    flex: 0 0 16px;
+    border: 2px solid var(--progress-color);
+    border-radius: 2px;
+    background: transparent;
+    transform: skewX(-18deg);
+}
+
+.job-progress-bubble.is-completed {
+    background: var(--progress-color);
+}
+
+.job-progress-bubble.is-active {
+    background: repeating-linear-gradient(
+        -45deg,
+        var(--progress-color) 0,
+        var(--progress-color) 3px,
+        transparent 3px,
+        transparent 6px
+    );
+}
+
+.job-progress-empty {
+    color: #64748b;
+    font-size: 12px;
+}
+
 /* Hover only affects body rows */
 
 tbody tr:hover td {
@@ -219,6 +289,10 @@ td form .btn {
    ========================================================= */
 
 @media (max-width:650px) {
+
+    .job-progress {
+        min-width: 160px;
+    }
 
     .table-wrap,
     .job-table-wrap {
