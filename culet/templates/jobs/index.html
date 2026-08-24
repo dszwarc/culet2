@@ -82,7 +82,7 @@ Found {{job_count}} jobs.
                             <div class="job-progress" aria-label="Production progress: {{ job.production_progress.percent }} percent">
                                 {% for group in job.production_progress.groups %}
                                     <span class="job-progress-pill">
-                                        <span class="job-progress-label">{{ group.department.name }}</span>
+                                        <span class="job-progress-label">{{ group.name }}</span>
                                         <span class="job-progress-bubbles progress-grade-{{ group.progress_grade }}" aria-hidden="true">
                                             {% for segment in group.segments %}
                                                 <span class="job-progress-bubble is-{{ segment.state }}"></span>

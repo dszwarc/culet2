@@ -48,6 +48,7 @@ class JobProgressTests(TestCase):
         )
         self.jewelry = Department.objects.create(name="Jewelry")
         self.polishing = Department.objects.create(name="Polishing")
+        self.polishing_37 = Department.objects.create(name="Polishing 37")
         self.setting = Department.objects.create(name="Setting")
 
     def make_step(self, name, code, *departments):
@@ -69,7 +70,7 @@ class JobProgressTests(TestCase):
 
     def group_values(self, progress):
         return {
-            group["department"].name: (
+            group["name"]: (
                 group["completed"],
                 group["total"],
             )
@@ -167,6 +168,60 @@ class JobProgressTests(TestCase):
         self.assertEqual(progress["completed_steps"], 1)
         self.assertEqual(progress["total_steps"], 1)
         self.assertEqual(len(progress["groups"]), 1)
+
+    def test_polishing_locations_are_one_distinct_logical_group(self):
+        shared = self.make_step(
+            "Final Polish",
+            "final-polish",
+            self.polishing,
+            self.polishing_37,
+        )
+        self.make_step(
+            "Pre-polish",
+            "pre-polish",
+            self.polishing,
+        )
+        location_only = self.make_step(
+            "Polish before stamp",
+            "polish-stamp",
+            self.polishing_37,
+        )
+
+        self.employee.department = self.polishing_37
+        self.employee.save(update_fields=["department"])
+        self.complete(shared)
+        self.complete(shared)
+        self.complete(location_only)
+
+        progress = get_job_progress(self.job)
+
+        self.assertEqual(
+            self.group_values(progress),
+            {"Polishing": (2, 3)},
+        )
+        self.assertEqual(
+            [group["name"] for group in progress["groups"]],
+            ["Polishing"],
+        )
+
+    def test_only_supported_groups_appear_in_fixed_order(self):
+        quality_control = Department.objects.create(name="Quality Control")
+        laser = Department.objects.create(name="Laser")
+        self.make_step("Assembly", "assembly", self.jewelry)
+        self.make_step("Inspection", "inspection", quality_control)
+        self.make_step("Laser weld", "laser-weld", laser)
+        self.make_step("Final Polish", "final-polish", self.polishing_37)
+        self.make_step("Set center", "set-center", self.setting)
+        JobStone.objects.create(job=self.job, qty_req=1)
+
+        progress = get_job_progress(self.job)
+
+        self.assertEqual(
+            [group["name"] for group in progress["groups"]],
+            ["Jewelry", "Polishing", "Setting"],
+        )
+        self.assertNotIn("Quality Control", self.group_values(progress))
+        self.assertNotIn("Laser", self.group_values(progress))
 
     def test_jobs_index_renders_compact_progress_and_prefetches_per_page(self):
         assembly = self.make_step("Assembly", "assembly", self.jewelry)

@@ -30,6 +30,13 @@ from .models import (
 
 
 PROGRESS_EXCLUDED_STEP_CODES = {"piecework", "repair"}
+PROGRESS_DEPARTMENT_GROUPS = {
+    "Jewelry": "Jewelry",
+    "Polishing": "Polishing",
+    "Polishing 37": "Polishing",
+    "Setting": "Setting",
+}
+PROGRESS_GROUP_ORDER = ("Jewelry", "Polishing", "Setting")
 
 
 def with_job_progress_data(queryset):
@@ -73,12 +80,12 @@ def with_job_progress_data(queryset):
 
 
 def get_progress_steps():
-    """Return production steps with their departments, excluding exceptions."""
+    """Return steps belonging to one of the supported logical progress groups."""
     return list(
         ActivityStep.objects.exclude(
             code__in=PROGRESS_EXCLUDED_STEP_CODES,
         )
-        .filter(departments__isnull=False)
+        .filter(departments__name__in=PROGRESS_DEPARTMENT_GROUPS)
         .distinct()
         .prefetch_related(
             Prefetch(
@@ -131,24 +138,28 @@ def get_job_progress(job, progress_steps=None):
     else:
         has_stones = job.job_stones.exists()
 
-    grouped_steps = {}
-    departments = {}
+    grouped_steps = {
+        group_name: set()
+        for group_name in PROGRESS_GROUP_ORDER
+    }
     for step in progress_steps:
-        step_departments = list(step.departments.all())
-        if not step_departments:
-            continue
-
-        # A shared operation is one production step. Assigning it to the first
-        # stable department avoids inflating both the group and overall totals.
-        department = step_departments[0]
-        if department.name.casefold() == "setting" and not has_stones:
-            continue
-
-        departments[department.pk] = department
-        grouped_steps.setdefault(department.pk, []).append(step.pk)
+        logical_groups = {
+            PROGRESS_DEPARTMENT_GROUPS[department.name]
+            for department in step.departments.all()
+            if department.name in PROGRESS_DEPARTMENT_GROUPS
+        }
+        for group_name in logical_groups:
+            grouped_steps[group_name].add(step.pk)
 
     groups = []
-    for department_id, step_ids in grouped_steps.items():
+    for group_name in PROGRESS_GROUP_ORDER:
+        if group_name == "Setting" and not has_stones:
+            continue
+
+        step_ids = grouped_steps[group_name]
+        if not step_ids:
+            continue
+
         completed = len(completed_step_ids.intersection(step_ids))
         in_progress = len(open_step_ids.intersection(step_ids))
         completion_ratio = completed / len(step_ids)
@@ -159,7 +170,7 @@ def get_job_progress(job, progress_steps=None):
         else:
             progress_grade = "high"
         groups.append({
-            "department": departments[department_id],
+            "name": group_name,
             "completed": completed,
             "in_progress": in_progress,
             "total": len(step_ids),
