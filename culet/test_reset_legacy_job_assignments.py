@@ -114,6 +114,11 @@ class ResetLegacyJobAssignmentsTests(TestCase):
             movement.refresh_from_db()
         return movement
 
+    def set_job_created(self, job, created_at):
+        Job.objects.filter(pk=job.pk).update(created=created_at)
+        job.refresh_from_db()
+        return job
+
     def test_eligible_job_resets_both_fields_and_creates_audit_movements(self):
         job = self.make_job()
 
@@ -149,6 +154,29 @@ class ResetLegacyJobAssignmentsTests(TestCase):
         movement_job.refresh_from_db()
         self.assertEqual(activity_job.assigned_to, self.worker)
         self.assertEqual(movement_job.holder, self.other_worker)
+
+    def test_jobs_created_at_or_after_launch_are_excluded(self):
+        launch_cutoff = Command()._parse_launch_cutoff(self.launch_arg)
+        before_launch = self.make_job()
+        at_launch = self.set_job_created(self.make_job(), launch_cutoff)
+        after_launch = self.set_job_created(
+            self.make_job(),
+            launch_cutoff + timedelta(seconds=1),
+        )
+        recent = self.set_job_created(self.make_job(), timezone.now())
+
+        stdout, _ = self.run_command(dry_run=True)
+
+        self.assertIn(
+            "Created before launch with no movement AND no activity "
+            "since launch: 1",
+            stdout,
+        )
+        for excluded_job in (at_launch, after_launch, recent):
+            excluded_job.refresh_from_db()
+            self.assertEqual(excluded_job.assigned_to, self.worker)
+        before_launch.refresh_from_db()
+        self.assertEqual(before_launch.assigned_to, self.worker)
 
     def test_inactive_and_shipped_jobs_are_not_reset(self):
         inactive_job = self.make_job(active=False)
@@ -231,6 +259,25 @@ class ResetLegacyJobAssignmentsTests(TestCase):
         job.refresh_from_db()
         self.assertEqual(job.assigned_to, self.worker)
         self.assertIn("Skipped - no longer eligible: 1", stdout)
+
+    def test_final_locked_recheck_rejects_job_not_created_before_launch(self):
+        job = self.make_job()
+        launch_cutoff = Command()._parse_launch_cutoff(self.launch_arg)
+        self.set_job_created(job, launch_cutoff)
+
+        result = Command()._reset_job(
+            job_id=job.pk,
+            manager=self.manager,
+            launch_cutoff=launch_cutoff,
+            assignment_type=self.assigned_type,
+            holder_type=self.received_type,
+        )
+
+        job.refresh_from_db()
+        self.assertEqual(result, "SKIPPED_NO_LONGER_ELIGIBLE")
+        self.assertEqual(job.assigned_to, self.worker)
+        self.assertEqual(job.holder, self.other_worker)
+        self.assertEqual(job.movements.count(), 0)
 
     def test_one_job_failure_does_not_prevent_another_reset(self):
         failed_job = self.make_job()

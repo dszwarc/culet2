@@ -185,7 +185,11 @@ class Command(BaseCommand):
             .values("created_at")[:1]
         )
         return (
-            Job.objects.filter(active=True, shipped=False)
+            Job.objects.filter(
+                active=True,
+                shipped=False,
+                created__lt=cutoff,
+            )
             .annotate(
                 has_recent_activity=Exists(self._recent_activity_exists(cutoff)),
                 has_recent_movement=Exists(
@@ -217,6 +221,7 @@ class Command(BaseCommand):
         return (
             job.active
             and not job.shipped
+            and job.created < cutoff
             and not Activity.objects.filter(job_id=job.pk).filter(
                 Q(start__gte=cutoff) | Q(end__gte=cutoff)
             ).exists()
@@ -319,7 +324,10 @@ class Command(BaseCommand):
         self.stdout.write(f"Total: {active_unshipped_count}")
         self.stdout.write("")
         self.stdout.write("LEGACY RESET")
-        self.stdout.write(f"No movement AND no activity since launch: {eligible_count}")
+        self.stdout.write(
+            "Created before launch with no movement AND no activity "
+            f"since launch: {eligible_count}"
+        )
         self.stdout.write(f"Would be reassigned to manager: {eligible_count}")
         self.stdout.write("")
         self.stdout.write("CURRENT INACTIVE JOBS")
