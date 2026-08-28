@@ -77,6 +77,13 @@ class JobProgressTests(TestCase):
             for group in progress["groups"]
         }
 
+    def progress_group(self, progress, name):
+        return next(
+            group
+            for group in progress["groups"]
+            if group["name"] == name
+        )
+
     def test_counts_each_completed_step_once_and_excludes_exceptions(self):
         assembly = self.make_step("Assembly", "assembly", self.jewelry)
         polish = self.make_step("Polish", "polish", self.polishing)
@@ -139,6 +146,69 @@ class JobProgressTests(TestCase):
             [segment["state"] for segment in jewelry["segments"]],
             ["active", "pending"],
         )
+        self.assertEqual(jewelry["display_step"], "Assembly")
+        self.assertTrue(jewelry["is_in_progress"])
+
+    def test_active_step_label_wins_over_more_recent_completed_activity(self):
+        assembly = self.make_step("Assembly", "assembly", self.jewelry)
+        cleaning = self.make_step("Cleaning", "cleaning", self.jewelry)
+        completed = self.complete(assembly)
+        completed.end = timezone.now() + timedelta(minutes=5)
+        completed.save()
+        Activity.objects.create(
+            name=cleaning.name,
+            step=cleaning,
+            employee=self.employee,
+            job=self.job,
+            start=timezone.now() - timedelta(hours=1),
+            active=True,
+            end=None,
+        )
+
+        jewelry = self.progress_group(get_job_progress(self.job), "Jewelry")
+
+        self.assertEqual(jewelry["display_step"], "Cleaning")
+        self.assertTrue(jewelry["is_in_progress"])
+        self.assertEqual(jewelry["completed"], 1)
+
+    def test_latest_completed_label_uses_end_timestamp(self):
+        assembly = self.make_step("Assembly", "assembly", self.jewelry)
+        cleaning = self.make_step("Cleaning", "cleaning", self.jewelry)
+        newer = self.complete(cleaning)
+        older = self.complete(assembly)
+        newer.end = timezone.now()
+        newer.save()
+        older.end = timezone.now() - timedelta(days=1)
+        older.save()
+
+        jewelry = self.progress_group(get_job_progress(self.job), "Jewelry")
+
+        self.assertEqual(jewelry["display_step"], "Cleaning")
+        self.assertFalse(jewelry["is_in_progress"])
+
+    def test_repair_and_piecework_never_become_display_label(self):
+        assembly = self.make_step("Assembly", "assembly", self.jewelry)
+        repair = self.make_step("Repair", "repair", self.jewelry)
+        piecework = self.make_step("Piecework", "piecework", self.jewelry)
+        assembly_activity = self.complete(assembly)
+        repair_activity = self.complete(repair)
+        assembly_activity.end = timezone.now() - timedelta(days=1)
+        assembly_activity.save()
+        repair_activity.end = timezone.now()
+        repair_activity.save()
+        Activity.objects.create(
+            name=piecework.name,
+            step=piecework,
+            employee=self.employee,
+            job=self.job,
+            active=True,
+            end=None,
+        )
+
+        jewelry = self.progress_group(get_job_progress(self.job), "Jewelry")
+
+        self.assertEqual(jewelry["display_step"], "Assembly")
+        self.assertFalse(jewelry["is_in_progress"])
 
     def test_setting_is_hidden_without_stones_and_included_with_stones(self):
         self.make_step("Assembly", "assembly", self.jewelry)
@@ -202,6 +272,18 @@ class JobProgressTests(TestCase):
         self.assertEqual(
             [group["name"] for group in progress["groups"]],
             ["Polishing"],
+        )
+        self.assertEqual(progress["groups"][0]["display_step"], "Polish before stamp")
+
+    def test_group_without_activity_history_uses_logical_group_name(self):
+        self.make_step("Assembly", "assembly", self.jewelry)
+        self.make_step("Final Polish", "final-polish", self.polishing)
+
+        progress = get_job_progress(self.job)
+
+        self.assertEqual(
+            [group["display_step"] for group in progress["groups"]],
+            ["Jewelry", "Polishing"],
         )
 
     def test_only_supported_groups_appear_in_fixed_order(self):

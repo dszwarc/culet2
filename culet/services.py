@@ -48,7 +48,13 @@ def with_job_progress_data(queryset):
             step__isnull=False,
         )
         .select_related("step")
-        .only("job_id", "step_id", "step__id")
+        .only(
+            "job_id",
+            "step_id",
+            "end",
+            "step__id",
+            "step__name",
+        )
     )
     open_activities = (
         Activity.objects.filter(
@@ -57,7 +63,13 @@ def with_job_progress_data(queryset):
             step__isnull=False,
         )
         .select_related("step")
-        .only("job_id", "step_id", "step__id")
+        .only(
+            "job_id",
+            "step_id",
+            "start",
+            "step__id",
+            "step__name",
+        )
     )
 
     return queryset.prefetch_related(
@@ -102,32 +114,42 @@ def get_job_progress(job, progress_steps=None):
     progress_steps = progress_steps if progress_steps is not None else get_progress_steps()
 
     if hasattr(job, "progress_completed_activities"):
+        completed_activities = job.progress_completed_activities
         completed_step_ids = {
             activity.step_id
-            for activity in job.progress_completed_activities
+            for activity in completed_activities
         }
     else:
-        completed_step_ids = set(
+        completed_activities = list(
             job.activity_set.filter(
                 active=False,
                 end__isnull=False,
                 step__isnull=False,
-            ).values_list("step_id", flat=True)
+            ).select_related("step")
         )
+        completed_step_ids = {
+            activity.step_id
+            for activity in completed_activities
+        }
 
     if hasattr(job, "progress_open_activities"):
+        open_activities = job.progress_open_activities
         open_step_ids = {
             activity.step_id
-            for activity in job.progress_open_activities
+            for activity in open_activities
         }
     else:
-        open_step_ids = set(
+        open_activities = list(
             job.activity_set.filter(
                 active=True,
                 end__isnull=True,
                 step__isnull=False,
-            ).values_list("step_id", flat=True)
+            ).select_related("step")
         )
+        open_step_ids = {
+            activity.step_id
+            for activity in open_activities
+        }
 
     # Once a step has ever been completed, a later repeat does not reduce it
     # from complete to in progress.
@@ -163,6 +185,25 @@ def get_job_progress(job, progress_steps=None):
         completed = len(completed_step_ids.intersection(step_ids))
         in_progress = len(open_step_ids.intersection(step_ids))
         completion_ratio = completed / len(step_ids)
+        latest_open_activity = max(
+            (
+                activity
+                for activity in open_activities
+                if activity.step_id in step_ids
+            ),
+            key=lambda activity: activity.start,
+            default=None,
+        )
+        latest_completed_activity = max(
+            (
+                activity
+                for activity in completed_activities
+                if activity.step_id in step_ids
+            ),
+            key=lambda activity: activity.end,
+            default=None,
+        )
+        display_activity = latest_open_activity or latest_completed_activity
         if completion_ratio < 0.34:
             progress_grade = "low"
         elif completion_ratio < 0.67:
@@ -174,6 +215,13 @@ def get_job_progress(job, progress_steps=None):
             "completed": completed,
             "in_progress": in_progress,
             "total": len(step_ids),
+            "percent": round(completion_ratio * 100),
+            "display_step": (
+                display_activity.step.name
+                if display_activity
+                else group_name
+            ),
+            "is_in_progress": latest_open_activity is not None,
             "progress_grade": progress_grade,
             "segments": [
                 {
