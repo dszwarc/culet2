@@ -54,6 +54,7 @@ urlpatterns = [
     ),
     path("jobs/my_jobs/", views.MyJobListView.as_view(), name="my_jobs"),
     path("jobs/assign",views.AssignJobView.as_view(), name="assign_job"),
+    path("transfer-jobs", views.TransferJobView.as_view(), name="transfer_jobs"),
     #path("jobs/receive-and-assign/",views.ReceiveAndAssignJobsView.as_view(),name="receive_and_assign_jobs",),
     path("jobs/return",views.ReturnJobView.as_view(),name="return_job"),
     path("jobs/ship/",views.BulkJobShipView.as_view(),name="job_ship_bulk"),

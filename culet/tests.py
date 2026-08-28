@@ -1,5 +1,6 @@
 from datetime import timedelta
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.contrib.messages import get_messages
@@ -1058,6 +1059,139 @@ class AssignJobDuplicateBarcodeTests(TestCase):
                 for message in self.response_messages(response)
             )
         )
+
+
+class TransferJobTests(TestCase):
+    def setUp(self):
+        department = Department.objects.create(name="Transfer")
+        role = Role.objects.create(name="Transfer Lead", level=20)
+        self.user = User.objects.create_user(username="transferer", password="test")
+        self.operator = Employee.objects.create(
+            user=self.user,
+            department=department,
+            role=role,
+            must_change_password=False,
+        )
+        target_user = User.objects.create_user(username="transferee", password="test")
+        self.target = Employee.objects.create(
+            user=target_user,
+            department=department,
+            role=role,
+            must_change_password=False,
+        )
+        customer = Customer.objects.create(
+            name="Transfer Customer",
+            address="1 Transfer Way",
+            email="transfer@example.com",
+            phone="555-0102",
+        )
+        self.style = Style.objects.create(name="TRANSFER-STYLE", customer=customer)
+        MovementType.objects.create(
+            name="Assigned",
+            code="assigned",
+            job_field=MovementType.JobField.ASSIGNED_TO,
+        )
+        MovementType.objects.create(
+            name="Received",
+            code="received",
+            job_field=MovementType.JobField.HOLDER,
+        )
+        self.url = reverse("culet:transfer_jobs")
+        self.assertEqual(self.url, "/transfer-jobs")
+        self.client.force_login(self.user)
+
+    def make_job(self, barcode, *, active=True):
+        return Job.objects.create(
+            name="Transfer Job",
+            barcode=barcode,
+            stock_num=f"TRANSFER-{barcode}",
+            style=self.style,
+            due=timezone.localdate() + timedelta(days=7),
+            assigned_to=self.operator,
+            holder=self.operator,
+            active=active,
+        )
+
+    def submit(self, jobs_text):
+        return self.client.post(
+            self.url,
+            {"employee": str(self.target.pk), "jobs_text": jobs_text},
+            follow=True,
+        )
+
+    @staticmethod
+    def response_messages(response):
+        return [str(message) for message in get_messages(response.wsgi_request)]
+
+    def test_get_reuses_assign_jobs_ui_with_transfer_wording(self):
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "jobs/assign.html")
+        self.assertContains(response, "<h1>Transfer Jobs</h1>", html=True)
+        self.assertContains(response, 'name="jobs_text"', count=1)
+        self.assertContains(response, 'id="department-option-grid"')
+        self.assertContains(response, 'id="employee-option-grid"')
+        self.assertContains(response, "Transfer Jobs", count=2)
+
+    def test_transfer_assigns_then_receives_to_selected_employee(self):
+        job = self.make_job(21001)
+
+        response = self.submit(str(job.barcode))
+
+        job.refresh_from_db()
+        movements = list(JobMovement.objects.filter(job=job).order_by("pk"))
+        self.assertEqual(
+            [movement.movement_type.code for movement in movements],
+            ["assigned", "received"],
+        )
+        self.assertTrue(all(m.to_employee == self.target for m in movements))
+        self.assertEqual(job.assigned_to, self.target)
+        self.assertEqual(job.holder, self.target)
+        self.assertIn("1 job transferred.", self.response_messages(response))
+
+    def test_duplicate_barcode_creates_only_one_movement_pair(self):
+        job = self.make_job(21002)
+
+        response = self.submit(f"{job.barcode}\n{job.barcode}")
+
+        self.assertEqual(JobMovement.objects.filter(job=job).count(), 2)
+        self.assertIn(
+            "1 job transferred. 1 repeated barcode ignored.",
+            self.response_messages(response),
+        )
+
+    def test_inactive_job_cannot_be_transferred(self):
+        job = self.make_job(21003, active=False)
+
+        response = self.submit(str(job.barcode))
+
+        job.refresh_from_db()
+        self.assertEqual(job.assigned_to, self.operator)
+        self.assertEqual(job.holder, self.operator)
+        self.assertFalse(JobMovement.objects.filter(job=job).exists())
+        self.assertTrue(
+            any("inactive" in message for message in self.response_messages(response))
+        )
+
+    def test_receive_failure_rolls_back_assignment(self):
+        job = self.make_job(21004)
+        from .services import move_job as real_move_job
+
+        def fail_received(**kwargs):
+            if kwargs["movement_type"] == "received":
+                raise ValidationError("Receive blocked for test.")
+            return real_move_job(**kwargs)
+
+        with patch("culet.views.move_job", side_effect=fail_received):
+            response = self.submit(str(job.barcode))
+
+        job.refresh_from_db()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(job.assigned_to, self.operator)
+        self.assertEqual(job.holder, self.operator)
+        self.assertFalse(JobMovement.objects.filter(job=job).exists())
+        self.assertIn("Receive blocked for test.", self.response_messages(response))
 class WorkBatchTests(TestCase):
     def setUp(self):
         self.department = Department.objects.create(name="Batch Department")

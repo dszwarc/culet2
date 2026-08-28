@@ -2050,6 +2050,12 @@ class AssignJobView(
     generic.TemplateView,
 ):
     template_name = "jobs/assign.html"
+    route_name = "culet:assign_job"
+    page_title = "Assign Jobs"
+    submit_label = "Assign Jobs"
+    action_verb = "assigned"
+    action_noun = "assignment"
+    action_infinitive = "assign"
 
     def get_employees(self):
         return (
@@ -2100,6 +2106,8 @@ class AssignJobView(
         context["employees"] = self.get_employees()
         context["departments"] = self.get_departments()
         context["selected_job"] = self.get_selected_job()
+        context["page_title"] = self.page_title
+        context["submit_label"] = self.submit_label
 
         context.setdefault(
             "jobs_text",
@@ -2133,6 +2141,24 @@ class AssignJobView(
 
         return self.render_to_response(context)
 
+    def move_job_to_employee(self, job, employee, performing_employee):
+        """Apply Assign Jobs' existing receive-then-assign behavior."""
+        if job.holder_id != performing_employee.pk:
+            job, _ = move_job(
+                job=job,
+                movement_type="received",
+                to_employee=performing_employee,
+                performed_by=performing_employee,
+            )
+
+        job, movement = move_job(
+            job=job,
+            movement_type="assigned",
+            to_employee=employee,
+            performed_by=performing_employee,
+        )
+        return movement is not None
+
     def post(self, request, *args, **kwargs):
         assigning_employee = request.user.employee
         employee_id = request.POST.get(
@@ -2160,9 +2186,7 @@ class AssignJobView(
         submitted_barcodes = parsed_barcodes.values
         duplicate_barcode_count = parsed_barcodes.duplicate_count
 
-        redirect_url = reverse(
-            "culet:assign_job",
-        )
+        redirect_url = reverse(self.route_name)
 
         if selected_job_id:
             redirect_url = (
@@ -2196,14 +2220,14 @@ class AssignJobView(
                 )
 
                 return redirect(
-                    "culet:assign_job",
+                    self.route_name,
                 )
 
         if not employee_id:
             messages.error(
                 request,
                 (
-                    "Please select the employee to assign "
+                    f"Please select the employee to {self.action_infinitive} "
                     "these jobs to."
                 ),
             )
@@ -2381,7 +2405,9 @@ class AssignJobView(
                     reasons.append(f"{identifier} ({reason})")
                 messages.error(
                     request,
-                    "These jobs cannot be assigned: " + ", ".join(reasons) + ".",
+                    f"These jobs cannot be {self.action_verb}: "
+                    + ", ".join(reasons)
+                    + ".",
                 )
                 return self.render_form_with_errors(
                     request,
@@ -2406,7 +2432,9 @@ class AssignJobView(
                 messages.error(
                     request,
                     "These jobs are currently being worked on and must be "
-                    "stopped before assignment: " + ", ".join(identifiers) + ".",
+                    f"stopped before {self.action_noun}: "
+                    + ", ".join(identifiers)
+                    + ".",
                 )
                 return self.render_form_with_errors(
                     request,
@@ -2436,22 +2464,11 @@ class AssignJobView(
 
                     recovered_piecework_count += 1
 
-                if job.holder_id != assigning_employee.pk:
-                    job, _ = move_job(
-                        job=job,
-                        movement_type="received",
-                        to_employee=assigning_employee,
-                        performed_by=assigning_employee,
-                    )
-
-                job, movement = move_job(
-                    job=job,
-                    movement_type="assigned",
-                    to_employee=employee,
-                    performed_by=assigning_employee,
-                )
-
-                if movement is not None:
+                if self.move_job_to_employee(
+                    job,
+                    employee,
+                    assigning_employee,
+                ):
                     assigned_count += 1
 
         if recovered_piecework_count:
@@ -2495,7 +2512,7 @@ class AssignJobView(
                 request,
                 (
                     f"{assigned_count} {job_word} "
-                    f"assigned.{repeated_barcode_message}"
+                    f"{self.action_verb}.{repeated_barcode_message}"
                 ),
             )
         else:
@@ -2503,13 +2520,55 @@ class AssignJobView(
                 request,
                 (
                     "The selected job(s) were already "
-                    f"assigned to {employee}."
+                    f"{self.action_verb} to {employee}."
                 ),
             )
 
         return redirect(
             "culet:home",
         )
+
+
+class TransferJobView(AssignJobView):
+    route_name = "culet:transfer_jobs"
+    page_title = "Transfer Jobs"
+    submit_label = "Transfer Jobs"
+    action_verb = "transferred"
+    action_noun = "transfer"
+    action_infinitive = "transfer"
+
+    def move_job_to_employee(self, job, employee, performing_employee):
+        job, assignment_movement = move_job(
+            job=job,
+            movement_type="assigned",
+            to_employee=employee,
+            performed_by=performing_employee,
+        )
+        job, received_movement = move_job(
+            job=job,
+            movement_type="received",
+            to_employee=employee,
+            performed_by=performing_employee,
+        )
+        return assignment_movement is not None or received_movement is not None
+
+    def post(self, request, *args, **kwargs):
+        try:
+            return super().post(request, *args, **kwargs)
+        except ValidationError as exc:
+            messages.error(request, "; ".join(exc.messages))
+            selected_job_id = request.POST.get("job_id", "").strip()
+            selected_job = (
+                Job.objects.filter(pk=selected_job_id).first()
+                if selected_job_id
+                else None
+            )
+            return self.render_form_with_errors(
+                request,
+                jobs_text=request.POST.get("jobs_text", ""),
+                selected_employee_id=request.POST.get("employee", "").strip(),
+                selected_job=selected_job,
+            )
     
 class ReturnJobView(
     LoginRequiredMixin,
