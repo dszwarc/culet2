@@ -8,7 +8,7 @@
         </td>
         {% if event.event_type == "activity" %}
             <td data-label="Event">{% if event.is_piecework %}{% if event.record.end %}Piecework returned{% else %}Piecework in progress{% endif %}{% else %}{{ event.record.name|default:"—" }}{% endif %}</td>
-            <td data-label="Employee / From → To">
+            <td data-label="Description">
                 {% if event.record.employee %}{{ event.record.employee.user.get_full_name|default:event.record.employee.user.username }}{% else %}—{% endif %}
             </td>
             <td data-label="Start">{{ event.record.start|date:"M j, Y g:i A" }}</td>
@@ -21,10 +21,18 @@
             <td data-label="Scanned By">—</td>
         {% else %}
             <td data-label="Event">{{ event.record.movement_type.name|default:"—" }}</td>
-            <td data-label="Employee / From → To">
-                {% if event.record.from_employee %}{{ event.record.from_employee.user.get_full_name|default:event.record.from_employee.user.username }}{% else %}—{% endif %}
-                &rarr;
-                {% if event.record.to_employee %}{{ event.record.to_employee.user.get_full_name|default:event.record.to_employee.user.username }}{% else %}—{% endif %}
+            <td data-label="Description">
+                {% if event.record.movement_type.code == "received" %}
+                    Received by {% if event.record.performed_by %}{{ event.record.performed_by.user.get_full_name|default:event.record.performed_by.user.username }}{% else %}—{% endif %}
+                {% elif event.record.movement_type.code == "assigned" or event.record.movement_type.code == "returned" or event.record.movement_type.code == "returned-to-manager" %}
+                    {% if event.record.performed_by %}{{ event.record.performed_by.user.get_full_name|default:event.record.performed_by.user.username }}{% else %}—{% endif %}
+                    {% if event.record.movement_type.code == "assigned" %}assigned to{% else %}returned to{% endif %}
+                    {% if event.record.to_employee %}{{ event.record.to_employee.user.get_full_name|default:event.record.to_employee.user.username }}{% else %}—{% endif %}
+                {% else %}
+                    {% if event.record.from_employee %}{{ event.record.from_employee.user.get_full_name|default:event.record.from_employee.user.username }}{% else %}—{% endif %}
+                    &rarr;
+                    {% if event.record.to_employee %}{{ event.record.to_employee.user.get_full_name|default:event.record.to_employee.user.username }}{% else %}—{% endif %}
+                {% endif %}
             </td>
             <td data-label="Start">—</td>
             <td data-label="End">—</td>
