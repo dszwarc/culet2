@@ -116,3 +116,60 @@ class JobHistoryTests(TestCase):
         self.assertEqual(len(first), 10)
         self.assertEqual(len(second), 5)
         self.assertTrue({event.event_id for event in first}.isdisjoint(event.event_id for event in second))
+
+    def test_piecework_return_is_visible_ahead_of_movements_since_assignment(self):
+        start = timezone.now() - timedelta(days=7)
+        end = timezone.now()
+        piecework = self.activity(start, end=end, active=False, is_piecework=True)
+        for index in range(15):
+            self.movement(start + timedelta(hours=index + 1))
+        response = self.client.get(reverse("culet:job_detail", args=[self.job.pk]))
+        event = response.context["history_events"][0]
+        self.assertEqual(event.event_id, piecework.pk)
+        self.assertEqual(event.timestamp, end)
+        self.assertContains(response, "Piecework returned")
+        self.assertContains(response, 'data-label="Start"')
+        self.assertContains(response, "168 h 0 m")
+        self.assertEqual(response.context["piecework_activity_count"], 1)
+
+    def test_piecework_filter_paginates_periods_without_movements_or_other_activities(self):
+        start = timezone.now() - timedelta(days=30)
+        periods = [self.activity(start + timedelta(days=i),
+                                 end=start + timedelta(days=i, hours=1),
+                                 active=False, is_piecework=True)
+                   for i in range(12)]
+        self.movement(timezone.now())
+        self.activity(timezone.now())
+        response = self.client.get(reverse("culet:job_detail", args=[self.job.pk]),
+                                   {"history_type": "piecework"})
+        self.assertEqual([e.event_id for e in response.context["history_events"]],
+                         [a.pk for a in reversed(periods)][0:10])
+        self.assertContains(response, "history_type=piecework")
+        self.assertContains(response, "Piecework (12)")
+        partial = self.client.get(reverse("culet:job_history_partial", args=[self.job.pk]),
+                                  {"history_type": "piecework", "offset": 10})
+        self.assertEqual([e.event_id for e in partial.context["history_events"]],
+                         [periods[1].pk, periods[0].pk])
+        self.assertContains(partial, "Piecework returned", count=2)
+        self.assertNotContains(partial, "Load 10 More")
+
+    def test_piecework_filter_empty_state_does_not_hide_unfiltered_history(self):
+        self.activity(timezone.now())
+        response = self.client.get(reverse("culet:job_detail", args=[self.job.pk]),
+                                   {"history_type": "piecework"})
+        self.assertContains(response, "No Piecework Activities have been recorded")
+        self.assertEqual(len(response.context["history_events"]), 0)
+        response = self.client.get(reverse("culet:job_detail", args=[self.job.pk]),
+                                   {"history_type": "invalid"})
+        self.assertEqual(response.context["history_type"], "all")
+        self.assertEqual(len(response.context["history_events"]), 1)
+
+    def test_activity_and_movement_filters_and_open_piecework_timestamp(self):
+        when = timezone.now()
+        activity = self.activity(when, is_piecework=True)
+        movement = self.movement(when)
+        activities = get_job_history(self.job, history_type="activity")
+        self.assertEqual([e.event_id for e in activities], [activity.pk])
+        self.assertEqual(activities[0].timestamp, when)
+        self.assertEqual([e.event_id for e in get_job_history(self.job, history_type="movement")],
+                         [movement.pk])

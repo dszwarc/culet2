@@ -1,16 +1,17 @@
 {% for event in history_events %}
     <tr data-history-type="{{ event.event_type }}" data-history-id="{{ event.event_id }}">
-        <td data-label="Time">{{ event.timestamp|date:"M j, Y g:i A" }}</td>
+        <td data-label="Event Time">{{ event.timestamp|date:"M j, Y g:i A" }}</td>
         <td data-label="Type">
             <span class="movement-badge{% if event.event_type == 'activity' %} history-badge--activity{% endif %}">
-                {{ event.event_type|title }}
+                {% if event.is_piecework %}Piecework{% else %}{{ event.event_type|title }}{% endif %}
             </span>
         </td>
         {% if event.event_type == "activity" %}
-            <td data-label="Event">{{ event.record.name|default:"—" }}</td>
+            <td data-label="Event">{% if event.is_piecework %}{% if event.record.end %}Piecework returned{% else %}Piecework in progress{% endif %}{% else %}{{ event.record.name|default:"—" }}{% endif %}</td>
             <td data-label="Employee / From → To">
                 {% if event.record.employee %}{{ event.record.employee.user.get_full_name|default:event.record.employee.user.username }}{% else %}—{% endif %}
             </td>
+            <td data-label="Start">{{ event.record.start|date:"M j, Y g:i A" }}</td>
             <td data-label="End">
                 {% if event.record.end %}{{ event.record.end|date:"M j, Y g:i A" }}{% else %}<span class="status-badge status-badge-active">In Progress</span>{% endif %}
             </td>
@@ -25,6 +26,7 @@
                 &rarr;
                 {% if event.record.to_employee %}{{ event.record.to_employee.user.get_full_name|default:event.record.to_employee.user.username }}{% else %}—{% endif %}
             </td>
+            <td data-label="Start">—</td>
             <td data-label="End">—</td>
             <td data-label="Duration">—</td>
             <td data-label="Scanned By">
@@ -33,12 +35,12 @@
         {% endif %}
     </tr>
 {% empty %}
-    {% if not history_next_offset %}<tr><td colspan="8" class="empty-table-message">No history has been recorded for this job.</td></tr>{% endif %}
+    {% if not history_next_offset %}<tr><td colspan="8" class="empty-table-message">{% if history_type == "piecework" %}No Piecework Activities have been recorded for this job.{% elif history_type == "activity" %}No Activities have been recorded for this job.{% elif history_type == "movement" %}No movements have been recorded for this job.{% else %}No history has been recorded for this job.{% endif %}</td></tr>{% endif %}
 {% endfor %}
 {% if history_has_more %}
     <tr class="history-load-more-row">
         <td colspan="8">
-            <button class="btn btn-secondary btn-sm" hx-get="{% url 'culet:job_history_partial' job.pk %}?offset={{ history_next_offset }}" hx-target="closest tr" hx-swap="outerHTML">Load 10 More</button>
+            <button class="btn btn-secondary btn-sm" hx-get="{% url 'culet:job_history_partial' job.pk %}?offset={{ history_next_offset }}&amp;history_type={{ history_type|default:'all' }}" hx-target="closest tr" hx-swap="outerHTML">Load 10 More</button>
         </td>
     </tr>
 {% endif %}

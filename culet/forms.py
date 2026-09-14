@@ -1286,7 +1286,8 @@ class PieceworkMemoCreateForm(forms.ModelForm):
 
 class PieceworkScanForm(forms.Form):
     scans = forms.CharField(
-        label="Scan jobs",
+        label="Job Barcodes",
+        error_messages={"required": "Scan or enter at least one job barcode."},
         widget=forms.Textarea(
             attrs={
                 "class": "form-control",
@@ -1295,8 +1296,29 @@ class PieceworkScanForm(forms.Form):
                 "autofocus": "autofocus",
             }
         ),
-        help_text="Scan or enter one job barcode per line.",
+        help_text="Scan or enter one job barcode per line. Stock numbers are not accepted.",
     )
+
+    def clean_scans(self):
+        scans = self.cleaned_data["scans"]
+        invalid = []
+        for line in scans.splitlines():
+            value = line.strip()
+            if not value:
+                continue
+            if (
+                not value.isdecimal()
+                or len(value) > 100
+                or len(value.lstrip("0")) > 10
+                or int(value) > 2147483647
+            ):
+                invalid.append(value)
+        if invalid:
+            raise ValidationError(
+                "Enter numeric job barcodes only, one per line. Invalid barcode(s): "
+                + ", ".join(invalid)
+            )
+        return scans
 
 class MemoFilterForm(forms.Form):
     MEMO_TYPE_CHOICES = [
@@ -1507,14 +1529,21 @@ class RepairCreateForm(forms.Form):
     )
 
 class RepairLookupForm(forms.Form):
-    stock_num = forms.CharField(
-        label="Scan Original Job",
-        max_length=100,
+    barcode = forms.IntegerField(
+        label="Original Job Barcode",
+        min_value=0,
+        max_value=2147483647,
+        error_messages={
+            "required": "Scan or enter the original job barcode.",
+            "invalid": "Enter a valid numeric job barcode.",
+        },
+        help_text="Scan or enter the original job barcode. Stock numbers are not accepted.",
         widget=forms.TextInput(attrs={
             "autofocus": "autofocus",
             "class": "form-control",
-            "placeholder": "Scan stock number or barcode",
-        })
+            "inputmode": "numeric",
+            "placeholder": "Scan or enter original job barcode",
+        }),
     )
 
 class StartWorkForm(forms.Form):

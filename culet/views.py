@@ -274,24 +274,6 @@ def get_employee(user):
     return get_object_or_404(Employee, user=user)
 
 
-def find_job_by_scan(scan):
-    scan = scan.strip()
-
-    query = Q()
-
-    job_field_names = {field.name for field in Job._meta.get_fields()}
-
-    if "barcode" in job_field_names and scan.isdecimal():
-        query |= Q(barcode=int(scan))
-
-    if "stock_num" in job_field_names:
-        query |= Q(stock_num=scan)
-
-    if "customer_ref_num" in job_field_names:
-        query |= Q(customer_ref_num=scan)
-
-    return Job.objects.filter(query).first()
-
 class ClockedInRequiredMixin:
     """
     Require an employee to be clocked in before accessing a view.
@@ -1047,9 +1029,16 @@ class JobDetailView(
             .order_by("pk")
         )
 
+        history_type = self.request.GET.get("history_type", "all")
+        if history_type not in ("all", "activity", "piecework", "movement"):
+            history_type = "all"
         history_events, history_has_more, history_next_offset = (
-            get_job_history_page(self.object)
+            get_job_history_page(self.object, history_type=history_type)
         )
+        context["history_type"] = history_type
+        context["piecework_activity_count"] = Activity.objects.filter(
+            job=self.object, is_piecework=True,
+        ).count()
         context["history_events"] = history_events
         context["history_has_more"] = history_has_more
         context["history_next_offset"] = history_next_offset
@@ -1068,13 +1057,19 @@ class JobHistoryPartialView(LoginRequiredMixin, generic.View):
             offset = max(0, int(request.GET.get("offset", 0)))
         except (TypeError, ValueError):
             offset = 0
-        events, has_more, next_offset = get_job_history_page(job, offset=offset)
+        history_type = request.GET.get("history_type", "all")
+        if history_type not in ("all", "activity", "piecework", "movement"):
+            history_type = "all"
+        events, has_more, next_offset = get_job_history_page(
+            job, offset=offset, history_type=history_type,
+        )
         return render(
             request,
             "jobs/partials/history_rows.html",
             {
                 "job": job,
                 "history_events": events,
+                "history_type": history_type,
                 "history_has_more": has_more,
                 "history_next_offset": next_offset,
             },
@@ -6384,7 +6379,7 @@ class PieceworkCreateView(
         if not scans:
             messages.error(
                 request,
-                "Please scan at least one job.",
+                "Please scan or enter at least one job barcode.",
             )
 
             return render(
@@ -6405,11 +6400,11 @@ class PieceworkCreateView(
         resolved_jobs = []
 
         for scan in scans:
-            job = find_job_by_scan(scan)
+            job = Job.objects.filter(barcode=int(scan)).first()
 
             if not job:
                 validation_errors.append(
-                    f"{scan} - job not found",
+                    f"No job found with barcode {scan}.",
                 )
                 continue
 
@@ -6431,7 +6426,7 @@ class PieceworkCreateView(
         if not resolved_jobs:
             messages.error(
                 request,
-                "No valid jobs were found.",
+                "No piecework memo was created. " + ", ".join(validation_errors),
             )
 
             return redirect(
@@ -7243,16 +7238,12 @@ class RepairLookupView(LoginRequiredMixin, generic.FormView):
     form_class = RepairLookupForm
 
     def form_valid(self, form):
-        scanned_value = form.cleaned_data["stock_num"].strip()
-
-        original_job = (
-            Job.objects.filter(stock_num=scanned_value).first()
-            or Job.objects.filter(barcode=scanned_value).first()
-        )
+        barcode = form.cleaned_data["barcode"]
+        original_job = Job.objects.filter(barcode=barcode).first()
 
         if not original_job:
-            messages.error(self.request, f"No job found for {scanned_value}.")
-            return redirect("culet:create_repair")
+            form.add_error("barcode", f"No job found with barcode {barcode}.")
+            return self.form_invalid(form)
 
         return redirect(
             f"{reverse('culet:job_create')}?repair_from={original_job.pk}"

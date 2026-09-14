@@ -1244,6 +1244,10 @@ class PieceworkMemo(models.Model):
 class PieceworkMemoLine(models.Model):
     memo = models.ForeignKey(PieceworkMemo, on_delete=models.CASCADE, related_name="lines")
     job = models.ForeignKey(Job, on_delete=models.PROTECT)
+    activity = models.OneToOneField(
+        Activity, on_delete=models.PROTECT, null=True, blank=True,
+        related_name="piecework_line", editable=False,
+    )
     notes = models.CharField(max_length=255, blank=True)
     returned_at = models.DateTimeField(null=True, blank=True)
     returned_by = models.ForeignKey(

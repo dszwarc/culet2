@@ -219,24 +219,35 @@
     {% endif %}
 
     <!-- Combined job history -->
-    <section class="job-section-card">
+    <section class="job-section-card" id="job-history">
         <div class="job-section-header">
             <div>
                 <h2 class="job-section-title">Job History</h2>
                 <p class="job-section-subtitle">
-                    Activity and movement events, newest first.
+                    Newest first. Piecework is shown when returned; other activities when started.
                 </p>
             </div>
+            <form method="get" action="#job-history" class="form-inline">
+                <label for="history-type" class="mr-2">Show</label>
+                <select id="history-type" name="history_type" class="form-control form-control-sm mr-2">
+                    <option value="all"{% if history_type == "all" %} selected{% endif %}>All events</option>
+                    <option value="activity"{% if history_type == "activity" %} selected{% endif %}>Activities</option>
+                    <option value="piecework"{% if history_type == "piecework" %} selected{% endif %}>Piecework ({{ piecework_activity_count }})</option>
+                    <option value="movement"{% if history_type == "movement" %} selected{% endif %}>Movements</option>
+                </select>
+                <button type="submit" class="btn btn-secondary btn-sm">Apply</button>
+            </form>
         </div>
 
         <div class="job-table-wrap">
             <table class="job-table">
                 <thead>
                     <tr>
-                        <th>Time</th>
+                        <th>Event Time</th>
                         <th>Type</th>
                         <th>Event</th>
                         <th>Employee / From &rarr; To</th>
+                        <th>Start</th>
                         <th>End</th>
                         <th>Duration</th>
                         <th>Scanned By</th>

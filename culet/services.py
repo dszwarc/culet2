@@ -271,13 +271,21 @@ class JobHistoryEvent:
     timestamp: object
     record: object
 
+    @property
+    def is_piecework(self):
+        return self.event_type == "activity" and self.record.is_piecework
 
-def get_job_history(job):
+
+def get_job_history(job, history_type="all"):
     """Return normalized Activity and JobMovement events, newest first."""
     activities = (
         Activity.objects.filter(job=job)
         .select_related("employee__user", "step")
     )
+    if history_type == "piecework":
+        activities = activities.filter(is_piecework=True)
+    elif history_type == "movement":
+        activities = activities.none()
     movements = (
         JobMovement.objects.filter(job=job)
         .select_related(
@@ -287,8 +295,14 @@ def get_job_history(job):
             "performed_by__user",
         )
     )
+    if history_type in ("activity", "piecework"):
+        movements = movements.none()
     events = [
-        JobHistoryEvent("activity", activity.pk, activity.start, activity)
+        JobHistoryEvent(
+            "activity", activity.pk,
+            activity.end if activity.is_piecework and activity.end else activity.start,
+            activity,
+        )
         for activity in activities
     ]
     events.extend(
@@ -306,8 +320,8 @@ def get_job_history(job):
     )
 
 
-def get_job_history_page(job, offset=0, limit=10):
-    events = get_job_history(job)
+def get_job_history_page(job, offset=0, limit=10, history_type="all"):
+    events = get_job_history(job, history_type=history_type)
     page = events[offset:offset + limit]
     return page, offset + len(page) < len(events), offset + len(page)
 
@@ -939,11 +953,15 @@ def return_piecework_lines(
         ) from exc
 
     operation_time = returned_at or timezone.now()
+    if operation_time < locked_memo.created_at:
+        raise ValidationError("Piecework cannot be returned before it was assigned.")
 
     for line in locked_lines:
         job = locked_jobs[line.job_id]
 
-        Activity.objects.create(
+        if line.activity_id is not None:
+            raise ValidationError("An open piecework line already has an Activity. Contact an administrator.")
+        line.activity = Activity.objects.create(
             job=job,
             employee=locked_memo.assigned_to,
             step=piecework_step,
@@ -981,7 +999,7 @@ def return_piecework_lines(
 
         line.returned_at = operation_time
         line.returned_by = returned_by
-        line.save(update_fields=["returned_at", "returned_by"])
+        line.save(update_fields=["returned_at", "returned_by", "activity"])
 
     remaining_count = PieceworkMemoLine.objects.filter(
         memo_id=locked_memo.pk,

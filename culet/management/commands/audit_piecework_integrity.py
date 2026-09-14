@@ -149,8 +149,8 @@ class Command(BaseCommand):
             )
 
         self.stdout.write(
-            "DUPLICATE PIECEWORK ACTIVITIES: not reliably auditable because "
-            "Activity has no PieceworkMemoLine or memo foreign key."
+            "PIECEWORK ACTIVITIES: run backfill_piecework_activities --dry-run "
+            "to audit explicit line links and conservative historical matches."
         )
 
         serious_keys = (

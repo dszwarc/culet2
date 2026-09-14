@@ -17,7 +17,8 @@ from django.utils import timezone
 
 from .models import (
     Activity, ActivityStep, Customer, Department, Employee, Job, JobMovement,
-    JobStatus, Location, MovementType, PieceworkMemo, PieceworkMemoLine, Style,
+    JobShip, JobStatus, Location, MovementType, PieceworkMemo, PieceworkMemoLine,
+    Style,
 )
 from .services import move_job, stop_activity, validate_batch_jobs
 
@@ -125,10 +126,62 @@ class AdminChangelistRegressionTests(CuletTestDataMixin, TestCase):
 
 
 class PieceworkWorkflowTests(CuletTestDataMixin, TestCase):
+    def test_unshipped_job_without_shipment_can_be_assigned(self):
+        job = self.make_job(41998, shipped=False)
+
+        response = self.assign(str(job.barcode))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(JobShip.objects.filter(job=job).exists())
+        self.assertTrue(
+            PieceworkMemoLine.objects.filter(job=job).exists()
+        )
+
+    def test_shipped_flag_blocks_assignment_without_shipment_record(self):
+        job = self.make_job(41999, shipped=True)
+
+        response = self.assign(str(job.barcode))
+        response_messages = [
+            str(message)
+            for message in get_messages(response.wsgi_request)
+        ]
+
+        self.assertFalse(JobShip.objects.filter(job=job).exists())
+        self.assertFalse(PieceworkMemo.objects.exists())
+        self.assertIn(
+            f"No piecework memo was created. {job.barcode} - already shipped",
+            response_messages,
+        )
+
+    def test_numeric_collision_uses_barcode_job_and_its_shipped_validation(self):
+        shipped_job = self.make_job(
+            42000,
+            stock_num="OTHER-STOCK",
+            shipped=True,
+        )
+        intended_job = self.make_job(
+            42001,
+            stock_num=str(shipped_job.barcode),
+            shipped=False,
+        )
+
+        response = self.assign(intended_job.stock_num)
+        response_messages = [
+            str(message)
+            for message in get_messages(response.wsgi_request)
+        ]
+
+        self.assertFalse(JobShip.objects.exists())
+        self.assertFalse(PieceworkMemo.objects.exists())
+        self.assertTrue(
+            any("42000 - already shipped" in message for message in response_messages),
+            response_messages,
+        )
+
     def test_assignment_is_consistent_and_visible_only_to_memo_employee(self):
         first = self.make_job(42001, assigned_to=self.other, holder=self.other)
         second = self.make_job(42002)
-        response = self.assign(f"{first.barcode}\n{second.stock_num}\n{first.barcode}")
+        response = self.assign(f"{first.barcode}\n{second.barcode}\n{first.barcode}")
         self.assertEqual(response.status_code, 200)
         memo = PieceworkMemo.objects.get()
         self.assertEqual(memo.assigned_to, self.worker)
@@ -1321,3 +1374,48 @@ class PieceworkAuditCommandTests(CuletTestDataMixin, TestCase):
         self.assertEqual(repairable.assigned_to, self.worker)
         self.assertEqual(repairable.holder, self.worker)
         self.assertIn("multiple_open_memos: 0", fixed.getvalue())
+
+
+class ExclusiveBarcodeLookupTests(CuletTestDataMixin, TestCase):
+    def test_piecework_numeric_collision_assigns_only_barcode_job(self):
+        barcode_job = self.make_job(51001)
+        stock_job = self.make_job(51002, stock_num="51001")
+        self.assign(" 0051001\n51001 ")
+        self.assertEqual(list(PieceworkMemoLine.objects.values_list("job_id", flat=True)), [barcode_job.pk])
+        stock_job.refresh_from_db()
+        self.assertFalse(stock_job.is_piecework)
+
+    def test_piecework_invalid_and_stock_only_identifiers_do_not_assign(self):
+        job = self.make_job(51003, stock_num="999999")
+        for value in ("STOCK-1", "999999", "999999999999999999999", ""):
+            with self.subTest(value=value):
+                response = self.assign(value)
+                if response.status_code == 302:
+                    messages = " ".join(str(m) for m in get_messages(response.wsgi_request))
+                    self.assertIn("No job found with barcode", messages)
+                else:
+                    self.assertContains(response, "barcode")
+                self.assertFalse(PieceworkMemo.objects.exists())
+        response = self.assign(f"{job.barcode}\nSTOCK-1")
+        self.assertContains(response, "Invalid barcode(s): STOCK-1")
+        self.assertFalse(PieceworkMemo.objects.exists())
+
+    def test_repair_numeric_collision_redirects_using_barcode_job(self):
+        job = self.make_job(51004)
+        self.make_job(51005, stock_num="51004")
+        response = self.client.post(reverse("culet:create_repair"), {"barcode": " 0051004 "})
+        self.assertRedirects(response, f"{reverse('culet:job_create')}?repair_from={job.pk}", fetch_redirect_response=False)
+
+    def test_repair_rejects_stock_numbers_and_invalid_barcodes(self):
+        self.make_job(51006, stock_num="999999")
+        for data, error in (
+            ({"barcode": "999999"}, "No job found with barcode 999999."),
+            ({"barcode": "STOCK-1"}, "Enter a valid numeric job barcode."),
+            ({"barcode": ""}, "Scan or enter the original job barcode."),
+            ({"stock_num": "999999"}, "Scan or enter the original job barcode."),
+            ({"barcode": "999999999999999999999"}, "Ensure this value is less than or equal to"),
+        ):
+            with self.subTest(data=data):
+                response = self.client.post(reverse("culet:create_repair"), data)
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, error)

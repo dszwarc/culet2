@@ -534,6 +534,17 @@ class OpenPieceworkFilter(django_filters.FilterSet):
         ),
     )
 
+    barcode = django_filters.CharFilter(
+        label="Barcode",
+        field_name="job__barcode",
+        lookup_expr="icontains",
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": "Enter barcode",
+            }
+        ),
+    )
+
     stock_num = django_filters.CharFilter(
         label="Stock Number",
         field_name="job__stock_num",
