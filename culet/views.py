@@ -7239,10 +7239,14 @@ class RepairLookupView(LoginRequiredMixin, generic.FormView):
 
     def form_valid(self, form):
         barcode = form.cleaned_data["barcode"]
-        original_job = Job.objects.filter(barcode=barcode).first()
+        if barcode is not None:
+            field, label, value = "barcode", "barcode", barcode
+        else:
+            field, label, value = "stock_num", "stock number", form.cleaned_data["stock_num"]
+        original_job = Job.objects.filter(**{field: value}).first()
 
         if not original_job:
-            form.add_error("barcode", f"No job found with barcode {barcode}.")
+            form.add_error(field, f"No job found with {label} {value}.")
             return self.form_invalid(form)
 
         return redirect(

@@ -1406,16 +1406,80 @@ class ExclusiveBarcodeLookupTests(CuletTestDataMixin, TestCase):
         response = self.client.post(reverse("culet:create_repair"), {"barcode": " 0051004 "})
         self.assertRedirects(response, f"{reverse('culet:job_create')}?repair_from={job.pk}", fetch_redirect_response=False)
 
-    def test_repair_rejects_stock_numbers_and_invalid_barcodes(self):
+    def test_repair_rejects_stock_numbers_in_barcode_field_and_invalid_barcodes(self):
         self.make_job(51006, stock_num="999999")
         for data, error in (
             ({"barcode": "999999"}, "No job found with barcode 999999."),
             ({"barcode": "STOCK-1"}, "Enter a valid numeric job barcode."),
-            ({"barcode": ""}, "Scan or enter the original job barcode."),
-            ({"stock_num": "999999"}, "Scan or enter the original job barcode."),
+            ({"barcode": ""}, "Enter a barcode or stock number."),
             ({"barcode": "999999999999999999999"}, "Ensure this value is less than or equal to"),
         ):
             with self.subTest(data=data):
                 response = self.client.post(reverse("culet:create_repair"), data)
                 self.assertEqual(response.status_code, 200)
                 self.assertContains(response, error)
+
+
+class RepairLookupTests(CuletTestDataMixin, TestCase):
+    def test_each_identifier_selects_its_own_job_despite_numeric_collision(self):
+        barcode_job = self.make_job(123456)
+        stock_job = self.make_job(51007, stock_num="123456")
+        for data, job in (
+            ({"barcode": " 00123456 ", "stock_num": ""}, barcode_job),
+            ({"barcode": "", "stock_num": " 123456 "}, stock_job),
+        ):
+            with self.subTest(data=data):
+                response = self.client.post(reverse("culet:create_repair"), data)
+                self.assertRedirects(response, f"{reverse('culet:job_create')}?repair_from={job.pk}", fetch_redirect_response=False)
+        self.assertEqual(Job.objects.count(), 2)
+
+    def test_stock_lookup_accepts_text_and_does_not_fall_back_to_barcode(self):
+        job = self.make_job(51008, stock_num="Original-01")
+        response = self.client.post(reverse("culet:create_repair"), {"stock_num": " Original-01 "})
+        self.assertRedirects(response, f"{reverse('culet:job_create')}?repair_from={job.pk}", fetch_redirect_response=False)
+        response = self.client.post(reverse("culet:create_repair"), {"stock_num": "51008"})
+        self.assertContains(response, "No job found with stock number 51008.")
+        self.assertIn("stock_num", response.context["form"].errors)
+
+    def test_missing_and_both_identifiers_are_rejected(self):
+        job = self.make_job(51009)
+        for data, error in (
+            ({}, "Enter a barcode or stock number."),
+            ({"barcode": "", "stock_num": " "}, "Enter a barcode or stock number."),
+            ({"barcode": str(job.barcode), "stock_num": job.stock_num}, "Enter either a barcode or a stock number, not both."),
+        ):
+            with self.subTest(data=data):
+                response = self.client.post(reverse("culet:create_repair"), data)
+                self.assertContains(response, error)
+                self.assertIn("__all__", response.context["form"].errors)
+
+    def test_zero_barcode_is_a_supplied_identifier(self):
+        job = self.make_job(0)
+        response = self.client.post(reverse("culet:create_repair"), {"barcode": "0"})
+        self.assertRedirects(response, f"{reverse('culet:job_create')}?repair_from={job.pk}", fetch_redirect_response=False)
+
+    def test_existing_job_state_behavior_is_identical_for_both_identifiers(self):
+        # The existing lookup permits inactive, shipped, and repair jobs.
+        for index, state in enumerate(({"active": False}, {"shipped": True}, {"is_repair": True})):
+            job = self.make_job(51100 + index, **state)
+            for field in ("barcode", "stock_num"):
+                with self.subTest(state=state, field=field):
+                    response = self.client.post(reverse("culet:create_repair"), {field: getattr(job, field)})
+                    self.assertRedirects(response, f"{reverse('culet:job_create')}?repair_from={job.pk}", fetch_redirect_response=False)
+
+    def test_both_lookup_paths_require_login(self):
+        job = self.make_job(51010)
+        self.client.logout()
+        for field in ("barcode", "stock_num"):
+            with self.subTest(field=field):
+                response = self.client.post(reverse("culet:create_repair"), {field: getattr(job, field)})
+                self.assertEqual(response.status_code, 302)
+                self.assertIn("/accounts/login?next=", response.url)
+
+    def test_page_renders_both_optional_inputs_and_one_submit(self):
+        response = self.client.get(reverse("culet:create_repair"))
+        self.assertContains(response, 'name="barcode"', count=1)
+        self.assertContains(response, 'name="stock_num"', count=1)
+        self.assertContains(response, 'type="submit" class="btn btn-primary"', count=1)
+        self.assertFalse(response.context["form"].fields["barcode"].required)
+        self.assertFalse(response.context["form"].fields["stock_num"].required)

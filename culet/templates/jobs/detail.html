@@ -9,7 +9,17 @@
             <p class="page-subtitle">
                 {{ job.customer }}{% if job.style %} &middot; {{ job.style }}{% endif %}
             </p>
+            <svg
+                class="barcode top-barcode"
+                jsbarcode-format="CODE128"
+                jsbarcode-value="{{job.barcode}}"
+                jsbarcode-displayvalue="true"
+                jsbarcode-margin="0"
+                jsbarcode-height="40">
+            </svg>
+
         </div>
+                    
 
         <div class="page-actions">
             <a
@@ -474,4 +484,9 @@
 
 </div>
 {% endblock content %}
-```
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+<script>
+    JsBarcode(".barcode").init();
+</script>
+{% endblock %}

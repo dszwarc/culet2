@@ -1530,14 +1530,14 @@ class RepairCreateForm(forms.Form):
 
 class RepairLookupForm(forms.Form):
     barcode = forms.IntegerField(
-        label="Original Job Barcode",
+        label="Barcode",
+        required=False,
         min_value=0,
         max_value=2147483647,
         error_messages={
-            "required": "Scan or enter the original job barcode.",
             "invalid": "Enter a valid numeric job barcode.",
         },
-        help_text="Scan or enter the original job barcode. Stock numbers are not accepted.",
+        help_text="Scan or enter the original job barcode.",
         widget=forms.TextInput(attrs={
             "autofocus": "autofocus",
             "class": "form-control",
@@ -1545,6 +1545,31 @@ class RepairLookupForm(forms.Form):
             "placeholder": "Scan or enter original job barcode",
         }),
     )
+
+    stock_num = forms.CharField(
+        label="Stock Number",
+        required=False,
+        max_length=50,
+        help_text="Or type the original job stock number.",
+        widget=forms.TextInput(attrs={
+            "class": "form-control",
+            "placeholder": "Enter original job stock number",
+        }),
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if self.errors:
+            return cleaned_data
+
+        has_barcode = cleaned_data.get("barcode") is not None
+        has_stock_num = bool(cleaned_data.get("stock_num"))
+        if has_barcode and has_stock_num:
+            raise forms.ValidationError("Enter either a barcode or a stock number, not both.")
+        if not has_barcode and not has_stock_num:
+            raise forms.ValidationError("Enter a barcode or stock number.")
+        return cleaned_data
+
 
 class StartWorkForm(forms.Form):
     step = forms.ModelChoiceField(
