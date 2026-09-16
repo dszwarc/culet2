@@ -1,4 +1,5 @@
 from django.db import models, transaction
+from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.urls import reverse
 from datetime import date, timedelta
@@ -1010,6 +1011,33 @@ class TimeClock(models.Model):
         blank=True,
     )
 
+    adjusted_clock_in = models.DateTimeField(null=True, blank=True)
+    adjusted_clock_out = models.DateTimeField(null=True, blank=True)
+    valid = models.BooleanField(default=True)
+
+    @property
+    def effective_clock_in(self):
+        return self.adjusted_clock_in if self.adjusted_clock_in is not None else self.clock_in
+
+    @property
+    def effective_clock_out(self):
+        return self.adjusted_clock_out if self.adjusted_clock_out is not None else self.clock_out
+
+    def clean(self):
+        super().clean()
+        if (self.effective_clock_in is not None
+                and self.effective_clock_out is not None
+                and self.effective_clock_out < self.effective_clock_in):
+            raise ValidationError("Effective clock-out cannot precede effective clock-in.")
+
+    @property
+    def effective_hours(self):
+        """Unrounded payroll hours; raw duration remains operational."""
+        if not self.valid or self.effective_clock_in is None:
+            return 0
+        end = self.effective_clock_out or timezone.now()
+        return (end - self.effective_clock_in).total_seconds() / 3600
+
     class Meta:
         ordering = [
             "employee__user__last_name",
@@ -1058,16 +1086,16 @@ class TimeClock(models.Model):
     @property
     def rounded_clock_in(self):
         return self.round_to_quarter(
-            self.clock_in,
+            self.effective_clock_in,
         )
 
     @property
     def rounded_clock_out(self):
-        if self.clock_out is None:
+        if self.effective_clock_out is None:
             return None
 
         return self.round_to_quarter(
-            self.clock_out,
+            self.effective_clock_out,
         )
 
     @property
@@ -1112,7 +1140,7 @@ class TimeClock(models.Model):
 
     @property
     def rounded_hours(self):
-        if self.rounded_duration is None:
+        if not self.valid or self.rounded_duration is None:
             return 0
 
         return (

@@ -147,7 +147,7 @@ from .mixins import (
     LoggedFormInvalidMixin,
 )
 from .permissions import can_perform_quality_inspection, can_view_production_reports
-from .payroll import build_payroll_report
+from .payroll import build_payroll_display, build_payroll_report
 
 from django.contrib import messages
 from django.shortcuts import redirect
@@ -4665,11 +4665,11 @@ class TimeClockUpdateView(LoginRequiredMixin, generic.UpdateView):
 def _payroll_entry_context(timeclock):
     return {
         "timeclock": timeclock,
-        "raw_clock_in": timeclock.clock_in,
+        "raw_clock_in": timeclock.effective_clock_in,
         "rounded_clock_in": timeclock.rounded_clock_in,
-        "raw_clock_out": timeclock.clock_out,
+        "raw_clock_out": timeclock.effective_clock_out,
         "rounded_clock_out": timeclock.rounded_clock_out,
-        "raw_hours": timeclock.raw_hours,
+        "raw_hours": timeclock.effective_hours,
         "rounded_hours": timeclock.rounded_hours,
     }
 
@@ -4733,7 +4733,7 @@ def _payroll_summary_context(request, employee, work_date):
 
 
 def _payroll_inline_context(request, timeclock):
-    work_date = timezone.localtime(timeclock.clock_in).date()
+    work_date = timezone.localtime(timeclock.effective_clock_in).date()
     context = _payroll_summary_context(request, timeclock.employee, work_date)
     if context is not None:
         context["entry"] = _payroll_entry_context(timeclock)
@@ -4741,85 +4741,61 @@ def _payroll_inline_context(request, timeclock):
 
 
 class PayrollTimeClockRowView(LoginRequiredMixin, generic.View):
-    """Restore one payroll display row, primarily for inline-edit cancellation."""
-
-    def get(self, request, pk):
-        timeclock = get_object_or_404(TimeClock, pk=pk)
-        if request.headers.get("HX-Request") != "true":
-            edit_url = reverse("culet:time_clock_edit", args=[pk])
-            payroll_url = reverse("culet:payroll_report")
-            if request.GET:
-                payroll_url += "?" + request.GET.urlencode()
-            return redirect(f"{edit_url}?next={quote(payroll_url, safe='')}")
-        return render(
-            request,
-            "reports/partials/payroll_timeclock_row.html",
-            {
-                "entry": _payroll_entry_context(timeclock),
-                "report_query": request.GET.urlencode(),
-                "standalone_next": (
-                    reverse("culet:payroll_report") + "?" + request.GET.urlencode()
-                ),
-            },
-        )
-
-
-class PayrollTimeClockInlineEditView(LoginRequiredMixin, generic.View):
-    """Edit a TimeClock from the payroll table without a page reload."""
+    """Close the editor without replacing the displayed payroll row."""
 
     def get(self, request, pk):
         timeclock = get_object_or_404(TimeClock, pk=pk)
         if request.headers.get("HX-Request") != "true":
             return redirect("culet:time_clock_edit", pk=pk)
-        return render(
-            request,
-            "reports/partials/payroll_timeclock_edit_row.html",
-            {
-                "form": TimeClockEditForm(instance=timeclock),
-                "timeclock": timeclock,
-                "report_query": request.GET.urlencode(),
-            },
-        )
+        return render(request, "reports/partials/payroll_timeclock_editor_placeholder.html",
+                      {"timeclock": timeclock})
+
+
+class PayrollTimeClockInlineEditView(LoginRequiredMixin, generic.View):
+    """Expand an editor below a punch; refresh totals and warnings after saving."""
+
+    def get(self, request, pk):
+        timeclock = get_object_or_404(TimeClock, pk=pk)
+        if request.headers.get("HX-Request") != "true":
+            return redirect("culet:time_clock_edit", pk=pk)
+        return render(request, "reports/partials/payroll_timeclock_edit_row.html", {
+            "form": TimeClockEditForm(instance=timeclock, prefix=f"clock-{pk}"),
+            "timeclock": timeclock,
+            "report_query": request.GET.urlencode(),
+        })
 
     def post(self, request, pk):
         timeclock = get_object_or_404(TimeClock, pk=pk)
         if request.headers.get("HX-Request") != "true":
             return redirect("culet:time_clock_edit", pk=pk)
-
-        if not TimeClockReportForm(request.GET).is_valid():
+        report_form = TimeClockReportForm(request.GET)
+        if not report_form.is_valid():
             return HttpResponseBadRequest("Valid payroll filters are required.")
-
         form_data = request.POST.copy()
-        # Employee is not editable in the compact payroll row.
-        form_data["employee"] = timeclock.employee_id
-        form = TimeClockEditForm(form_data, instance=timeclock)
+        # Keep support for existing unprefixed clients; rendered editors have unique IDs.
+        prefix = f"clock-{pk}" if f"clock-{pk}-clock_in" in form_data else None
+        employee_key = f"{prefix}-employee" if prefix else "employee"
+        form_data[employee_key] = timeclock.employee_id
+        form = TimeClockEditForm(form_data, instance=timeclock, prefix=prefix)
         if not form.is_valid():
-            return render(
-                request,
-                "reports/partials/payroll_timeclock_edit_row.html",
-                {
-                    "form": form,
-                    "timeclock": timeclock,
-                    "report_query": request.GET.urlencode(),
-                },
-                status=422,
-            )
-
-        timeclock = form.save()
-        context = _payroll_inline_context(request, timeclock)
-        if context is None:
-            return HttpResponseBadRequest("Valid payroll filters are required.")
-
-        response_html = render_to_string(
-            "reports/partials/payroll_inline_save_response.html",
-            context,
-            request=request,
+            response = render(request, "reports/partials/payroll_timeclock_edit_row.html", {
+                "form": form, "timeclock": timeclock,
+                "report_query": request.GET.urlencode(),
+            }, status=422)
+            response["HX-Retarget"] = f"#timeclock-editor-{pk}"
+            response["HX-Reselect"] = f"#timeclock-editor-{pk}"
+            return response
+        form.save()
+        context = build_payroll_display(
+            start_date=report_form.cleaned_data["start_date"],
+            end_date=report_form.cleaned_data["end_date"],
+            selected_employee=report_form.cleaned_data.get("employee"),
         )
-        return HttpResponse(response_html)
+        return render(request, "reports/partials/payroll_results.html", context)
 
 
 class PayrollTimeClockInlineDeleteView(LoginRequiredMixin, generic.View):
-    """Delete a completed payroll TimeClock and refresh affected summaries."""
+    """Invalidate a completed payroll TimeClock without deleting raw punches."""
 
     http_method_names = ["post"]
 
@@ -4835,24 +4811,28 @@ class PayrollTimeClockInlineDeleteView(LoginRequiredMixin, generic.View):
                 ),
                 pk=pk,
             )
-            if timeclock.clock_out is None:
+            if timeclock.effective_clock_out is None:
                 return HttpResponse(
                     "Open TimeClock entries cannot be deleted. Clock the employee out first.",
                     status=409,
                 )
 
             employee = timeclock.employee
-            work_date = timezone.localtime(timeclock.clock_in).date()
-            timeclock.delete()
+            work_date = timezone.localtime(timeclock.effective_clock_in).date()
+            timeclock.valid = False
+            timeclock.save(update_fields=["valid"])
 
         context = _payroll_summary_context(request, employee, work_date)
         if context is None:
             return HttpResponseBadRequest("Valid payroll filters are required.")
-        return render(
+        response = render(
             request,
             "reports/partials/payroll_inline_delete_response.html",
             context,
         )
+        # Keep the invalid entry visible and editable after the former delete action.
+        response["HX-Refresh"] = "true"
+        return response
     
 
 class LateJobsReportView(LoginRequiredMixin, generic.TemplateView):
@@ -7468,27 +7448,7 @@ class ChangeJobStatusView(
         return redirect("culet:change_status")
 
 class PayrollReportView(LoginRequiredMixin, generic.TemplateView):
-    """
-    Payroll-oriented time clock report.
-
-    Unlike the downtime report, this view intentionally ignores Activity
-    records and reports strictly from TimeClock data.
-
-    The report hierarchy is:
-
-        Employee
-            Week
-                Day
-                    Clock Entries
-                Week Total
-            Employee Total
-
-    The report uses the @property helpers on TimeClock:
-
-        rounded_clock_in
-        rounded_clock_out
-        rounded_hours
-    """
+    """Compact employee payroll tables with presentation-only punch warnings."""
 
     template_name = "reports/payroll_report.html"
 
@@ -7503,7 +7463,7 @@ class PayrollReportView(LoginRequiredMixin, generic.TemplateView):
         }
 
         if form.is_valid():
-            payroll_data = build_payroll_report(
+            payroll_data = build_payroll_display(
                 start_date=form.cleaned_data["start_date"],
                 end_date=form.cleaned_data["end_date"],
                 selected_employee=form.cleaned_data.get("employee"),

@@ -1,0 +1,45 @@
+<div id="payroll-results">
+{% if employee_rows %}
+    <div id="payroll-report-totals" class="alert alert-light border d-flex flex-wrap justify-content-between mb-3">
+        <strong>Report Totals</strong>
+        <span>Regular {{ report_totals.regular_hours|floatformat:2 }}</span>
+        <span>OT {{ report_totals.overtime_hours|floatformat:2 }}</span>
+        <strong>Total Paid {{ report_totals.rounded_hours|floatformat:2 }}</strong>
+    </div>
+    {% for row in employee_rows %}
+    <section class="card shadow-sm mb-4" aria-labelledby="payroll-employee-{{ row.employee.pk }}">
+        <div class="card-header py-2">
+            <h2 id="payroll-employee-{{ row.employee.pk }}" class="h5 mb-0">{{ row.employee.user.get_full_name|default:row.employee.user.username }}</h2>
+            {% if row.employee.department %}<small class="text-muted">{{ row.employee.department }}</small>{% endif %}
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm table-hover payroll-table mb-0" aria-labelledby="payroll-employee-{{ row.employee.pk }}">
+                <thead class="bg-light"><tr><th scope="col">Date</th><th scope="col">In</th><th scope="col">Out</th><th scope="col" class="text-right">Hours</th><th scope="col">Edit</th></tr></thead>
+                <tbody>
+                {% for day in row.days %}
+                    {% for entry in day.entries %}
+                        {% include "reports/partials/payroll_timeclock_row.html" with report_query=request.GET.urlencode %}
+                        {% include "reports/partials/payroll_timeclock_editor_placeholder.html" with timeclock=entry.timeclock %}
+                    {% endfor %}
+                    <tr id="payroll-day-total-{{ row.employee.pk }}-{{ day.date|date:'Ymd'|default:'unknown' }}" class="bg-light font-weight-bold">
+                        <th colspan="3" scope="row" class="text-right">{% if day.date %}Daily Total{% else %}Undated Total{% endif %}</th>
+                        <td class="text-right">{{ day.rounded_hours|floatformat:2 }}</td><td></td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+                <tfoot class="table-secondary">
+                    <tr id="payroll-employee-total-{{ row.employee.pk }}">
+                        <th scope="row">Selected Range</th>
+                        <td>Regular {{ row.regular_hours|floatformat:2 }}</td>
+                        <td>OT {{ row.overtime_hours|floatformat:2 }}</td>
+                        <td class="text-right font-weight-bold">Total Paid {{ row.rounded_hours|floatformat:2 }}</td><td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </section>
+    {% endfor %}
+{% elif request.GET %}
+    <div class="alert alert-info">No payroll records were found for the selected filters.</div>
+{% endif %}
+</div>

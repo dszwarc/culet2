@@ -1092,26 +1092,44 @@ class TimeClockReportForm(forms.Form):
         return cleaned_data
     
 class TimeClockEditForm(forms.ModelForm):
+    field_order = ["employee", "clock_in", "clock_out", "valid"]
+
+    # Keep the existing UI field names, but never bind them to raw model fields.
+    clock_in = forms.DateTimeField(required=False, widget=forms.DateTimeInput(
+        format="%Y-%m-%dT%H:%M", attrs={"type": "datetime-local", "class": "form-control job-input"}))
+    clock_out = forms.DateTimeField(required=False, widget=forms.DateTimeInput(
+        format="%Y-%m-%dT%H:%M", attrs={"type": "datetime-local", "class": "form-control job-input"}))
+
     class Meta:
         model = TimeClock
-        fields = ["employee", "clock_in", "clock_out"]
-        widgets = {
-            "employee": select_widget(),
-            "clock_in": forms.DateTimeInput(
-                format="%Y-%m-%dT%H:%M",
-                attrs={
-                    "type": "datetime-local",
-                    "class": "form-control job-input",
-                }
-            ),
-            "clock_out": forms.DateTimeInput(
-                format="%Y-%m-%dT%H:%M",
-                attrs={
-                    "type": "datetime-local",
-                    "class": "form-control job-input",
-                }
-            ),
-        }
+        fields = ["employee", "valid"]
+        widgets = {"employee": select_widget()}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.initial["clock_in"] = self.instance.effective_clock_in
+        self.initial["clock_out"] = self.instance.effective_clock_out
+
+    def clean(self):
+        cleaned = super().clean()
+        for field in ("clock_in", "clock_out"):
+            if field in cleaned:
+                value = cleaned[field]
+                # An unchanged display value should not create an adjustment.
+                if field not in self.changed_data:
+                    value = getattr(self.instance, "adjusted_" + field)
+                if value == getattr(self.instance, field):
+                    value = None
+                setattr(self.instance, "adjusted_" + field, value)
+        return cleaned
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        if commit:
+            # Do not overwrite a concurrent employee punch with stale form data.
+            instance.save(update_fields=["employee", "adjusted_clock_in", "adjusted_clock_out", "valid"])
+        return instance
+
 
 class JobsByHolderReportForm(forms.Form):
     department = forms.ModelChoiceField(

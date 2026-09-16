@@ -188,6 +188,17 @@ class EmployeeAdmin(admin.ModelAdmin):
 
 @admin.register(TimeClock)
 class TimeClockAdmin(admin.ModelAdmin):
+    readonly_fields = ("clock_in", "clock_out")
+
+    def save_model(self, request, obj, form, change):
+        if change:
+            obj.save(update_fields=["employee", "adjusted_clock_in", "adjusted_clock_out", "valid"])
+        else:
+            super().save_model(request, obj, form, change)
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
     list_display = ("employee", "clock_in", "clock_out", "is_open")
     search_fields = (
         "employee__user__first_name",

@@ -656,7 +656,7 @@ def clock_out_employee(employee):
 
     if open_clock:
         open_clock.clock_out = now
-        open_clock.save()
+        open_clock.save(update_fields=["clock_out"])
 
     employee.clocked_in = False
     employee.save(update_fields=["clocked_in"])
