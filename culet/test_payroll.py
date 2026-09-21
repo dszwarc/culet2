@@ -1,4 +1,5 @@
-from datetime import datetime
+from copy import copy
+from datetime import datetime, timedelta
 from io import BytesIO
 from urllib.parse import urlencode
 
@@ -325,6 +326,65 @@ class PayrollInlineTimeClockDeleteTests(PayrollTestMixin, TestCase):
 
 
 class PayrollExcelTests(PayrollTestMixin, TestCase):
+    def make_week(self, sunday, daily_hours):
+        for offset, hours in enumerate(daily_hours):
+            start = sunday + timedelta(days=offset, hours=8)
+            self.make_entry(self.john, start, start + timedelta(hours=hours))
+
+    def test_sunday_starts_week_one_and_saturday_ends_it(self):
+        self.make_week(self.aware(2026, 8, 2, 0), [8, 0, 0, 0, 0, 0, 8])
+        # Adjacent Sundays must belong to separate weeks, outside this range.
+        self.make_week(self.aware(2026, 7, 26, 0), [9])
+        self.make_week(self.aware(2026, 8, 9, 0), [9])
+        _, sheet = self.export(start="2026-08-02", end="2026-08-08")
+        self.assertEqual(tuple(sheet.values)[0][:-4], (
+            "Employee", "Week 1 Time", "Week 1 Overtime", "Total Time", "Total Overtime"))
+        self.assertEqual(tuple(sheet.values)[1][:-4], ("John Smith", 16, 0, 16, 0))
+        from .payroll import build_payroll_report
+        report = build_payroll_report(start_date=self.aware(2026, 8, 2, 0).date(),
+                                      end_date=self.aware(2026, 8, 8, 0).date())
+        week = report["employee_rows"][0]["weeks"][0]
+        self.assertEqual(week["week_start"], self.aware(2026, 8, 2, 0).date())
+        self.assertEqual(week["week_end"], self.aware(2026, 8, 8, 0).date())
+
+    def test_58_hours_exports_40_regular_and_18_overtime(self):
+        self.make_week(self.aware(2026, 8, 2, 0), [10, 10, 10, 10, 10, 8])
+        _, sheet = self.export(start="2026-08-02", end="2026-08-08")
+        self.assertEqual(tuple(sheet.values)[1][:-4], ("John Smith", 40, 18, 40, 18))
+
+    def test_two_sunday_weeks_reset_overtime_and_sum_regular_totals(self):
+        self.make_week(self.aware(2026, 8, 2, 0), [10, 10, 10, 10, 10, 8])
+        self.make_week(self.aware(2026, 8, 9, 0), [9, 9, 9, 9, 9])
+        _, sheet = self.export(start="2026-08-02", end="2026-08-15")
+        self.assertEqual(tuple(sheet.values)[1][:-4], ("John Smith", 40, 18, 40, 5, 80, 23))
+
+    def test_partial_range_splits_saturday_and_sunday(self):
+        self.make_week(self.aware(2026, 8, 2, 0), [10] * 7)
+        self.make_week(self.aware(2026, 8, 9, 0), [9] * 7)
+        _, sheet = self.export(start="2026-08-05", end="2026-08-11")
+        self.assertEqual(tuple(sheet.values)[1][:-4], ("John Smith", 40, 0, 27, 0, 67, 0))
+
+    def test_administrative_columns_are_blank_editable_and_keep_one_row_per_employee(self):
+        for employee in (self.john, self.jane):
+            self.make_entry(employee, self.aware(2026, 8, 3, 8), self.aware(2026, 8, 3, 16))
+        _, sheet = self.export(start="2026-08-02", end="2026-08-08")
+        self.assertEqual(sheet.max_row, 3)
+        self.assertEqual([cell.value for cell in sheet[1]][-4:],
+                         ["Sick Hours", "Vacation Hours", "Piecework Hours", "Holiday Hours"])
+        self.assertFalse(sheet.protection.sheet)
+        self.assertEqual(sheet.auto_filter.ref, sheet.dimensions)
+        for row_number, name in ((2, "Jane Doe"), (3, "John Smith")):
+            row = sheet[row_number]
+            self.assertEqual(row[0].value, name)
+            payroll_values = [cell.value for cell in row[:-4]]
+            for cell in row[-4:]:
+                self.assertIsNone(cell.value)
+                self.assertEqual(cell.number_format, "0.00")
+                self.assertEqual(copy(cell.border), copy(row[1].border))
+                self.assertTrue(sheet.cell(1, cell.column).font.bold)
+                cell.value = 8
+            self.assertEqual([cell.value for cell in row[:-4]], payroll_values)
+
     def export(self, start="2026-07-29", end="2026-08-10", employee=None):
         params = {"start_date": start, "end_date": end}
         if employee:
@@ -334,7 +394,7 @@ class PayrollExcelTests(PayrollTestMixin, TestCase):
         return response, workbook["Payroll"]
 
     def test_valid_xlsx_has_range_filename_repeating_weeks_and_numeric_totals(self):
-        # Partial first/last weeks and 42.5 rounded hours in each of two weeks.
+        # Partial Sunday–Saturday weeks: 34 hours, 51 hours, then an empty week.
         for day in (29, 30, 31, 1, 2):
             month = 7 if day >= 29 else 8
             self.make_entry(
@@ -369,12 +429,13 @@ class PayrollExcelTests(PayrollTestMixin, TestCase):
                 "Employee", "Week 1 Time", "Week 1 Overtime",
                 "Week 2 Time", "Week 2 Overtime", "Week 3 Time", "Week 3 Overtime",
                 "Total Time", "Total Overtime",
+                "Sick Hours", "Vacation Hours", "Piecework Hours", "Holiday Hours",
             ],
         )
-        rows = {row[0]: row[1:] for row in sheet.iter_rows(min_row=2, values_only=True)}
-        self.assertEqual(rows["John Smith"], (42.5, 2.5, 42.5, 2.5, 0, 0, 85, 5))
+        rows = {row[0]: row[1:-4] for row in sheet.iter_rows(min_row=2, values_only=True)}
+        self.assertEqual(rows["John Smith"], (34, 0, 40, 11, 0, 0, 74, 11))
         self.assertEqual(rows["Jane Doe"], (8, 0, 0, 0, 0, 0, 8, 0))
-        self.assertEqual(list(rows["John Smith"][-2:]), [85, 5])
+        self.assertEqual(list(rows["John Smith"][-2:]), [74, 11])
         self.assertEqual(
             rows["John Smith"][-2],
             sum(rows["John Smith"][0:-2:2]),
@@ -383,7 +444,7 @@ class PayrollExcelTests(PayrollTestMixin, TestCase):
             rows["John Smith"][-1],
             sum(rows["John Smith"][1:-2:2]),
         )
-        self.assertEqual([cell.value for cell in sheet[1]][-2:], ["Total Time", "Total Overtime"])
+        self.assertEqual([cell.value for cell in sheet[1]][-6:-4], ["Total Time", "Total Overtime"])
         self.assertNotIn("Sam Salary", rows)
         self.assertEqual(sheet.freeze_panes, "A2")
         self.assertEqual(sheet["B2"].number_format, "0.00")
@@ -405,10 +466,10 @@ class PayrollExcelTests(PayrollTestMixin, TestCase):
 
         _response, sheet = self.export(start="2026-07-27", end="2026-08-09")
 
-        self.assertEqual([cell.value for cell in sheet[1]][-2:], ["Total Time", "Total Overtime"])
+        self.assertEqual([cell.value for cell in sheet[1]][-6:-4], ["Total Time", "Total Overtime"])
         self.assertEqual(
-            tuple(sheet.iter_rows(min_row=2, max_row=2, values_only=True))[0],
-            ("John Smith", 45, 5, 35, 0, 80, 5),
+            tuple(sheet.iter_rows(min_row=2, max_row=2, values_only=True))[0][:-4],
+            ("John Smith", 40, 5, 35, 0, 0, 0, 75, 5),
         )
 
     def test_employee_filter_is_respected(self):
@@ -520,7 +581,7 @@ class TimeClockAdjustmentTests(PayrollTestMixin, TestCase):
         response = self.client.get(reverse("culet:payroll_excel"),
                                    {"start_date": "2026-08-03", "end_date": "2026-08-03"})
         sheet = load_workbook(BytesIO(response.content), data_only=True).active
-        self.assertEqual(tuple(sheet.values)[1], ("John Smith", 0, 0, 0, 0))
+        self.assertEqual(tuple(sheet.values)[1][:-4], ("John Smith", 0, 0, 0, 0))
         self.edit(valid=True)
         self.assertEqual(self.entry.rounded_hours, 8.5)
 
@@ -531,7 +592,7 @@ class TimeClockAdjustmentTests(PayrollTestMixin, TestCase):
         day = self.aware(2026, 8, 10, 0).date()
         report = build_payroll_report(start_date=day, end_date=day)
         self.assertEqual(report["report_totals"]["rounded_hours"], 8)
-        self.assertIn(day, report["employee_rows"][0]["weeks_by_start"])
+        self.assertIn(day - timedelta(days=1), report["employee_rows"][0]["weeks_by_start"])
 
     def test_operational_punches_ignore_adjustments_and_validity(self):
         from .services import clock_in_employee, clock_out_employee
@@ -555,10 +616,10 @@ class TimeClockAdjustmentTests(PayrollTestMixin, TestCase):
         params = {"start_date": "2026-08-03", "end_date": "2026-08-09"}
         def exported_values():
             response = self.client.get(reverse("culet:payroll_excel"), params)
-            return tuple(load_workbook(BytesIO(response.content), data_only=True).active.values)[1]
-        self.assertEqual(exported_values(), ("John Smith", 46, 6, 46, 6))
+            return tuple(load_workbook(BytesIO(response.content), data_only=True).active.values)[1][:-4]
+        self.assertEqual(exported_values(), ("John Smith", 40, 6, 0, 0, 40, 6))
         self.edit(start="2026-08-03T08:00", end="2026-08-03T18:00", valid=False)
-        self.assertEqual(exported_values(), ("John Smith", 36, 0, 36, 0))
+        self.assertEqual(exported_values(), ("John Smith", 36, 0, 0, 0, 36, 0))
 
     def test_new_employee_clock_in_writes_only_raw_fields(self):
         from .services import clock_in_employee

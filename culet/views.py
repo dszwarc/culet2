@@ -147,7 +147,7 @@ from .mixins import (
     LoggedFormInvalidMixin,
 )
 from .permissions import can_perform_quality_inspection, can_view_production_reports
-from .payroll import build_payroll_display, build_payroll_report
+from .payroll import build_payroll_display, build_payroll_report, payroll_week_start
 
 from django.contrib import messages
 from django.shortcuts import redirect
@@ -4692,7 +4692,7 @@ def _payroll_summary_context(request, employee, work_date):
         ),
         None,
     )
-    week_start = work_date - timedelta(days=work_date.weekday())
+    week_start = payroll_week_start(work_date)
     if employee_row is None:
         employee_row = {
             "employee": employee,
@@ -7496,6 +7496,7 @@ class PayrollExcelView(LoginRequiredMixin, generic.View):
         for number, _week_start in enumerate(payroll_data["week_starts"], 1):
             headers.extend([f"Week {number} Time", f"Week {number} Overtime"])
         headers.extend(["Total Time", "Total Overtime"])
+        headers.extend(["Sick Hours", "Vacation Hours", "Piecework Hours", "Holiday Hours"])
         worksheet.append(headers)
 
         for row in payroll_data["employee_rows"]:
@@ -7506,11 +7507,14 @@ class PayrollExcelView(LoginRequiredMixin, generic.View):
             for week_start in payroll_data["week_starts"]:
                 week = row["weeks_by_start"].get(week_start)
                 hours = week["rounded_hours"] if week else 0
+                regular = min(hours, 40)
                 overtime = max(hours - 40, 0)
-                values.extend([hours, overtime])
-                total_time += hours
+                values.extend([regular, overtime])
+                total_time += regular
                 total_overtime += overtime
             values.extend([total_time, total_overtime])
+            # Blank manual-entry columns do not feed calculated payroll totals.
+            values.extend([None] * 4)
             worksheet.append(values)
 
         worksheet.freeze_panes = "A2"

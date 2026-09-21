@@ -8,10 +8,15 @@ from django.utils import timezone
 from .models import Employee, TimeClock
 
 
+def payroll_week_start(work_date):
+    """Return the Sunday beginning the payroll week containing this date."""
+    return work_date - timedelta(days=(work_date.weekday() + 1) % 7)
+
+
 def payroll_week_starts(start_date, end_date):
-    """Return every Monday-starting payroll week touched by the range."""
-    week_start = start_date - timedelta(days=start_date.weekday())
-    final_week_start = end_date - timedelta(days=end_date.weekday())
+    """Return every Sunday–Saturday payroll week touched by the range."""
+    week_start = payroll_week_start(start_date)
+    final_week_start = payroll_week_start(end_date)
     weeks = []
     while week_start <= final_week_start:
         weeks.append(week_start)
@@ -58,8 +63,7 @@ def build_payroll_report(*, start_date, end_date, selected_employee=None, includ
             if work_date is not None and (work_date < start_date or work_date > end_date):
                 continue
 
-            # Payroll weeks have historically been grouped Monday through Sunday.
-            week_start = work_date - timedelta(days=work_date.weekday()) if work_date else None
+            week_start = payroll_week_start(work_date) if work_date else None
             week = weeks.setdefault(
                 week_start,
                 {
