@@ -1,6 +1,6 @@
 <tr id="timeclock-editor-{{ timeclock.pk }}" class="payroll-editor bg-light">
     <td colspan="5">
-        <form method="post" action="{% url 'culet:time_clock_edit' timeclock.pk %}"
+        <form method="post" action="{% url 'culet:time_clock_edit' timeclock.pk %}" data-timeclock-id="{{ timeclock.pk }}"
             hx-post="{% url 'culet:payroll_timeclock_inline_edit' timeclock.pk %}?{{ report_query }}"
             hx-target="#payroll-results" hx-swap="outerHTML" hx-select="#payroll-results"
             hx-sync="this:drop" class="p-2">

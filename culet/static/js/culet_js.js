@@ -35,6 +35,51 @@ document.body.addEventListener("htmx:beforeSwap", function (event) {
     }
 });
 
+// Follow the edited payroll row even when saving changes the table's layout.
+(() => {
+    const storageKey = "payroll.editedTimeClockId";
+
+    function restorePayrollRow() {
+        if (!document.getElementById("payroll-results")) return;
+        let id;
+        try {
+            id = sessionStorage.getItem(storageKey);
+            sessionStorage.removeItem(storageKey);
+        } catch (_) {
+            return; // Storage may be disabled in the browser.
+        }
+        if (!id) return;
+        // Run after the browser's page-load scroll restoration.
+        requestAnimationFrame(() => {
+            const row = document.getElementById(`timeclock-row-${id}`);
+            if (row) row.scrollIntoView({ block: "center", behavior: "instant" });
+        });
+    }
+
+    document.addEventListener("submit", function (event) {
+        const id = event.target.dataset.timeclockId;
+        if (!id) return;
+        try {
+            sessionStorage.setItem(storageKey, id);
+        } catch (_) {
+            // Saving the form must still work when storage is unavailable.
+        }
+    }, true);
+
+    window.addEventListener("pageshow", restorePayrollRow);
+    // Support the existing inline swaps without changing how forms are submitted.
+    document.body.addEventListener("htmx:afterSettle", function (event) {
+        if (event.detail.target.id === "payroll-results") restorePayrollRow();
+    });
+    document.body.addEventListener("htmx:afterRequest", function (event) {
+        if (event.detail.failed && event.detail.elt.matches("form[data-timeclock-id]")) {
+            try {
+                sessionStorage.removeItem(storageKey);
+            } catch (_) {}
+        }
+    });
+})();
+
 /* =========================================================
    Reusable Django formset add/remove controls
    ========================================================= */

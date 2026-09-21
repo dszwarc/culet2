@@ -6,7 +6,7 @@
   <div class="job-card">
     <h1>Edit Time Clock Entry</h1>
 
-    <form method="post">
+    <form method="post" data-timeclock-id="{{ object.pk }}">
       {% csrf_token %}
       <input type="hidden" name="next" value="{{ next_url }}">
       {{ form.as_p }}
