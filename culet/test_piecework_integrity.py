@@ -64,6 +64,7 @@ class CuletTestDataMixin:
     def assign(self, scans, employee=None):
         return self.client.post(reverse("culet:piecework_create"), {
             "assigned_to": (employee or self.worker).pk,
+            "activity_step": ActivityStep.objects.get_or_create(code="clean", defaults={"name": "Cleaning"})[0].pk,
             "due_back": "", "notes": "", "scans": scans,
         })
 

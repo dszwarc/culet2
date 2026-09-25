@@ -942,7 +942,11 @@ def return_piecework_lines(
         raise ValidationError(conflict_messages)
 
     try:
-        piecework_step = ActivityStep.objects.get(code="piecework")
+        piecework_step = (
+            locked_memo.activity_step
+            if locked_memo.activity_step_id is not None
+            else ActivityStep.objects.get(code="piecework")
+        )
         assignment_return_type = MovementType.objects.get(
             code="returned-to-manager"
         )

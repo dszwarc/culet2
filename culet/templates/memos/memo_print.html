@@ -476,6 +476,10 @@
 
             {% if memo_type == "piecework" %}
                 <div class="summary-item">
+                    <div class="summary-label">Operation</div>
+                    <div class="summary-value">{{ memo.activity_step|default:"Operation not recorded" }}</div>
+                </div>
+                <div class="summary-item">
                     <div class="summary-label">Due Back</div>
 
                     <div class="summary-value">

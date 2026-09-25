@@ -4,7 +4,7 @@ from django.db.models import Q
 from .models import Activity, PieceworkMemoLine
 
 
-def classify_piecework_activity(line, step, *, has_activity_link=True):
+def classify_piecework_activity(line, step, *, has_activity_link=True, has_memo_operation=True):
     start, end = line.memo.created_at, line.returned_at
     if not start or not end or end < start or not line.memo.assigned_to_id or not step:
         return "skipped", [], "Missing reference data or invalid period timestamps"
@@ -25,13 +25,20 @@ def classify_piecework_activity(line, step, *, has_activity_link=True):
         # an existing Activity for this period, so require manual review.
         explained_elsewhere = False
         if not touches_period and activity.end and activity.is_piecework and not activity.active:
+            matching_operation = (
+                Q(memo__activity_step_id=activity.step_id)
+                if activity.step_id is not None else Q(pk__in=[])
+            )
+            if activity.step and activity.step.code == "piecework":
+                matching_operation |= Q(memo__activity_step__isnull=True)
+            if not has_memo_operation:
+                matching_operation = Q() if activity.step_id == step.pk else Q(pk__in=[])
             explained_elsewhere = (
-                activity.step_id == step.pk
-                and activity.duration == activity.end - activity.start
+                activity.duration == activity.end - activity.start
                 and PieceworkMemoLine.objects.filter(
                     job_id=line.job_id, memo__assigned_to_id=activity.employee_id,
                     memo__created_at=activity.start, returned_at=activity.end,
-                ).exclude(pk=line.pk).exists()
+                ).filter(matching_operation).exclude(pk=line.pk).exists()
             )
         if not explained_elsewhere:
             activities.append(activity)

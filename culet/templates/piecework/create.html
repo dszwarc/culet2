@@ -36,94 +36,6 @@
 
 
         {# ================================================= #}
-        {# Memo information                                  #}
-        {# ================================================= #}
-
-        <section class="return-jobs-section">
-
-            <div class="return-jobs-section-header">
-                <div>
-                    <h2>Memo Information</h2>
-                </div>
-            </div>
-
-
-            <div class="job-form-grid">
-
-                <div class="job-field">
-
-                    <label for="{{ memo_form.due_back.id_for_label }}">
-                        {{ memo_form.due_back.label }}
-                    </label>
-
-                    {{ memo_form.due_back }}
-
-                    {% if memo_form.due_back.errors %}
-                        <div class="field-errors">
-                            {{ memo_form.due_back.errors }}
-                        </div>
-                    {% endif %}
-
-                </div>
-
-
-                <div class="job-field job-field-full">
-
-                    <label for="{{ memo_form.notes.id_for_label }}">
-                        {{ memo_form.notes.label }}
-                    </label>
-
-                    {{ memo_form.notes }}
-
-                    {% if memo_form.notes.errors %}
-                        <div class="field-errors">
-                            {{ memo_form.notes.errors }}
-                        </div>
-                    {% endif %}
-
-                </div>
-
-            </div>
-
-        </section>
-
-
-        {# ================================================= #}
-        {# Jobs                                              #}
-        {# ================================================= #}
-
-        <section class="return-jobs-section">
-
-            <div class="return-jobs-section-header">
-                <div>
-                    <h2>Jobs</h2>
-                </div>
-            </div>
-
-
-            <div class="job-field job-field-full">
-
-                {{ scan_form.scans }}
-
-                {% if scan_form.scans.help_text %}
-                    <p class="form-help-text">
-                        {{ scan_form.scans.help_text }}
-                    </p>
-                {% endif %}
-
-                {% if scan_form.scans.errors %}
-                    <div class="field-errors">
-                        {{ scan_form.scans.errors }}
-                    </div>
-                {% endif %}
-
-            </div>
-
-        </section>
-
-
-
-        {# ================================================= #}
         {# Department and employee selection                 #}
         {# ================================================= #}
 
@@ -330,6 +242,97 @@
             </div>
 
         </section>
+
+        <section class="return-jobs-section">
+
+            <div class="return-jobs-section-header">
+                <div>
+                    <h2>Memo Information</h2>
+                </div>
+            </div>
+
+
+            <div class="job-form-grid">
+                <div class="job-field">
+                    <label for="{{ memo_form.activity_step.id_for_label }}">Operation</label>
+                    {{ memo_form.activity_step }}
+                    {% if memo_form.activity_step.errors %}
+                        <div class="field-errors">{{ memo_form.activity_step.errors }}</div>
+                    {% endif %}
+                </div>
+
+
+                <div class="job-field">
+
+                    <label for="{{ memo_form.due_back.id_for_label }}">
+                        {{ memo_form.due_back.label }}
+                    </label>
+
+                    {{ memo_form.due_back }}
+
+                    {% if memo_form.due_back.errors %}
+                        <div class="field-errors">
+                            {{ memo_form.due_back.errors }}
+                        </div>
+                    {% endif %}
+
+                </div>
+
+
+                <div class="job-field job-field-full">
+
+                    <label for="{{ memo_form.notes.id_for_label }}">
+                        {{ memo_form.notes.label }}
+                    </label>
+
+                    {{ memo_form.notes }}
+
+                    {% if memo_form.notes.errors %}
+                        <div class="field-errors">
+                            {{ memo_form.notes.errors }}
+                        </div>
+                    {% endif %}
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        {# ================================================= #}
+        {# Jobs                                              #}
+        {# ================================================= #}
+
+        <section class="return-jobs-section">
+
+            <div class="return-jobs-section-header">
+                <div>
+                    <h2>Jobs</h2>
+                </div>
+            </div>
+
+
+            <div class="job-field job-field-full">
+
+                {{ scan_form.scans }}
+
+                {% if scan_form.scans.help_text %}
+                    <p class="form-help-text">
+                        {{ scan_form.scans.help_text }}
+                    </p>
+                {% endif %}
+
+                {% if scan_form.scans.errors %}
+                    <div class="field-errors">
+                        {{ scan_form.scans.errors }}
+                    </div>
+                {% endif %}
+
+            </div>
+
+        </section>
+
 
         {# ================================================= #}
         {# Submit                                            #}

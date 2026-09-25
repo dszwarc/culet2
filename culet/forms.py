@@ -1283,7 +1283,26 @@ class StyleStepTimeReportForm(forms.Form):
         widget=select_widget(),
     )
 
-class PieceworkMemoCreateForm(forms.ModelForm):
+class PieceworkMemoOperationForm(forms.ModelForm):
+    """Require a production operation for new memos, including admin creation."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if "activity_step" in self.fields:
+            field = self.fields["activity_step"]
+            field.required = self.instance._state.adding
+            field.label = "Operation"
+            field.empty_label = "Select an operation"
+            field.queryset = ActivityStep.objects.exclude(
+                code__in=("piecework", "repair"),
+            ).order_by("name")
+
+    class Meta:
+        model = PieceworkMemo
+        fields = "__all__"
+
+
+class PieceworkMemoCreateForm(PieceworkMemoOperationForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["assigned_to"].queryset = (
@@ -1294,9 +1313,10 @@ class PieceworkMemoCreateForm(forms.ModelForm):
 
     class Meta:
         model = PieceworkMemo
-        fields = ["assigned_to", "due_back", "notes"]
+        fields = ["assigned_to", "activity_step", "due_back", "notes"]
 
         widgets = {
+            "activity_step": select_widget(),
             "due_back": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
             "notes": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
         }

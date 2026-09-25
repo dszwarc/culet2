@@ -5914,6 +5914,7 @@ class PieceworkPrintView(LoginRequiredMixin, generic.DetailView):
         return (
             PieceworkMemo.objects
             .select_related(
+                "activity_step",
                 "created_by",
                 "created_by__user",
                 "assigned_to",
@@ -6686,6 +6687,7 @@ class PieceworkOpenListView(
             )
             .select_related(
                 "memo",
+                "memo__activity_step",
                 "memo__assigned_to",
                 "memo__assigned_to__user",
                 "memo__created_by",
@@ -6794,6 +6796,7 @@ class PieceworkReturnView(
         return (
             PieceworkMemo.objects
             .select_related(
+                "activity_step",
                 "assigned_to",
                 "created_by",
                 "returned_by",

@@ -1,6 +1,8 @@
 from django.contrib import admin
 from django.db.models import Q
 
+from .forms import PieceworkMemoOperationForm
+
 from .models import (
     MovementType,
     JobMovement,
@@ -982,6 +984,12 @@ class JobTransferMemoAdmin(admin.ModelAdmin):
 
 @admin.register(PieceworkMemo)
 class PieceworkMemoAdmin(admin.ModelAdmin):
+    form = PieceworkMemoOperationForm
+
+    def get_readonly_fields(self, request, obj=None):
+        # Changing an operation after returns would contradict linked Activities.
+        return self.readonly_fields + (("activity_step",) if obj else ())
+
     list_display = (
         "memo_num",
         "assigned_to",

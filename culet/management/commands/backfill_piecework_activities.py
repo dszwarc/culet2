@@ -20,6 +20,8 @@ class Command(BaseCommand):
         dry_run = options["dry_run"]
         with connection.cursor() as cursor:
             columns = connection.introspection.get_table_description(cursor, PieceworkMemoLine._meta.db_table)
+            memo_columns = connection.introspection.get_table_description(cursor, PieceworkMemo._meta.db_table)
+        has_operation = any(column.name == "activity_step_id" for column in memo_columns)
         has_link = any(column.name == "activity_id" for column in columns)
         if not has_link and not dry_run:
             raise CommandError("Apply migration 0092 before running a repair. --dry-run works before migration.")
@@ -39,18 +41,26 @@ class Command(BaseCommand):
                 # Same lock order as returns. Each committed line is safe to retry
                 # if a later line or CSV write fails.
                 with (nullcontext() if dry_run else transaction.atomic()):
+                    memos = PieceworkMemo.objects.all()
+                    if not has_operation:
+                        memos = memos.defer("activity_step")
                     if not dry_run:
-                        PieceworkMemo.objects.select_for_update().get(pk=memo_id)
+                        memos = memos.select_for_update()
+                    memo = memos.get(pk=memo_id)
                     query = PieceworkMemoLine.objects.all()
                     if not has_link:
                         query = query.defer("activity")
                     if not dry_run:
                         query = query.select_for_update()
                     line = query.get(pk=line_id)
+                    line.memo = memo
                     if not dry_run:
                         Job.objects.select_for_update().get(pk=line.job_id)
-                    step = ActivityStep.objects.filter(code="piecework").first()
-                    action, activities, reason = classify_piecework_activity(line, step, has_activity_link=has_link)
+                    step = memo.activity_step if has_operation and memo.activity_step_id else None
+                    step = step or ActivityStep.objects.filter(code="piecework").first()
+                    action, activities, reason = classify_piecework_activity(
+                        line, step, has_activity_link=has_link, has_memo_operation=has_operation,
+                    )
                     existing_ids = ";".join(str(a.pk) for a in activities)
                     new_id = ""
                     if not dry_run and action in ("existing", "would_create"):

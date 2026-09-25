@@ -1221,6 +1221,10 @@ class JobTransferMemoLine(models.Model):
 
     
 class PieceworkMemo(models.Model):
+    activity_step = models.ForeignKey(
+        ActivityStep, null=True, blank=True, on_delete=models.PROTECT,
+        related_name="piecework_memos",
+    )
     memo_num = models.CharField(max_length=20, unique=True, blank=True, editable=False)
     created_by = models.ForeignKey(Employee, on_delete=models.PROTECT, related_name="piecework_memos_created")
     assigned_to = models.ForeignKey(Employee, on_delete=models.PROTECT, related_name="piecework_memos_assigned")
