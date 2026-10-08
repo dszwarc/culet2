@@ -2,7 +2,7 @@ from django.db.models.query import QuerySet
 from django.http import HttpResponse, HttpResponseRedirect, HttpResponseBadRequest
 from django.template.loader import render_to_string
 import copy
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.db import models
 from django.db.models import Exists, F, Q, Max, OuterRef, Subquery, Sum, Count, Avg, ExpressionWrapper, DurationField, DateField, DateTimeField, IntegerField, CharField, Case, When, Value
 from django.db.models.functions import TruncDate, Coalesce
@@ -24,6 +24,7 @@ from operator import itemgetter
 from django.core.exceptions import PermissionDenied, ValidationError
 from .forms import PayrollTimeClockCreateForm
 from .timeclock_creation import save_manual_timeclock
+from .shipping import ship_jobs, is_shipment_uniqueness_conflict, save_job_form_fields
 import re
 import logging
 from urllib.parse import quote
@@ -1804,7 +1805,8 @@ class JobUpdateView(LoginRequiredMixin, generic.UpdateView):
 
             return self.render_to_response(context)
 
-        self.object = form.save()
+        self.object = save_job_form_fields(form)
+        form.save_m2m()
         metal_formset.instance = self.object
         metal_formset.save()
 
@@ -5218,9 +5220,6 @@ class BulkJobShipView(
         missing_barcodes = []
         missing_stock_numbers = []
 
-        already_shipped = []
-        in_work = []
-        out_for_piecework = []
 
         for barcode in barcodes:
             job = (
@@ -5336,150 +5335,24 @@ class BulkJobShipView(
         ):
             return self.render_invalid_form(form)
 
-        job_ids = [
-            job.pk
-            for job in jobs
-        ]
-
-        jobs_with_open_activity = set(
-            Activity.objects.filter(
-                job_id__in=job_ids,
-                active=True,
-                end__isnull=True,
-            ).values_list(
-                "job_id",
-                flat=True,
+        try:
+            shipped_count = ship_jobs(
+                job_ids=[job.pk for job in jobs], employee=employee, notes=notes,
             )
-        )
-        jobs_with_open_piecework = set(
-            PieceworkMemoLine.objects.filter(
-                job_id__in=job_ids,
-                returned_at__isnull=True,
-            ).values_list("job_id", flat=True)
-        )
-
-        valid_jobs = []
-
-        for job in jobs:
-            if job.shipped:
-                already_shipped.append(
-                    job.stock_num,
-                )
-                continue
-
-            if job.pk in jobs_with_open_activity:
-                in_work.append(
-                    job.stock_num,
-                )
-                continue
-
-            if job.pk in jobs_with_open_piecework:
-                out_for_piecework.append(job.stock_num or str(job.barcode))
-                continue
-
-            valid_jobs.append(job)
-
-        if already_shipped:
-            messages.error(
-                request,
-                (
-                    "Already shipped job(s): "
-                    + ", ".join(already_shipped)
-                ),
-            )
-
-        if in_work:
-            messages.error(
-                request,
-                (
-                    "These jobs are currently being worked on "
-                    "and must be stopped before shipping: "
-                    + ", ".join(in_work)
-                ),
-            )
-
-        if out_for_piecework:
-            messages.error(
-                request,
-                "These jobs are still out for piecework and cannot be shipped: "
-                + ", ".join(out_for_piecework),
-            )
-
-        if already_shipped or in_work or out_for_piecework:
+        except ValidationError as exc:
+            for message in exc.messages:
+                messages.error(request, message)
             return self.render_invalid_form(form)
-
-        shipped_status = get_object_or_404(
-            JobStatus,
-            name__iexact="Shipped",
-        )
-
-        shipped_count = 0
-
-        with transaction.atomic():
-            locked_jobs = {
-                job.pk: job
-                for job in Job.objects.select_for_update().filter(
-                    pk__in=[job.pk for job in valid_jobs]
-                )
-            }
-            raced_piecework = list(
-                PieceworkMemoLine.objects.filter(
-                    job_id__in=locked_jobs,
-                    returned_at__isnull=True,
-                ).values_list("job__stock_num", "job__barcode")
+        except IntegrityError as exc:
+            # Inspect only after ship_jobs has rolled back its atomic block.
+            if not is_shipment_uniqueness_conflict(exc):
+                raise
+            messages.error(
+                request,
+                "A shipment already exists for a selected job. Nothing in this "
+                "batch was shipped. Refresh and review the shipping state.",
             )
-            if raced_piecework:
-                identifiers = [
-                    str(stock_num or barcode)
-                    for stock_num, barcode in raced_piecework
-                ]
-                messages.error(
-                    request,
-                    "These jobs became unavailable because they are out for "
-                    "piecework: " + ", ".join(identifiers),
-                )
-                return self.render_invalid_form(form)
-
-            for original_job in valid_jobs:
-                job = locked_jobs[original_job.pk]
-                # Clear the job's assignment and record movement.
-                job, assignment_movement = move_job(
-                    job=job,
-                    movement_type="shipped-unassigned",
-                    to_employee=None,
-                    performed_by=employee,
-                )
-
-                # Clear physical possession and record movement.
-                job, holder_movement = move_job(
-                    job=job,
-                    movement_type="shipped-released",
-                    to_employee=None,
-                    performed_by=employee,
-                )
-
-                job.shipped = True
-                job.active = False
-                job.in_work = False
-                job.status = shipped_status
-
-                job.save(
-                    update_fields=[
-                        "shipped",
-                        "active",
-                        "in_work",
-                        "status",
-                        "last_updated",
-                    ],
-                )
-
-                JobShip.objects.create(
-                    job=job,
-                    shipped_by=employee,
-                    notes=notes,
-                )
-
-                shipped_count += 1
+            return self.render_invalid_form(form)
 
         job_word = (
             "job"

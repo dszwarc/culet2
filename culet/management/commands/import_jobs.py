@@ -212,6 +212,9 @@ class Command(BaseImportCommand):
                 action = LegacyRecordMap.ACTION_CREATED
                 self.stats.created += 1
             else:
+                # Lock a fresh instance: shipping may have completed since mapping lookup.
+                job = Job.objects.select_for_update().get(pk=job.pk)
+                defaults = self.existing_job_defaults(defaults)
                 changed = self.apply_changes(job, defaults)
 
                 # `created` is editable=False, but migration imports should retain
@@ -270,6 +273,15 @@ class Command(BaseImportCommand):
             f"style={style}; "
             "employee=none)"
         )
+
+    @staticmethod
+    def existing_job_defaults(defaults):
+        # Import reruns must not reset operational shipping state or repair legacy data.
+        protected = {
+            "shipped", "active", "status", "in_work", "assigned_to", "holder",
+            "location", "is_piecework",
+        }
+        return {key: value for key, value in defaults.items() if key not in protected}
 
     def resolve_customer(self, row):
         """

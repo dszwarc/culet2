@@ -3,6 +3,7 @@ from django.db.models import Q
 
 from .forms import PieceworkMemoOperationForm, TimeClockAdminAddForm
 from .timeclock_creation import save_manual_timeclock
+from .shipping import save_job_form_fields
 
 from .models import (
     MovementType,
@@ -424,7 +425,7 @@ class JobAdmin(NumericSearchAdminMixin, admin.ModelAdmin):
         "assigned_to__user",
         "location",
     )
-    readonly_fields = ("created", "last_updated")
+    readonly_fields = ("created", "last_updated", "shipped", "active", "status")
 
     def get_readonly_fields(self, request, obj=None):
         readonly = list(super().get_readonly_fields(request, obj))
@@ -433,6 +434,12 @@ class JobAdmin(NumericSearchAdminMixin, admin.ModelAdmin):
         ).exists():
             readonly.extend(["is_piecework", "assigned_to", "holder"])
         return tuple(readonly)
+
+    def save_model(self, request, obj, form, change):
+        if change:
+            save_job_form_fields(form)
+        else:
+            super().save_model(request, obj, form, change)
 
 @admin.register(MovementType)
 class MovementTypeAdmin(admin.ModelAdmin):
@@ -576,6 +583,15 @@ class JobShipAdmin(admin.ModelAdmin):
     date_hierarchy = "shipped_at"
     ordering = ("-shipped_at",)
     list_select_related = ("job__style", "job__customer", "shipped_by__user")
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
     @admin.display(description="Notes")
     def short_notes(self, obj):
