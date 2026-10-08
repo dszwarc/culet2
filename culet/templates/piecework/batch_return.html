@@ -13,7 +13,7 @@
     {% if preview_rows %}
     <section class="return-jobs-section">
         <h2>Confirm {{ preview_rows|length }} job{{ preview_rows|length|pluralize }}</h2>
-        <p>No jobs have been returned yet. Confirm this batch to return all listed jobs together.</p>
+        <p>Review every job below, then click Confirm Return to process the entire batch. No job records are changed until you confirm.</p>
         {% if duplicate_count %}<p class="text-muted">Removed {{ duplicate_count }} duplicate scan{{ duplicate_count|pluralize }}.</p>{% endif %}
         {% include "piecework/partials/batch_return_summary.html" with rows=preview_rows %}
         <form method="post">
@@ -21,7 +21,7 @@
             <input type="hidden" name="confirmation" value="{{ confirmation }}">
             <textarea name="scans" hidden>{{ scans }}</textarea>
             <div class="d-flex flex-wrap mt-3">
-                <button type="submit" name="action" value="return" class="btn btn-primary mr-2 mb-2">Return Piecework</button>
+                <button type="submit" name="action" value="return" class="btn btn-primary mr-2 mb-2">Confirm Return</button>
                 <button type="submit" name="action" value="edit" class="btn btn-outline-secondary mb-2">Edit Scan List</button>
             </div>
         </form>

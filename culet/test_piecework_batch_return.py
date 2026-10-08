@@ -117,6 +117,34 @@ class BatchReturnTests(BatchReturnSetup, TestCase):
         self.assertContains(results, lines[0].job.stock_num)
         self.assertEqual(len(results.context["returned_rows"]), 2)
 
+    def test_confirmation_screen_lists_entire_batch_and_requires_explicit_return_action(self):
+        first_memo, (first,) = self.memo(62300)
+        second_memo, (second,) = self.memo(62301, legacy=True)
+        def stored_records():
+            return {
+                model.__name__: list(model.objects.order_by("pk").values())
+                for model in (Job, PieceworkMemo, PieceworkMemoLine, Activity, JobMovement)
+            }
+        before = stored_records()
+        preview = self.preview(first, second)
+        self.assertEqual(stored_records(), before)
+        self.assertContains(preview, "Confirm Return</button>")
+        self.assertContains(preview, "No job records are changed until you confirm.")
+        for value in (first.job.stock_num, second.job.stock_num,
+                      first_memo.memo_num, second_memo.memo_num,
+                      self.operation.name, self.legacy.name):
+            self.assertContains(preview, value)
+        # A scan submission (even carrying a valid token) must only review the batch.
+        reviewed_again = self.client.post(self.url, {
+            "scans": preview.context["scans"],
+            "confirmation": preview.context["confirmation"],
+        })
+        self.assertContains(reviewed_again, "Confirm Return</button>")
+        self.assertEqual(stored_records(), before)
+        self.assertEqual(self.confirm(reviewed_again).status_code, 302)
+        self.assertEqual(PieceworkMemoLine.objects.filter(returned_at__isnull=False).count(), 2)
+        self.assertEqual(Activity.objects.count(), 2)
+
     def test_multiple_memos_partial_return_and_legacy_fallback(self):
         first, (a, b) = self.memo(62010, 62011)
         second, (c,) = self.memo(62012, legacy=True)
