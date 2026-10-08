@@ -1300,7 +1300,6 @@ class JobCreateView(LoginRequiredMixin,LoggedFormInvalidMixin, generic.CreateVie
 
         self.object.save()
         form.save_m2m()
-        finding_formset.save()
 
         metal_formset.instance = self.object
         metal_formset.save()
