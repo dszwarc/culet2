@@ -1026,7 +1026,8 @@ class EmployeeActivityReportForm(forms.Form):
             "user__last_name",
             "user__first_name",
         ),
-        required=True,
+        required=False,
+        empty_label="All Employees",
         label="Employee",
         widget=select_widget(),
     )
@@ -1413,6 +1414,15 @@ class PieceworkScanForm(forms.Form):
                 + ", ".join(invalid)
             )
         return scans
+
+class BatchPieceworkReturnForm(PieceworkScanForm):
+    def clean_scans(self):
+        scans = super().clean_scans()
+        # Canonical integers also deduplicate zero-padded scans of the same barcode.
+        values = [str(int(value.strip())) for value in scans.splitlines() if value.strip()]
+        self.duplicate_count = len(values) - len(set(values))
+        return "\n".join(dict.fromkeys(values))
+
 
 class MemoFilterForm(forms.Form):
     MEMO_TYPE_CHOICES = [

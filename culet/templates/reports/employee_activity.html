@@ -1,83 +1,66 @@
 {% extends "base.html" %}
-
 {% block content %}
-
-<h1>Employee Activity Report</h1>
-
-{% url "culet:report_employee_activity" as clear_url %}
-
-{% include "includes/filter_panel.html" with filter_form=form filter_errors=form.errors filter_title="Employee Activity Filters" filter_subtitle="Choose an employee, date range, style, or other report criteria." filter_clear_url=clear_url filter_button_text="Run Report" %}
-
-{% if form.is_valid %}
-
-    <h2>Summary</h2>
-
-    <p><strong>Employee:</strong> {{ form.cleaned_data.employee }}</p>
-
-    <p>
-        <strong>Style:</strong>
-        {% if form.cleaned_data.style %}
-            {{ form.cleaned_data.style }}
-        {% else %}
-            All styles
+<div class="container">
+    <h1>Employee Activity Report</h1>
+    {% url "culet:report_employee_activity" as clear_url %}
+    {% if form.non_field_errors %}<div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+    {% include "includes/filter_panel.html" with filter_form=form filter_errors=form.errors filter_title="Activity Filters" filter_subtitle="Completed activities by employee and local calendar day. Dates are inclusive." filter_clear_url=clear_url filter_button_text="Run Report" %}
+    {% if form.is_valid %}
+    <p class="text-muted small mt-3">
+        {{ form.cleaned_data.start_date|date:"M j, Y" }} – {{ form.cleaned_data.end_date|date:"M j, Y" }} · {{ report_timezone }}.
+        Recorded labor durations, including allocated batch shares, are split across local days.
+        Piecework is shown for reference and excluded from labor totals. Clocked-in time uses valid, completed effective punches, without payroll rounding or overtime.
+        {% if form.cleaned_data.style %}Labor is filtered to {{ form.cleaned_data.style }}; clocked-in time covers the entire selected period.{% endif %}
+    </p>
+    {% for row in employee_rows %}
+    <section class="card shadow-sm mb-4" aria-labelledby="activity-employee-{{ row.employee.pk }}">
+        <div class="card-header py-2">
+            <h2 class="h5 mb-0" id="activity-employee-{{ row.employee.pk }}">{{ row.employee.user.get_full_name|default:row.employee.user.username }}</h2>
+            {% if row.employee.department %}<small class="text-muted">{{ row.employee.department }}</small>{% endif %}
+        </div>
+        {% if row.invalid_activities or row.historical_duration_count or row.overlapping_clocks or row.invalid_clocks %}
+        <div class="alert alert-warning small m-2" role="status">
+            {% if row.invalid_activities %}{{ row.invalid_activities }} completed activity record(s) excluded because duration or timestamps are missing or invalid.{% endif %}
+            {% if row.historical_duration_count %}{{ row.historical_duration_count }} non-batch activity record(s) have a recorded duration different from elapsed time; the recorded duration is preserved and allocated proportionally.{% endif %}
+            {% if row.overlapping_clocks %}{{ row.overlapping_clocks }} overlapping clock interval(s) counted once to avoid double-counting elapsed time.{% endif %}
+            {% if row.invalid_clocks %}{{ row.invalid_clocks }} invalid clock interval(s) excluded.{% endif %}
+        </div>
         {% endif %}
-    </p>
-
-    <p>
-        <strong>Date Range:</strong>
-        {{ form.cleaned_data.start_date }} to {{ form.cleaned_data.end_date }}
-    </p>
-
-    <p><strong>Completed Activities:</strong> {{ activities|length }}</p>
-
-    <p><strong>Total Hours:</strong> {{ total_hours|floatformat:2 }}</p>
-
-    <h2>Completed Activities</h2>
-
-    <table>
-        <thead>
-            <tr>
-                <th>Job</th>
-                <th>Customer</th>
-                <th>Style</th>
-                <th>Step</th>
-                <th>Started</th>
-                <th>Completed</th>
-                <th>Duration</th>
-            </tr>
-        </thead>
-
-        <tbody>
-            {% for activity in activities %}
-                <tr>
-                    <td>
-                        {% if activity.job %}
-                            <a href="{{ activity.job.get_absolute_url }}">
-                                {{ activity.job }}
-                            </a>
-                        {% else %}
-                            —
-                        {% endif %}
-                    </td>
-                    <td>{{ activity.job.customer|default:"—" }}</td>
-                    <td>{{ activity.job.style|default:"—" }}</td>
-                    <td>{{ activity.step|default:activity.name }}</td>
-                    <td>{{ activity.start|date:"Y-m-d H:i" }}</td>
-                    <td>{{ activity.end|date:"Y-m-d H:i" }}</td>
-                    <td>
-                        {{ activity.duration_hours }}h {{ activity.duration_min }}m
-                    </td>
-                </tr>
-            {% empty %}
-                <tr>
-                    <td colspan="7">
-                        No completed activities found for this employee, style, and date range.
-                    </td>
-                </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-
-{% endif %}
-
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0" aria-labelledby="activity-employee-{{ row.employee.pk }}">
+                <thead class="bg-light"><tr><th scope="col">Date</th><th scope="col">Stock Number</th><th scope="col">Style</th><th scope="col">Operation / ActivityStep</th><th scope="col" class="text-right">Duration</th></tr></thead>
+                <tbody>
+                {% for day in row.days %}
+                    {% for entry in day.entries %}
+                    <tr>
+                        <td class="text-nowrap">{% if forloop.first %}{{ day.date|date:"M j, Y" }}{% endif %}</td>
+                        <td>{% if entry.activity.job %}<a href="{{ entry.activity.job.get_absolute_url }}">{{ entry.activity.job.stock_num|default:entry.activity.job.barcode|default:"Job" }}</a>{% else %}—{% endif %}</td>
+                        <td>{{ entry.activity.job.style.name|default:"—" }}</td>
+                        <td>{% if entry.activity.step %}{{ entry.activity.step.name }}{% else %}{{ entry.activity.name|default:"Unspecified operation" }}{% endif %}{% if entry.continued %}<small class="text-muted"> (continued)</small>{% endif %}</td>
+                        <td class="text-right text-nowrap">{% if entry.piecework %}<span class="text-muted">Piecework · excluded</span>{% else %}{{ entry.duration_label }}{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                    <tr class="bg-light font-weight-bold"><th colspan="4" scope="row" class="text-right">Daily Total</th><td class="text-right text-nowrap">{{ day.duration_label }}</td></tr>
+                {% empty %}
+                    <tr><td colspan="5" class="text-muted">No valid completed activity durations in this period.</td></tr>
+                {% endfor %}
+                </tbody>
+                <tfoot class="table-secondary">
+                    <tr><th colspan="4" scope="row">Total Labor Duration</th><td class="text-right text-nowrap font-weight-bold">{{ row.active_label }}</td></tr>
+                </tfoot>
+            </table>
+        </div>
+        <div class="card-footer d-flex flex-wrap justify-content-between small">
+            <span class="mr-3 mb-1"><strong>Active Hours:</strong> {{ row.active_label }}</span>
+            <span class="mr-3 mb-1"><strong>Clocked-In Hours:</strong> {{ row.clocked_label }}</span>
+            <span class="mr-3 mb-1"><strong>Difference:</strong> {{ row.difference_label }}</span>
+            <span class="mb-1"><strong>Activity Percentage:</strong> {% if row.activity_percentage is not None %}{{ row.activity_percentage|floatformat:1 }}%{% else %}N/A (no clocked-in time){% endif %}</span>
+        </div>
+    </section>
+    {% empty %}
+        <div class="alert alert-info mt-3">No completed activities were found for the selected filters.</div>
+    {% endfor %}
+    {% if employee_rows %}<p class="text-muted small">Durations are displayed in whole minutes, with sub-minute remainders distributed so rows and daily and employee totals agree. Percentages use exact durations. Separate labor records are summed, so overlapping labor can exceed clocked-in time; differences may be negative and percentages may exceed 100%.</p>{% endif %}
+    {% endif %}
+</div>
 {% endblock %}

@@ -834,18 +834,8 @@ def move_job(
     return job, movement
 
 
-@transaction.atomic
-def return_piecework_lines(
-    *,
-    memo,
-    line_ids,
-    returned_by,
-    return_to=None,
-    returned_at=None,
-):
-    """Return selected open lines from one piecework memo atomically."""
-    return_to = return_to or returned_by
-
+def _prepare_piecework_return(*, memo, line_ids, returned_at=None):
+    """Lock and validate a memo return; callers must hold an atomic transaction."""
     try:
         submitted_ids = [int(line_id) for line_id in line_ids]
     except (TypeError, ValueError) as exc:
@@ -916,7 +906,7 @@ def return_piecework_lines(
     job_ids = [line.job_id for line in locked_lines]
     locked_jobs = {
         job.pk: job
-        for job in Job.objects.select_for_update().filter(pk__in=job_ids)
+        for job in Job.objects.select_for_update().filter(pk__in=job_ids).order_by("pk")
     }
     missing_job_ids = sorted(set(job_ids) - set(locked_jobs))
     if missing_job_ids:
@@ -970,11 +960,26 @@ def return_piecework_lines(
     if operation_time < locked_memo.created_at:
         raise ValidationError("Piecework cannot be returned before it was assigned.")
 
+    if any(line.activity_id is not None for line in locked_lines):
+        raise ValidationError("An open piecework line already has an Activity. Contact an administrator.")
+
+    return (locked_memo, locked_lines, locked_jobs, piecework_step,
+            assignment_return_type, holder_return_type, operation_time)
+
+
+@transaction.atomic
+def return_piecework_lines(
+    *, memo, line_ids, returned_by, return_to=None, returned_at=None,
+):
+    """Return selected open lines from one piecework memo atomically."""
+    return_to = return_to or returned_by
+    (locked_memo, locked_lines, locked_jobs, piecework_step,
+     assignment_return_type, holder_return_type, operation_time) = _prepare_piecework_return(
+        memo=memo, line_ids=line_ids, returned_at=returned_at,
+    )
     for line in locked_lines:
         job = locked_jobs[line.job_id]
 
-        if line.activity_id is not None:
-            raise ValidationError("An open piecework line already has an Activity. Contact an administrator.")
         line.activity = Activity.objects.create(
             job=job,
             employee=locked_memo.assigned_to,

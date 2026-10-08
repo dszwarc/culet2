@@ -4427,50 +4427,21 @@ class EmployeeActivityReportView(LoginRequiredMixin, generic.TemplateView):
     template_name = "reports/employee_activity.html"
 
     def get_context_data(self, **kwargs):
+        from .employee_activity_report import build_employee_activity_report
+        from .payroll import payroll_week_start
+
         context = super().get_context_data(**kwargs)
-
-        form = EmployeeActivityReportForm(self.request.GET or None)
-        activities = Activity.objects.none()
-        total_hours = 0
-
+        default_start = payroll_week_start(timezone.localdate())
+        data = self.request.GET.copy()
+        data.setdefault("start_date", default_start.isoformat())
+        data.setdefault("end_date", (default_start + timedelta(days=6)).isoformat())
+        form = EmployeeActivityReportForm(data)
+        context.update(form=form, employee_rows=[])
         if form.is_valid():
-            employee = form.cleaned_data["employee"]
-            style = form.cleaned_data.get("style")
-            start_date = form.cleaned_data["start_date"]
-            end_date = form.cleaned_data["end_date"]
-
-            activities = (
-                Activity.objects
-                .filter(
-                    employee=employee,
-                    end__isnull=False,
-                    end__date__gte=start_date,
-                    end__date__lte=end_date,
-                )
-                .select_related(
-                    "employee__user",
-                    "job",
-                    "job__customer",
-                    "job__style",
-                    "step",
-                )
-                .order_by("-end", "-start")
-            )
-
-            if style:
-                activities = activities.filter(job__style=style)
-
-            total_hours = sum(
-                activity.duration or 0
-                for activity in activities
-            )
-
-        context["form"] = form
-        context["activities"] = activities
-        context["total_hours"] = total_hours
-
+            context.update(build_employee_activity_report(**form.cleaned_data))
         return context
-    
+
+
 class TimeClockReportView(LoginRequiredMixin, generic.TemplateView):
     template_name = "reports/time_clock_report.html"
 

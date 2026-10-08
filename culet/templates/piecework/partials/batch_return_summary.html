@@ -1,0 +1,9 @@
+<div class="table-responsive">
+    <table class="table table-sm table-striped">
+        <thead><tr><th scope="col">Barcode</th><th scope="col">Stock Number</th><th scope="col">Piecework Memo</th><th scope="col">Operation</th></tr></thead>
+        <tbody>{% for row in rows %}<tr>
+            <td>{{ row.barcode }}</td><td>{{ row.stock_number }}</td>
+            <td>{{ row.memo_number }}</td><td>{{ row.operation }}</td>
+        </tr>{% endfor %}</tbody>
+    </table>
+</div>

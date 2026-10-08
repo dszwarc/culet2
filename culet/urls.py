@@ -1,3 +1,4 @@
+from .views_piecework_batch import BatchPieceworkReturnView
 from django.urls import path
 from . import views
 from django.views.generic import RedirectView
@@ -93,6 +94,7 @@ urlpatterns = [
     path("piecework/open/", views.PieceworkOpenListView.as_view(), name="piecework_open"),
     
     path("piecework/<int:pk>/print/", views.PieceworkPrintView.as_view(), name="piecework_print"),
+    path("piecework/batch-return/", BatchPieceworkReturnView.as_view(), name="piecework_batch_return"),
     path("piecework/<int:pk>/return/", views.PieceworkReturnView.as_view(), name="piecework_return"),
 
     #Reports Below This Line

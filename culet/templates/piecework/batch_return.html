@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-container return-jobs-page">
+    <div class="page-header"><h1>Batch Return Piecework</h1></div>
+    {% if returned_rows %}
+    <section class="return-jobs-section">
+        <h2>Returned {{ returned_rows|length }} job{{ returned_rows|length|pluralize }}</h2>
+        {% include "piecework/partials/batch_return_summary.html" with rows=returned_rows %}
+        <p>Scan another batch below.</p>
+    </section>
+    {% endif %}
+    {% if form.non_field_errors %}<div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+    {% if preview_rows %}
+    <section class="return-jobs-section">
+        <h2>Confirm {{ preview_rows|length }} job{{ preview_rows|length|pluralize }}</h2>
+        <p>No jobs have been returned yet. Confirm this batch to return all listed jobs together.</p>
+        {% if duplicate_count %}<p class="text-muted">Removed {{ duplicate_count }} duplicate scan{{ duplicate_count|pluralize }}.</p>{% endif %}
+        {% include "piecework/partials/batch_return_summary.html" with rows=preview_rows %}
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="confirmation" value="{{ confirmation }}">
+            <textarea name="scans" hidden>{{ scans }}</textarea>
+            <div class="d-flex flex-wrap mt-3">
+                <button type="submit" name="action" value="return" class="btn btn-primary mr-2 mb-2">Return Piecework</button>
+                <button type="submit" name="action" value="edit" class="btn btn-outline-secondary mb-2">Edit Scan List</button>
+            </div>
+        </form>
+    </section>
+    {% else %}
+    <form method="post" class="return-jobs-form" id="batch-return-scan-form">
+        {% csrf_token %}
+        <section class="return-jobs-section">
+            <div class="assign-jobs-textarea-wrap">
+                <label class="assign-jobs-textarea-label" for="id_scans">Job Barcodes</label>
+                {% include "includes/barcode_scanner.html" with input_id="id_scans" append_mode="true" auto_submit="false" button_text="Scan Job Barcode" %}
+                <textarea name="scans" id="id_scans" class="form-control assign-jobs-textarea barcode-entry-textarea" rows="10" placeholder="Scan one barcode per line" autocomplete="off" autocapitalize="off" spellcheck="false" autofocus>{{ form.scans.value|default:"" }}</textarea>
+                {% if form.scans.errors %}<div class="text-danger" role="alert">{{ form.scans.errors }}</div>{% endif %}
+                <p class="form-help-text">Barcodes only, one per line. Blank lines and duplicate scans are removed. Jobs can belong to different memos.</p>
+                <p id="batch-scan-count" aria-live="polite">Jobs scanned: 0</p>
+            </div>
+            <button type="submit" name="action" value="preview" class="btn btn-primary">Review Batch</button>
+            <a class="btn btn-outline-secondary" href="{% url 'culet:piecework_open' %}">Open Piecework</a>
+        </section>
+    </form>
+    <script>
+    (() => {
+        const input = document.getElementById("id_scans");
+        const count = document.getElementById("batch-scan-count");
+        const values = () => [...new Set(input.value.split(/\r?\n/).map(value => {
+            value = value.trim();
+            return /^\d+$/.test(value) ? value.replace(/^0+(?=\d)/, "") : value;
+        }).filter(Boolean))];
+        const updateCount = () => { count.textContent = `Jobs scanned: ${values().length}`; };
+        input.addEventListener("input", updateCount);
+        document.getElementById("batch-return-scan-form").addEventListener("submit", () => {
+            input.value = values().join("\n");
+            updateCount();
+        });
+        updateCount();
+    })();
+    </script>
+    {% endif %}
+</div>
+{% endblock %}
