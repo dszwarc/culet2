@@ -425,7 +425,7 @@ class JobAdmin(NumericSearchAdminMixin, admin.ModelAdmin):
         "assigned_to__user",
         "location",
     )
-    readonly_fields = ("created", "last_updated", "shipped", "active", "status")
+    readonly_fields = ("created", "last_updated", "shipped", "status")
 
     def get_readonly_fields(self, request, obj=None):
         readonly = list(super().get_readonly_fields(request, obj))
