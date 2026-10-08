@@ -579,6 +579,8 @@ def clock_in_employee(employee):
     Clocks an employee in if they are not already clocked in.
     Keeps Employee.clocked_in and TimeClock in sync.
     """
+    locked_employee = Employee.objects.select_for_update().get(pk=employee.pk)
+    employee.clocked_in = locked_employee.clocked_in
     open_clock = TimeClock.objects.filter(
         employee=employee,
         clock_out__isnull=True,
@@ -594,9 +596,16 @@ def clock_in_employee(employee):
             message="Already clocked in.",
         )
 
+    from .timeclock_creation import overlapping_timeclocks
+    now = timezone.now()
+    if overlapping_timeclocks(employee.pk, now).exists():
+        return ClockInResult(
+            clocked_in=False, created_clock=False,
+            message="A recorded clock interval overlaps this clock-in. Please contact a manager.",
+        )
     TimeClock.objects.create(
         employee=employee,
-        clock_in=timezone.now(),
+        clock_in=now,
     )
 
     employee.clocked_in = True
@@ -615,6 +624,7 @@ def clock_out_employee(employee):
     Clocks employee out and stops all open activities.
     This is the shared logic we can later reuse for logout.
     """
+    Employee.objects.select_for_update().get(pk=employee.pk)
     now = timezone.now()
 
     active_batch = WorkBatch.objects.filter(

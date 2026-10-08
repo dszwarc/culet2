@@ -4,6 +4,9 @@ from django.forms import inlineformset_factory, formset_factory
 from django.utils import timezone
 from decimal import Decimal
 from django.core.exceptions import ValidationError
+from django.db import transaction
+from datetime import datetime
+from .timeclock_creation import validate_manual_timeclock
 
 from pathlib import Path
 from PIL import Image
@@ -1091,6 +1094,59 @@ class TimeClockReportForm(forms.Form):
 
         return cleaned_data
     
+class TimeClockAdminAddForm(forms.ModelForm):
+    class Meta:
+        model = TimeClock
+        fields = ["employee", "clock_in", "clock_out"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.required = True
+
+    def clean(self):
+        cleaned = super().clean()
+        if all(cleaned.get(key) is not None for key in ("employee", "clock_in", "clock_out")):
+            # Admin holds an outer transaction through form validation and save.
+            # Keep this lock until its insert commits, so a racing add receives
+            # a form error instead of failing after validation.
+            with transaction.atomic():
+                Employee.objects.select_for_update().get(pk=cleaned["employee"].pk)
+                validate_manual_timeclock(cleaned["employee"], cleaned["clock_in"], cleaned["clock_out"])
+        return cleaned
+
+
+class PayrollTimeClockCreateForm(forms.Form):
+    date = forms.DateField(widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}))
+    clock_in = forms.TimeField(widget=forms.TimeInput(attrs={"type": "time", "class": "form-control"}))
+    clock_out = forms.TimeField(widget=forms.TimeInput(attrs={"type": "time", "class": "form-control"}))
+
+    def __init__(self, *args, employee, start_date, end_date, **kwargs):
+        kwargs.setdefault("auto_id", f"id_clock_add_{employee.pk}_%s")
+        super().__init__(*args, **kwargs)
+        self.employee = employee
+        self.start_date, self.end_date = start_date, end_date
+        self.fields["date"].widget.attrs.update(min=start_date.isoformat(), max=end_date.isoformat())
+
+    def clean(self):
+        cleaned = super().clean()
+        work_date = cleaned.get("date")
+        if work_date and not self.start_date <= work_date <= self.end_date:
+            self.add_error("date", "Choose a date within the selected pay period.")
+        if self.errors:
+            return cleaned
+        # Django DateTimeField rejects nonexistent/ambiguous local wall times.
+        # Do not use make_aware() alone: zoneinfo does not validate DST gaps.
+        for name in ("clock_in", "clock_out"):
+            try:
+                cleaned[name] = forms.DateTimeField().clean(datetime.combine(work_date, cleaned[name]))
+            except ValidationError as exc:
+                self.add_error(name, exc)
+        if not self.errors:
+            validate_manual_timeclock(self.employee, cleaned["clock_in"], cleaned["clock_out"])
+        return cleaned
+
+
 class TimeClockEditForm(forms.ModelForm):
     field_order = ["employee", "clock_in", "clock_out", "valid"]
 

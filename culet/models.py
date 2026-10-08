@@ -1046,9 +1046,13 @@ class TimeClock(models.Model):
         ]
 
     def __str__(self):
+        clock_in_label = (
+            self.clock_in.strftime("%Y-%m-%d %H:%M")
+            if self.clock_in is not None else "Missing clock-in"
+        )
         return (
             f"{self.employee} "
-            f"{self.clock_in:%Y-%m-%d %H:%M}"
+            f"{clock_in_label}"
         )
 
     @staticmethod

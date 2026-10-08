@@ -1,0 +1,26 @@
+<div id="payroll-add-{{ employee.pk }}" class="bg-light p-3">
+    <form method="post" action="{% url 'culet:payroll_timeclock_create' employee.pk %}?{{ report_query }}"
+          hx-post="{% url 'culet:payroll_timeclock_create' employee.pk %}?{{ report_query }}"
+          hx-target="#payroll-results" hx-select="#payroll-results" hx-swap="outerHTML show:none" hx-sync="this:drop">
+        {% csrf_token %}
+        <strong>Add event for {{ employee }}</strong>
+        <div class="d-flex flex-wrap align-items-end mt-2">
+            {% for field in form %}
+            <div class="mr-3 mb-2">
+                <label class="small font-weight-bold" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% for error in field.errors %}<div class="text-danger small" role="alert">{{ error }}</div>{% endfor %}
+            </div>
+            {% endfor %}
+            <div class="mb-2">
+                <button type="submit" class="btn btn-sm btn-primary">Add Event</button>
+                <a class="btn btn-sm btn-secondary" href="{% url 'culet:payroll_report' %}?{{ report_query }}#payroll-employee-{{ employee.pk }}"
+                   hx-get="{% url 'culet:payroll_timeclock_create' employee.pk %}?{{ report_query }}&amp;cancel=1"
+                   hx-target="#payroll-add-{{ employee.pk }}" hx-swap="outerHTML show:none">Cancel</a>
+                <span class="htmx-indicator small text-muted ml-2">Saving…</span>
+            </div>
+        </div>
+        <small class="text-muted">Completed event on the selected date. Times are in {% now "e" %} local time.</small>
+        {% for error in form.non_field_errors %}<div class="text-danger small" role="alert">{{ error }}</div>{% endfor %}
+    </form>
+</div>

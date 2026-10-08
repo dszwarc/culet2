@@ -1,7 +1,8 @@
 from django.contrib import admin
 from django.db.models import Q
 
-from .forms import PieceworkMemoOperationForm
+from .forms import PieceworkMemoOperationForm, TimeClockAdminAddForm
+from .timeclock_creation import save_manual_timeclock
 
 from .models import (
     MovementType,
@@ -192,11 +193,24 @@ class EmployeeAdmin(admin.ModelAdmin):
 class TimeClockAdmin(admin.ModelAdmin):
     readonly_fields = ("clock_in", "clock_out")
 
+    def get_readonly_fields(self, request, obj=None):
+        return self.readonly_fields if obj is not None else ()
+
+    def get_fields(self, request, obj=None):
+        if obj is None:
+            return ("employee", "clock_in", "clock_out")
+        return super().get_fields(request, obj)
+
+    def get_form(self, request, obj=None, **kwargs):
+        if obj is None:
+            kwargs["form"] = TimeClockAdminAddForm
+        return super().get_form(request, obj, **kwargs)
+
     def save_model(self, request, obj, form, change):
         if change:
             obj.save(update_fields=["employee", "adjusted_clock_in", "adjusted_clock_out", "valid"])
         else:
-            super().save_model(request, obj, form, change)
+            save_manual_timeclock(obj)
 
     def has_delete_permission(self, request, obj=None):
         return False

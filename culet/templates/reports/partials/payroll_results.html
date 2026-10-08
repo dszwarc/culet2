@@ -1,4 +1,5 @@
 <div id="payroll-results">
+{% if payroll_success %}<div class="alert alert-success" role="status">{{ payroll_success }}</div>{% endif %}
 {% if employee_rows %}
     <div id="payroll-report-totals" class="alert alert-light border d-flex flex-wrap justify-content-between mb-3">
         <strong>Report Totals</strong>
@@ -9,9 +10,17 @@
     {% for row in employee_rows %}
     <section class="card shadow-sm mb-4" aria-labelledby="payroll-employee-{{ row.employee.pk }}">
         <div class="card-header py-2">
-            <h2 id="payroll-employee-{{ row.employee.pk }}" class="h5 mb-0">{{ row.employee.user.get_full_name|default:row.employee.user.username }}</h2>
+            <div class="d-flex align-items-center justify-content-between">
+                <h2 id="payroll-employee-{{ row.employee.pk }}" class="h5 mb-0">{{ row.employee.user.get_full_name|default:row.employee.user.username }}</h2>
+                <a class="btn btn-sm btn-outline-primary ml-2"
+                   href="{% url 'culet:payroll_timeclock_create' row.employee.pk %}?{{ request.GET.urlencode }}"
+                   hx-get="{% url 'culet:payroll_timeclock_create' row.employee.pk %}?{{ request.GET.urlencode }}"
+                   hx-target="#payroll-add-{{ row.employee.pk }}" hx-swap="outerHTML show:none">+ Add Event</a>
+            </div>
             {% if row.employee.department %}<small class="text-muted">{{ row.employee.department }}</small>{% endif %}
         </div>
+        <div id="payroll-add-{{ row.employee.pk }}"></div>
+        {% if row.days %}
         <div class="table-responsive">
             <table class="table table-sm table-hover payroll-table mb-0" aria-labelledby="payroll-employee-{{ row.employee.pk }}">
                 <thead class="bg-light"><tr><th scope="col">Date</th><th scope="col">In</th><th scope="col">Out</th><th scope="col" class="text-right">Hours</th><th scope="col">Edit</th></tr></thead>
@@ -37,6 +46,9 @@
                 </tfoot>
             </table>
         </div>
+        {% else %}
+        <p class="text-muted small m-3">No events in the selected pay period.</p>
+        {% endif %}
     </section>
     {% endfor %}
 {% elif request.GET %}

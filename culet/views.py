@@ -22,6 +22,8 @@ from decimal import Decimal
 from itertools import chain
 from operator import itemgetter
 from django.core.exceptions import PermissionDenied, ValidationError
+from .forms import PayrollTimeClockCreateForm
+from .timeclock_creation import save_manual_timeclock
 import re
 import logging
 from urllib.parse import quote
@@ -4737,6 +4739,81 @@ def _payroll_inline_context(request, timeclock):
     if context is not None:
         context["entry"] = _payroll_entry_context(timeclock)
     return context
+
+
+class PayrollTimeClockCreateView(LoginRequiredMixin, generic.View):
+    """Record a completed event for the employee identified by the report row."""
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
+        self.report_form = TimeClockReportForm(request.GET)
+        if not self.report_form.is_valid():
+            return HttpResponseBadRequest("Valid payroll filters are required.")
+        self.employee = get_object_or_404(
+            Employee, pk=kwargs["employee_pk"], role__requires_clock_in=True,
+        )
+        selected = self.report_form.cleaned_data.get("employee")
+        if selected is not None and selected.pk != self.employee.pk:
+            raise PermissionDenied("Employee does not match the selected report.")
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_form(self, data=None):
+        filters = self.report_form.cleaned_data
+        initial_date = min(max(timezone.localdate(), filters["start_date"]), filters["end_date"])
+        return PayrollTimeClockCreateForm(
+            data, employee=self.employee,
+            start_date=filters["start_date"], end_date=filters["end_date"],
+            initial={"date": initial_date},
+        )
+
+    def render_form(self, request, form, status=200):
+        inline = request.headers.get("HX-Request") == "true"
+        response = render(request,
+            "reports/partials/payroll_timeclock_create.html" if inline else "reports/payroll_timeclock_create.html",
+            {"form": form, "employee": self.employee, "report_query": request.GET.urlencode()},
+            status=status,
+        )
+        if inline and status == 422:
+            target = f"#payroll-add-{self.employee.pk}"
+            response["HX-Retarget"] = target
+            response["HX-Reselect"] = target
+        return response
+
+    def get(self, request, employee_pk):
+        if request.GET.get("cancel") == "1":
+            return HttpResponse(f'<div id="payroll-add-{self.employee.pk}"></div>')
+        return self.render_form(request, self.get_form())
+
+    def post(self, request, employee_pk):
+        form = self.get_form(request.POST)
+        if form.is_valid():
+            try:
+                save_manual_timeclock(TimeClock(
+                    employee=self.employee,
+                    clock_in=form.cleaned_data["clock_in"],
+                    clock_out=form.cleaned_data["clock_out"],
+                ))
+            except ValidationError as exc:
+                # Another request may have inserted an interval after validation.
+                form.add_error(None, exc)
+            else:
+                message = f"TimeClock event added for {self.employee}."
+                if request.headers.get("HX-Request") == "true":
+                    context = build_payroll_display(**self.payroll_filters())
+                    context["payroll_success"] = message
+                    return render(request, "reports/partials/payroll_results.html", context)
+                messages.success(request, message)
+                return redirect(
+                    reverse("culet:payroll_report") + "?" + request.GET.urlencode()
+                    + f"#payroll-employee-{self.employee.pk}"
+                )
+        return self.render_form(request, form, status=422)
+
+    def payroll_filters(self):
+        filters = self.report_form.cleaned_data
+        return {"start_date": filters["start_date"], "end_date": filters["end_date"],
+                "selected_employee": filters.get("employee")}
 
 
 class PayrollTimeClockRowView(LoginRequiredMixin, generic.View):

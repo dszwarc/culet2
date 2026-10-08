@@ -24,7 +24,7 @@ def payroll_week_starts(start_date, end_date):
     return weeks
 
 
-def build_payroll_report(*, start_date, end_date, selected_employee=None, include_incomplete=False):
+def build_payroll_report(*, start_date, end_date, selected_employee=None, include_incomplete=False, include_empty=False):
     """Build the shared payroll data consumed by the HTML and XLSX reports."""
     start_dt = timezone.make_aware(datetime.combine(start_date, time.min))
     end_dt = timezone.make_aware(datetime.combine(end_date, time.max))
@@ -104,7 +104,7 @@ def build_payroll_report(*, start_date, end_date, selected_employee=None, includ
             employee_raw_hours += raw_hours
             employee_rounded_hours += rounded_hours
 
-        if weeks:
+        if weeks or include_empty:
             employee_overtime_hours = 0
             for week in weeks.values():
                 week["overtime_hours"] = max(week["rounded_hours"] - 40, 0)
@@ -132,7 +132,9 @@ def build_payroll_report(*, start_date, end_date, selected_employee=None, includ
 
 def build_payroll_display(**filters):
     """Presentation metadata only; paid hours and weekly OT use the shared report."""
-    report = build_payroll_report(**filters, include_incomplete=True)
+    # Empty employee sections allow the first manual event in a pay period.
+    report = build_payroll_report(**filters, include_incomplete=True, include_empty=True)
+    report["employee_rows"].sort(key=lambda row: not row["weeks"])
     for row in report["employee_rows"]:
         row["regular_hours"] = row["rounded_hours"] - row["overtime_hours"]
         row["days"] = [day for week in row["weeks"] for day in week["days"].values()]

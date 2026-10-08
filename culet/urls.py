@@ -68,6 +68,7 @@ urlpatterns = [
     path("clock_in",views.clock_in,name="clock_in"),
     path("clock_out", views.clock_out,name="clock_out"),
     path("time-clock/<int:pk>/edit/",views.TimeClockUpdateView.as_view(),name="time_clock_edit"),
+    path("payroll/<int:employee_pk>/add-event/", views.PayrollTimeClockCreateView.as_view(), name="payroll_timeclock_create"),
     path("time-clock/<int:pk>/payroll-row/", views.PayrollTimeClockRowView.as_view(), name="payroll_timeclock_row"),
     path("time-clock/<int:pk>/payroll-edit/", views.PayrollTimeClockInlineEditView.as_view(), name="payroll_timeclock_inline_edit"),
     path("time-clock/<int:pk>/payroll-delete/", views.PayrollTimeClockInlineDeleteView.as_view(), name="payroll_timeclock_inline_delete"),
