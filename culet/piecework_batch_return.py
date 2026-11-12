@@ -45,6 +45,8 @@ def process_piecework_batch(*, barcodes, returned_by, confirmed=None):
     ).values_list("job_id", "pk"))
     historical_jobs = set(PieceworkMemoLine.objects.filter(job_id__in=job_ids).values_list("job_id", flat=True))
     shipped_jobs = set(JobShip.objects.filter(job_id__in=job_ids).values_list("job_id", flat=True))
+    skipped = []
+    confirmed_job_ids = {item["job"] for item in confirmed or []}
     for original in jobs:
         job = locked_jobs.get(original.pk)
         label = f"Barcode {original.barcode} (stock {original.stock_num or 'not recorded'})"
@@ -53,11 +55,15 @@ def process_piecework_batch(*, barcodes, returned_by, confirmed=None):
             continue
         if job.barcode != original.barcode:
             errors.append(f"{label}: barcode changed during lookup. Review the scan list again.")
+        line = by_job.get(job.pk)
+        if (line is None and job.pk in historical_jobs and job.pk not in current_open
+                and job.pk not in confirmed_job_ids):
+            skipped.append(f"{label}: already returned; no open piecework line.")
+            continue
         if not job.active:
             errors.append(f"{label}: job is inactive.")
         if job.shipped or job.pk in shipped_jobs:
             errors.append(f"{label}: job is shipped or has an existing shipment.")
-        line = by_job.get(job.pk)
         if line is None:
             reason = "already returned; no open piecework line" if job.pk in historical_jobs else "not on a piecework memo"
             errors.append(f"{label}: {reason}.")
@@ -67,7 +73,7 @@ def process_piecework_batch(*, barcodes, returned_by, confirmed=None):
             errors.append(f"{label}: memo {line.memo.memo_num} is already complete; review its inconsistent open line.")
     if errors:
         raise ValidationError(errors)
-    if not lines:
+    if not lines and not skipped:
         raise ValidationError("Scan at least one job barcode.")
     snapshot = [line_snapshot(line) for line in lines]
     if confirmed is not None and snapshot != confirmed:
@@ -105,6 +111,7 @@ def process_piecework_batch(*, barcodes, returned_by, confirmed=None):
                 return_to=returned_by, returned_at=operation_time,
             )
     return {
+        "skipped": skipped,
         "snapshot": snapshot,
         "rows": [{"barcode": str(line.job.barcode), "stock_number": line.job.stock_num or "Not recorded",
                   "memo_number": line.memo.memo_num, "memo_id": line.memo_id,

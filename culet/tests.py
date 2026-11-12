@@ -1607,6 +1607,7 @@ class ReturnJobsTextareaTests(TestCase):
 
         first.refresh_from_db()
         second.refresh_from_db()
+        self.assertRedirects(response, reverse("culet:my_jobs"))
         self.assertEqual(first.holder, self.manager)
         self.assertEqual(second.holder, self.manager)
         self.assertEqual(JobMovement.objects.count(), 2)
@@ -1673,7 +1674,7 @@ class ReturnJobsTextareaTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.redirect_chain[-1][0], self.url)
+        self.assertEqual(response.redirect_chain[-1][0], reverse("culet:my_jobs"))
         job.refresh_from_db()
         activity.refresh_from_db()
         self.assertEqual(job.holder, self.employee)

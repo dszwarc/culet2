@@ -1425,6 +1425,12 @@ class BatchPieceworkReturnForm(PieceworkScanForm):
 
 
 class MemoFilterForm(forms.Form):
+    stock_num = forms.CharField(
+        required=False,
+        label="Stock Number",
+        widget=forms.TextInput(attrs={"class": "form-control"}),
+    )
+
     MEMO_TYPE_CHOICES = [
         ("", "All Memo Types"),
         ("transfer", "Transfer"),

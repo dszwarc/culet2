@@ -5,7 +5,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import Activity, Customer, Employee, Job, JobMovement, MovementType, Style
+from .models import Activity, Customer, Employee, Job, JobMovement, MovementType, QualityInspection, Style
 from .services import get_job_history, get_job_history_page
 
 
@@ -104,6 +104,29 @@ class JobHistoryTests(TestCase):
         self.activity(timezone.now())
         response = self.client.get(reverse("culet:job_detail", args=[self.job.pk]))
         self.assertNotContains(response, "Load 10 More")
+
+    def test_inspection_results_render_on_detail_and_history_partial(self):
+        for result, label in (("pass", "Pass"), ("fail", "Fail")):
+            activity = self.activity(timezone.now(), name="Inspection", active=False,
+                                     end=timezone.now())
+            QualityInspection.objects.create(
+                job=self.job, inspected_by=self.employee, activity=activity, result=result,
+            )
+        for view in ("job_detail", "job_history_partial"):
+            with self.subTest(view=view):
+                response = self.client.get(reverse(f"culet:{view}", args=[self.job.pk]))
+                for result, label in (("pass", "Pass"), ("fail", "Fail")):
+                    self.assertContains(
+                        response,
+                        f'<span class="movement-badge history-badge--{result}">{label}</span>',
+                        count=1, html=True,
+                    )
+
+    def test_activity_without_inspection_has_no_result_badge(self):
+        self.activity(timezone.now(), name="Inspection")
+        response = self.client.get(reverse("culet:job_history_partial", args=[self.job.pk]))
+        self.assertNotContains(response, "history-badge--pass")
+        self.assertNotContains(response, "history-badge--fail")
 
     def test_page_helper_returns_stable_non_overlapping_slices(self):
         base = timezone.now()

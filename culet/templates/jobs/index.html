@@ -93,6 +93,13 @@ Found {{job_count}} jobs.
                                 {% empty %}
                                     <span class="job-progress-empty">No production steps</span>
                                 {% endfor %}
+                                <span class="job-progress-pill" title="Final inspection: {% if job.final_inspection_result == 'pass' %}Pass{% elif job.final_inspection_result == 'fail' %}Fail{% else %}Not inspected{% endif %}">
+                                    <span class="job-progress-label">Inspection</span>
+                                    <span class="job-progress-bubbles" aria-hidden="true">
+                                        <span class="job-progress-bubble is-inspection-{{ job.final_inspection_result|default:'pending' }}"></span>
+                                    </span>
+                                    <span class="visually-hidden">Final inspection: {% if job.final_inspection_result == 'pass' %}Pass{% elif job.final_inspection_result == 'fail' %}Fail{% else %}Not inspected{% endif %}</span>
+                                </span>
                             </div>
                         </td>
                         <td {% if job.is_past_due%}class="past_due"{% elif job.is_near_due %}class="near_due"{% endif %}>{{ job.due }}</td>

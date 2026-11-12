@@ -36,6 +36,40 @@
 
 
         {# ================================================= #}
+        {# Jobs                                              #}
+        {# ================================================= #}
+
+        <section class="return-jobs-section">
+
+            <div class="return-jobs-section-header">
+                <div>
+                    <h2>Jobs</h2>
+                </div>
+            </div>
+
+
+            <div class="job-field job-field-full">
+
+                {{ scan_form.scans }}
+
+                {% if scan_form.scans.help_text %}
+                    <p class="form-help-text">
+                        {{ scan_form.scans.help_text }}
+                    </p>
+                {% endif %}
+
+                {% if scan_form.scans.errors %}
+                    <div class="field-errors">
+                        {{ scan_form.scans.errors }}
+                    </div>
+                {% endif %}
+
+            </div>
+
+        </section>
+
+
+        {# ================================================= #}
         {# Department and employee selection                 #}
         {# ================================================= #}
 
@@ -294,40 +328,6 @@
                     {% endif %}
 
                 </div>
-
-            </div>
-
-        </section>
-
-
-        {# ================================================= #}
-        {# Jobs                                              #}
-        {# ================================================= #}
-
-        <section class="return-jobs-section">
-
-            <div class="return-jobs-section-header">
-                <div>
-                    <h2>Jobs</h2>
-                </div>
-            </div>
-
-
-            <div class="job-field job-field-full">
-
-                {{ scan_form.scans }}
-
-                {% if scan_form.scans.help_text %}
-                    <p class="form-help-text">
-                        {{ scan_form.scans.help_text }}
-                    </p>
-                {% endif %}
-
-                {% if scan_form.scans.errors %}
-                    <div class="field-errors">
-                        {{ scan_form.scans.errors }}
-                    </div>
-                {% endif %}
 
             </div>
 

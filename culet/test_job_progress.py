@@ -13,6 +13,8 @@ from .models import (
     Employee,
     Job,
     JobStone,
+    QualityInspection,
+    QualityInspectionStep,
     Style,
 )
 from .services import get_job_progress
@@ -320,3 +322,32 @@ class JobProgressTests(TestCase):
         self.assertContains(response, "1 of 1 steps completed")
         self.assertContains(response, "progress-grade-high")
         self.assertContains(response, "job-progress-bubble is-completed")
+
+    def test_inspection_bubble_uses_latest_final_inspection_only(self):
+        self.client.force_login(self.user)
+        final = QualityInspectionStep.objects.create(name="Final Inspection", code="final")
+        other = QualityInspectionStep.objects.create(name="Pre Inspection", code="pre")
+
+        def inspect(step, result, when=None):
+            return QualityInspection.objects.create(
+                job=self.job, inspected_by=self.employee, step=step, result=result,
+                inspected_at=when or timezone.now(),
+            )
+
+        def assert_bubble(state, text):
+            response = self.client.get(reverse("culet:index_job"))
+            self.assertContains(response, f"job-progress-bubble is-inspection-{state}", count=1)
+            self.assertContains(response, f"Final inspection: {text}")
+
+        assert_bubble("pending", "Not inspected")
+        inspect(other, "pass")
+        inspect(None, "fail")
+        assert_bubble("pending", "Not inspected")
+        timestamp = timezone.now()
+        inspect(final, "fail", timestamp)
+        assert_bubble("fail", "Fail")
+        inspect(final, "pass", timestamp)
+        inspect(other, "fail")
+        assert_bubble("pass", "Pass")
+        inspect(final, "fail", timestamp - timedelta(days=1))
+        assert_bubble("pass", "Pass")

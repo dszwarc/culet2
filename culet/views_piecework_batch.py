@@ -65,8 +65,11 @@ class BatchPieceworkReturnView(LoginRequiredMixin, TemplateView):
         if confirmed is not None:
             request.session["piecework_batch_return_result"] = result["rows"]
             messages.success(request, f"Returned {len(result['rows'])} piecework job(s).")
+            for skipped in result["skipped"]:
+                messages.info(request, f"Ignored {skipped}")
             return redirect("culet:piecework_batch_return")
         context.update(
+            skipped_scans=result["skipped"],
             preview_rows=result["rows"], scans=scans,
             duplicate_count=getattr(form, "duplicate_count", 0),
             confirmation=signing.dumps(

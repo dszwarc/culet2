@@ -3,7 +3,7 @@ from datetime import timedelta
 import re
 
 from django.db import transaction
-from django.db.models import Prefetch
+from django.db.models import OuterRef, Prefetch, Subquery
 from django.utils import timezone
 
 from .models import Activity, TimeClock
@@ -24,6 +24,7 @@ from .models import (
     MovementType,
     PieceworkMemo,
     PieceworkMemoLine,
+    QualityInspection,
     TimeClock,
     WorkBatch,
 )
@@ -72,7 +73,13 @@ def with_job_progress_data(queryset):
         )
     )
 
-    return queryset.prefetch_related(
+    latest_final_inspection = QualityInspection.objects.filter(
+        job_id=OuterRef("pk"), step__code="final",
+    ).order_by("-inspected_at", "-pk")
+
+    return queryset.annotate(
+        final_inspection_result=Subquery(latest_final_inspection.values("result")[:1]),
+    ).prefetch_related(
         Prefetch(
             "activity_set",
             queryset=completed_activities,
@@ -280,7 +287,7 @@ def get_job_history(job, history_type="all"):
     """Return normalized Activity and JobMovement events, newest first."""
     activities = (
         Activity.objects.filter(job=job)
-        .select_related("employee__user", "step")
+        .select_related("employee__user", "step", "quality_inspection")
     )
     if history_type == "piecework":
         activities = activities.filter(is_piecework=True)

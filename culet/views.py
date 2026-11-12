@@ -2798,7 +2798,7 @@ class ReturnJobView(
                 ),
             )
 
-        return redirect("culet:return_job")
+        return redirect("culet:my_jobs")
 
 
 class BatchStartView(LoginRequiredMixin, generic.TemplateView):
@@ -6791,8 +6791,17 @@ class MemoListView(LoginRequiredMixin, generic.TemplateView):
 
         if form.is_valid():
             memo_type = form.cleaned_data.get("memo_type")
+            stock_num = form.cleaned_data.get("stock_num")
             created_start = form.cleaned_data.get("created_start")
             created_end = form.cleaned_data.get("created_end")
+
+            if stock_num:
+                transfer_memos = transfer_memos.filter(
+                    lines__job__stock_num__iexact=stock_num,
+                ).distinct()
+                piecework_memos = piecework_memos.filter(
+                    lines__job__stock_num__iexact=stock_num,
+                ).distinct()
 
             if created_start:
                 transfer_memos = transfer_memos.filter(created_at__date__gte=created_start)

@@ -138,6 +138,21 @@ td {
     transform: skewX(-18deg);
 }
 
+.job-progress-bubble.is-inspection-pending {
+    background: transparent;
+    border-color: #94a3b8;
+}
+
+.job-progress-bubble.is-inspection-pass {
+    background: #198754;
+    border-color: #198754;
+}
+
+.job-progress-bubble.is-inspection-fail {
+    background: #dc3545;
+    border-color: #dc3545;
+}
+
 .job-progress-bubble.is-completed {
     background: var(--progress-color);
 }

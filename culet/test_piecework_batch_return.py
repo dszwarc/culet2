@@ -243,6 +243,45 @@ class BatchReturnTests(BatchReturnSetup, TestCase):
         self.assert_open(new_line)
         self.assertEqual(Activity.objects.count(), 1)
 
+    def test_already_returned_scan_is_ignored_and_other_jobs_are_returned(self):
+        closed_memo, (closed,) = self.memo(62300)
+        return_piecework_lines(memo=closed_memo, line_ids=[closed.pk], returned_by=self.manager)
+        # A closed job may since have shipped; it is still only an ignored scan.
+        closed.job.shipped = True
+        closed.job.save(update_fields=["shipped"])
+        _, (open_line,) = self.memo(62301)
+        preview = self.preview(closed, open_line)
+        self.assertFalse(preview.context["form"].errors)
+        self.assertEqual(len(preview.context["skipped_scans"]), 1)
+        self.assertContains(preview, "Ignored 1 already-returned job")
+        self.assertEqual([row["barcode"] for row in preview.context["preview_rows"]], ["62301"])
+        self.assertEqual(self.confirm(preview).status_code, 302)
+        open_line.refresh_from_db()
+        self.assertIsNotNone(open_line.returned_at)
+        self.assertEqual(Activity.objects.count(), 2)
+        self.assertEqual(JobMovement.objects.count(), 4)
+
+    def test_only_already_returned_scans_show_notice_without_errors_or_writes(self):
+        memo, (line,) = self.memo(62302)
+        return_piecework_lines(memo=memo, line_ids=[line.pk], returned_by=self.manager)
+        preview = self.preview(line)
+        self.assertFalse(preview.context["form"].errors)
+        self.assertContains(preview, "No open piecework jobs to return.")
+        self.assertNotContains(preview, "Confirm Return</button>")
+        self.assertEqual(Activity.objects.count(), 1)
+        self.assertEqual(JobMovement.objects.count(), 2)
+
+    def test_closed_history_does_not_hide_current_open_assignment(self):
+        memo, (line,) = self.memo(62303)
+        return_piecework_lines(memo=memo, line_ids=[line.pk], returned_by=self.manager)
+        _, (new_line,) = self.memo(jobs=[line.job])
+        preview = self.preview(new_line)
+        self.assertEqual(preview.context["skipped_scans"], [])
+        self.assertEqual(len(preview.context["preview_rows"]), 1)
+        self.assertEqual(self.confirm(preview).status_code, 302)
+        new_line.refresh_from_db()
+        self.assertIsNotNone(new_line.returned_at)
+
     def test_changed_operation_or_tampered_confirmation_requires_review(self):
         memo, (line,) = self.memo(62080)
         preview = self.preview(line)

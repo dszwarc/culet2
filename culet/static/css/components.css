@@ -1247,6 +1247,18 @@ form:not(td form) {
     color: #084298;
 }
 
+.history-badge--pass {
+    border-color: #a3cfbb;
+    background: #d1e7dd;
+    color: #0f5132;
+}
+
+.history-badge--fail {
+    border-color: #f1aeb5;
+    background: #f8d7da;
+    color: #842029;
+}
+
 .movement-badge--assigned {
     border-color: #9ec5fe;
     background: #e7f1ff;

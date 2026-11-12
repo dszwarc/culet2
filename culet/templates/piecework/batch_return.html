@@ -10,6 +10,13 @@
     </section>
     {% endif %}
     {% if form.non_field_errors %}<div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+    {% if skipped_scans %}
+    <section class="return-jobs-section" role="status">
+        <h2>Ignored {{ skipped_scans|length }} already-returned job{{ skipped_scans|length|pluralize }}</h2>
+        <ul>{% for scan in skipped_scans %}<li>{{ scan }}</li>{% endfor %}</ul>
+        {% if not preview_rows %}<p>No open piecework jobs to return.</p>{% endif %}
+    </section>
+    {% endif %}
     {% if preview_rows %}
     <section class="return-jobs-section">
         <h2>Confirm {{ preview_rows|length }} job{{ preview_rows|length|pluralize }}</h2>
@@ -35,7 +42,7 @@
                 {% include "includes/barcode_scanner.html" with input_id="id_scans" append_mode="true" auto_submit="false" button_text="Scan Job Barcode" %}
                 <textarea name="scans" id="id_scans" class="form-control assign-jobs-textarea barcode-entry-textarea" rows="10" placeholder="Scan one barcode per line" autocomplete="off" autocapitalize="off" spellcheck="false" autofocus>{{ form.scans.value|default:"" }}</textarea>
                 {% if form.scans.errors %}<div class="text-danger" role="alert">{{ form.scans.errors }}</div>{% endif %}
-                <p class="form-help-text">Barcodes only, one per line. Blank lines and duplicate scans are removed. Jobs can belong to different memos.</p>
+                <p class="form-help-text">Barcodes only, one per line. Blank lines and duplicate scans are removed. Jobs can belong to different memos. Already-returned jobs with no open piecework assignment are ignored.</p>
                 <p id="batch-scan-count" aria-live="polite">Jobs scanned: 0</p>
             </div>
             <button type="submit" name="action" value="preview" class="btn btn-primary">Review Batch</button>
