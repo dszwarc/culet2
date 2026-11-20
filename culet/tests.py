@@ -407,14 +407,15 @@ class MyJobsRunningTimerTests(TestCase):
         self.assertContains(response, 'data-auto-submit="true"')
         self.assertEqual(content.count('id="culet-scanner-overlay"'), 1)
 
-    def test_my_jobs_polls_shared_view_every_twenty_seconds(self):
+    def test_my_jobs_uses_shared_view_and_refresh_controller(self):
         self.make_job()
         self.client.force_login(self.user)
 
         page = self.client.get(reverse("culet:my_jobs"))
         poll = self.client.get(reverse("culet:my_jobs_poll"))
 
-        self.assertContains(page, 'hx-trigger="every 20s')
+        self.assertContains(page, 'hx-trigger="culet:refresh"')
+        self.assertContains(page, "js/my_jobs_refresh.js")
         self.assertContains(page, 'hx-select=".my-jobs-page"')
         self.assertEqual(
             list(page.context["latest_job_list"]),

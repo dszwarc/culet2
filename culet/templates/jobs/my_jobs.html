@@ -9,7 +9,7 @@
     <div
         class="page-container my-jobs-page"
         hx-get="{% url 'culet:my_jobs_poll' %}"
-        hx-trigger="every 20s [document.visibilityState === 'visible' && !document.getElementById('culet-scanner-overlay').classList.contains('is-active') && !document.activeElement.closest('.my-jobs-page form')]"
+        hx-trigger="culet:refresh"
         hx-target="this"
         hx-select=".my-jobs-page"
         hx-swap="outerHTML"
@@ -564,4 +564,5 @@
 
 {% block extra_js %}
     <script src="{% static 'js/activity_timers.js' %}"></script>
+    <script src="{% static 'js/my_jobs_refresh.js' %}"></script>
 {% endblock extra_js %}

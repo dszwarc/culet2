@@ -149,7 +149,7 @@ from .mixins import (
     CuletPermissionRequiredMixin,
     LoggedFormInvalidMixin,
 )
-from .permissions import can_perform_quality_inspection, can_view_production_reports
+from .permissions import can_perform_quality_inspection, can_view_production_reports, is_manager
 from .payroll import build_payroll_display, build_payroll_report, payroll_week_start
 
 from django.contrib import messages
@@ -210,38 +210,17 @@ def get_home_summary_context():
 
     jobs_in_work_count = (
         active_jobs
-        .filter(
-            activity__active=True,
-            activity__end__isnull=True,
-        )
+        .filter(activity__active=True, activity__end__isnull=True)
         .distinct()
         .count()
     )
+    late_jobs_count = active_jobs.filter(due__lt=today).count()
 
-    clocked_in_count = (
-        Employee.objects
-        .filter(
-            id__in=clocked_in_employee_ids,
-        )
-        .distinct()
-        .count()
+    # Both employee metrics share the same clocked-in population.
+    employee_counts = Employee.objects.filter(id__in=clocked_in_employee_ids).aggregate(
+        clocked_in_count=Count("pk"),
+        idle_employee_count=Count("pk", filter=~Q(pk__in=active_work_employee_ids)),
     )
-
-    idle_employee_count = (
-        Employee.objects
-        .filter(
-            id__in=clocked_in_employee_ids,
-        )
-        .exclude(
-            id__in=active_work_employee_ids,
-        )
-        .distinct()
-        .count()
-    )
-
-    late_jobs_count = active_jobs.filter(
-        due__lt=today,
-    ).count()
 
     inactive_jobs_count = (
         active_jobs
@@ -266,8 +245,8 @@ def get_home_summary_context():
 
     return {
         "jobs_in_work_count": jobs_in_work_count,
-        "clocked_in_count": clocked_in_count,
-        "idle_employee_count": idle_employee_count,
+        "clocked_in_count": employee_counts["clocked_in_count"],
+        "idle_employee_count": employee_counts["idle_employee_count"],
         "late_jobs_count": late_jobs_count,
         "inactive_jobs_count": inactive_jobs_count,
         "shipped_today_count": shipped_today_count,
@@ -319,7 +298,10 @@ class HomeView(
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context.update(get_home_summary_context())
+        # The summary is only rendered for managers; avoid its queries for
+        # employees who cannot see it.
+        if is_manager(self.request.user):
+            context.update(get_home_summary_context())
         return context
 
 
@@ -518,10 +500,10 @@ class MyJobListView(
             .filter(
                 shipped=False,
             )
-            .annotate(
-                has_open_piecework=Exists(open_piecework_line),
-                has_active_work=Exists(active_activity),
-                has_active_repair=Exists(active_repair_activity),
+            .filter(~Exists(open_piecework_line))
+            # These values are used to calculate the public annotations below;
+            # aliases keep PostgreSQL from selecting each intermediate value too.
+            .alias(
                 active_repair_start=Subquery(
                     active_repair_activity.values("start")[:1],
                     output_field=DateTimeField(),
@@ -542,13 +524,15 @@ class MyJobListView(
                     active_batch_activity.values("batch__started_at")[:1],
                     output_field=DateTimeField(),
                 ),
+            )
+            .annotate(
+                has_open_piecework=Value(False, output_field=models.BooleanField()),
+                has_active_work=Exists(active_activity),
+                has_active_repair=Exists(active_repair_activity),
                 active_batch_id=Subquery(
                     active_batch_activity.values("batch_id")[:1],
                     output_field=IntegerField(),
                 ),
-            )
-            .filter(has_open_piecework=False)
-            .annotate(
                 # Deterministic precedence for inconsistent legacy data is
                 # repair, then batch, then ordinary individual work.
                 running_start=Case(
